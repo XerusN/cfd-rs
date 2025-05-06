@@ -5,3 +5,4 @@ pub mod base;
 pub mod case;
 pub mod config;
 pub mod gradients;
+pub mod linalg;
