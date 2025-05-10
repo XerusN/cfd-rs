@@ -3,18 +3,7 @@ use nalgebra::DMatrix;
 use nalgebra_sparse::{csr::CsrRow, CsrMatrix};
 use nalgebra::Vector2;
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct CellFaceArrays {
-    pub cell: Option<Vec<f64>>,
-    pub face: Option<Vec<f64>>
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct VectorCellFaceArrays {
-    pub cell: Option<Vector2<Vec<f64>>>,
-    pub face: Option<Vector2<Vec<f64>>>
-}
-
+use super::base::ScalarVariable;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row<'a, 'b> {
@@ -48,7 +37,7 @@ pub enum SpaceDiscretizationConfig {
 }
 
 impl SpaceDiscretizationConfig {
-    fn discretize<'a, 'b>(&self) -> fn(&Computational2DMesh, usize, Row<'a, 'b>, &CellFaceArrays, Option<&VectorCellFaceArrays>) -> Row<'a, 'b> {
+    pub fn discretize<'a, 'b>(&self) -> fn(&Computational2DMesh, usize, Row<'a, 'b>, &ScalarVariable) -> Row<'a, 'b> {
         match *self {
             Self::CentralDifference => central_difference,
             _ => panic!("{self:?} not implemented"),
@@ -61,6 +50,6 @@ pub enum TimeDiscretizationConfig {
     FirstOrderEuler,
 }
 
-pub fn central_difference<'a, 'b>(mesh: &Computational2DMesh, cell_id: usize, row: Row<'a, 'b>, value: &CellFaceArrays, grad: Option<&VectorCellFaceArrays>) -> Row<'a, 'b> {
+pub fn central_difference<'a, 'b>(mesh: &Computational2DMesh, cell_id: usize, row: Row<'a, 'b>, value: &ScalarVariable) -> Row<'a, 'b> {
     todo!();
 }
