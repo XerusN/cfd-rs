@@ -6,3 +6,4 @@ pub mod case;
 pub mod config;
 pub mod gradients;
 pub mod linalg;
+pub mod equation;

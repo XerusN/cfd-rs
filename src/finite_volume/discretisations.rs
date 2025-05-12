@@ -1,3 +1,5 @@
+use std::ops::{Add, Div, Mul, Sub};
+
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::DMatrix;
 use nalgebra_sparse::{csr::CsrRow, CsrMatrix};
@@ -24,6 +26,74 @@ impl<'a, 'b> Row<'a, 'b> {
         let t = csr_row.col_indices();
         let a = t.len();
         Row::new(csr_row, vec![0.; a])
+    }
+}
+
+impl<'a, 'b> Add for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn add(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.row, rhs.row, "Trying to add Row not refering to the same row in the matrix ({self:?} and {rhs:?})");
+        let mut values = self.values.clone();
+        for (i, value) in values.iter_mut().enumerate() {
+            *value += rhs.values[i];
+        }
+        Row::new(self.row, values)
+    }
+}
+
+impl<'a, 'b> Sub for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn sub(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.row, rhs.row, "Trying to substract Row not refering to the same row in the matrix ({self:?} and {rhs:?})");
+        let mut values = self.values.clone();
+        for (i, value) in values.iter_mut().enumerate() {
+            *value -= rhs.values[i];
+        }
+        Row::new(self.row, values)
+    }
+}
+
+impl<'a, 'b> Add<f64> for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn add(self, rhs: f64) -> Self::Output {
+        let mut values = self.values.clone();
+        for value in values.iter_mut() {
+            *value += rhs;
+        }
+        Row::new(self.row, values)
+    }
+}
+
+impl<'a, 'b> Sub<f64> for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn sub(self, rhs: f64) -> Self::Output {
+        let mut values = self.values.clone();
+        for value in values.iter_mut() {
+            *value -= rhs;
+        }
+        Row::new(self.row, values)
+    }
+}
+
+impl<'a, 'b> Mul<f64> for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn mul(self, rhs: f64) -> Self::Output {
+        let mut values = self.values.clone();
+        for value in values.iter_mut() {
+            *value *= rhs;
+        }
+        Row::new(self.row, values)
+    }
+}
+
+impl<'a, 'b> Div<f64> for &Row<'a, 'b> {
+    type Output = Row<'a, 'b>;
+    fn div(self, rhs: f64) -> Self::Output {
+        let mut values = self.values.clone();
+        for value in values.iter_mut() {
+            *value /= rhs;
+        }
+        Row::new(self.row, values)
     }
 }
 

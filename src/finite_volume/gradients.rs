@@ -1,4 +1,6 @@
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+use nalgebra::Vector2;
+use super::{case::Case, equation::*};
 
 use crate::finite_volume::interpolations::GradientInterpConfig;
 
@@ -11,16 +13,37 @@ pub enum GradientConfig {
     LeastSquare,
 }
 
-impl GradientConfig {
+#[derive(Clone, Debug, PartialEq)]
+pub struct VolGrad {
+    pub var: Variable,
+    pub value: Vec<Vector2<f64>>,
+}
+
+impl VolGrad {
+    /// Does not compute gradient
+    pub fn new<T: Case>(case: &T, var: Variable) -> VolGrad {
+        todo!()
+    }
     
-    pub fn compute_gradient(&self) -> fn(&Computational2DMesh, &mut ScalarVariable) {
-        match *self {
-            Self::GreenGaussCompact => green_gauss_compact,
-            _ => panic!("{self:?} not implemented"),
-        }
+    pub fn update<T: Case>(&mut self, case: &T) {
+        todo!()
     }
 }
 
-pub fn green_gauss_compact(mesh: &Computational2DMesh, values: &mut ScalarVariable) {
-    todo!()
+#[derive(Clone, Debug, PartialEq)]
+pub struct CellGrad {
+    pub var: Variable,
+    pub value: Vec<Vector2<f64>>,
+}
+
+impl CellGrad {
+    /// Does not compute gradient
+    pub fn new<T: Case>(case: &T, var: Variable) -> CellGrad {
+        // Generate a warning if no VolGrad is created for the same variable
+        todo!()
+    }
+    
+    pub fn interpolate<T: Case>(&mut self, case: &T) {
+        todo!()
+    }
 }
