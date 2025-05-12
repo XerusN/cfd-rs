@@ -1,4 +1,4 @@
-use super::{case::Case, discretisations::SpaceDiscretizationConfig};
+use super::case::Case;
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
 
@@ -6,7 +6,7 @@ use super::{case::Case, discretisations::SpaceDiscretizationConfig};
 pub enum Op {
     Add(Box<(Op, Op)>),
     Sub(Box<(Op, Op)>),
-    Discretize(Variable, SpaceDiscretizationConfig),
+    Discretize(Variable),
     MulScalar(f64, Box<Op>),
 }
 

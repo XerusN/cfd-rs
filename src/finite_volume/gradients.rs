@@ -7,7 +7,7 @@ use crate::finite_volume::interpolations::GradientInterpConfig;
 use super::base::ScalarVariable;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum GradientConfig {
+pub enum GradientScheme {
     GreenGaussCompact,
     GreenGaussExtended,
     LeastSquare,

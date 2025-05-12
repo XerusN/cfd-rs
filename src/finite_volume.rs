@@ -1,4 +1,4 @@
-pub mod discretisations;
+pub mod discretizations;
 pub mod interpolations;
 pub mod solvers;
 pub mod base;
