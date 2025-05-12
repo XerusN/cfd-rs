@@ -8,6 +8,7 @@ pub enum Op {
     Sub(Box<(Op, Op)>),
     Discretize(DifferentialOperator),
     MulScalar(f64, Box<Op>),
+    Equal(Box<(Op, Op)>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -33,7 +34,8 @@ pub struct Equation {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Variable {
     Pressure,
-    Speed2D,
+    /// [u(0).x, u(0).y, u(1).x, u(1).y, ...]
+    Speed2DFlattened,
     Temperature,
 }
 

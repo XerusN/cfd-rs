@@ -1,6 +1,7 @@
 use cfd_rs_utils::mesh::computational_mesh::*;
 use nalgebra::Vector2;
-use crate::finite_volume::{case::Case, config::CaseConfig};
+use crate::finite_volume::{base::Field, case::Case, config::CaseConfig};
+use super::super::equation::Variable;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase {
@@ -14,8 +15,8 @@ pub struct SimpleCase {
     
     pub mesh: Computational2DMesh,
     
-    pub speed: Vector2<Vec<f64>>,
-    pub pressure: Vec<f64>,
+    pub speed: Field,
+    pub pressure: Field,
     
     pub next_step: fn(&mut SimpleCase),
     
@@ -53,6 +54,15 @@ impl Case for SimpleCase {
     fn next_step(&mut self) {
         (self.next_step)(self)
     }
+    
+    #[inline]
+    fn variable_vec(&self, var: Variable) -> &Field {
+        match var {
+            Variable::Speed2DFlattened => &self.speed,
+            Variable::Pressure => &self.pressure,
+            _ => panic!(),
+        }
+    }    
 }
 
 pub fn setup(config: CaseConfig) -> SimpleCase {

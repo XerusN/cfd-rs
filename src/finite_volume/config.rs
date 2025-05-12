@@ -1,4 +1,4 @@
-use super::{discretizations::{time_schemes::TimeScheme, laplacian::LaplacianScheme, convection::ConvectionScheme, divergence::DivergenceScheme}, gradients::GradientScheme, interpolations::{DecompositionConfig, GradientInterpConfig, InterpolationConfig}};
+use super::{discretizations::{time_schemes::TimeScheme, laplacian::LaplacianScheme, convection::ConvectionScheme, divergence::DivergenceScheme}, gradients::GradientScheme, interpolations::GradientInterpConfig};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum CaseConfig {

@@ -1,10 +1,10 @@
 use nalgebra::Vector2;
 
-/// For now will be fully allocated every time,
-/// Can be optimised with Option for gradients
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ScalarVariable {
-    pub value: Vec<f64>,
-    pub grad_cell: Vector2<Vec<f64>>,
-    pub grad_faces: Vector2<Vec<f64>>,
+use super::gradients::{CellGrad, FaceGrad};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Field {
+    CellScalarField{value: Vec<f64>, cell_grad: CellGrad, face_grad: FaceGrad},
+    FaceField(Vec<f64>),
+    Constant(f64),
 }

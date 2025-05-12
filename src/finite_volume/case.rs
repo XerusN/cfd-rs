@@ -1,5 +1,7 @@
 use std::io;
 
+use super::{base::Field, equation::Variable};
+
 pub trait Case {
     fn name(&self) -> &str;
     
@@ -14,4 +16,6 @@ pub trait Case {
     fn import_from_file(file_name: &str) -> io::Result<()>;
     
     fn export(&self, directory: &str) -> io::Result<()>;
+    
+    fn variable_vec(&self, var: Variable) -> &Field;
 }
