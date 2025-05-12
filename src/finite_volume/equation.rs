@@ -6,8 +6,22 @@ use super::case::Case;
 pub enum Op {
     Add(Box<(Op, Op)>),
     Sub(Box<(Op, Op)>),
-    Discretize(Variable),
+    Discretize(DifferentialOperator),
     MulScalar(f64, Box<Op>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DifferentialOperator {
+    Laplacian{var: Variable, formulation: Formulation},
+    Convection {var: Variable, speed: Variable, formulation: Formulation},
+    Divergence{var: Variable, formulation: Formulation},
+    TimeDerivative{var: Variable, formulation: Formulation},
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Formulation {
+    Implicit,
+    Explicit,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,8 +49,5 @@ impl Equation {
         
         |_| ()
     }
-    
-    
-    
     
 }
