@@ -15,8 +15,8 @@ pub struct SimpleCase {
     
     pub mesh: Computational2DMesh,
     
-    pub speed: Field,
-    pub pressure: Field,
+    pub speed: Vec<Field>,
+    pub pressure: Vec<Field>,
     
     pub next_step: fn(&mut SimpleCase),
     
@@ -56,13 +56,22 @@ impl Case for SimpleCase {
     }
     
     #[inline]
-    fn variable_vec(&self, var: Variable) -> &Field {
+    fn variable_field(&self, var: Variable) -> &Vec<Field> {
         match var {
             Variable::Speed2DFlattened => &self.speed,
             Variable::Pressure => &self.pressure,
             _ => panic!(),
         }
-    }    
+    }
+    
+    #[inline]
+    fn variable_field_mut(&mut self, var: Variable) -> &mut Vec<Field> {
+        match var {
+            Variable::Speed2DFlattened => &mut self.speed,
+            Variable::Pressure => &mut self.pressure,
+            _ => panic!(),
+        }
+    }
 }
 
 pub fn setup(config: CaseConfig) -> SimpleCase {

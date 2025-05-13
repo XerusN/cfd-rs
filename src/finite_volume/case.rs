@@ -17,5 +17,7 @@ pub trait Case {
     
     fn export(&self, directory: &str) -> io::Result<()>;
     
-    fn variable_vec(&self, var: Variable) -> &Field;
+    fn variable_field(&self, var: Variable) -> &Vec<Field>;
+    
+    fn variable_field_mut(&mut self, var: Variable) -> &mut Vec<Field>;
 }

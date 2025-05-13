@@ -4,7 +4,14 @@ use super::gradients::{CellGrad, FaceGrad};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
-    CellScalarField{value: Vec<f64>, cell_grad: CellGrad, face_grad: FaceGrad},
-    FaceField(Vec<f64>),
-    Constant(f64),
+    CellScalarField(CellScalarField),
+    CellVectorField(Vector2<CellScalarField>),
+}
+
+/// The grads will only be allocated if necessary
+#[derive(Debug, PartialEq, Clone)]
+pub struct CellScalarField {
+    pub value: Vec<f64>,
+    pub cell_grad: Vec<Vector2<f64>>,
+    pub face_grad: Vec<Vector2<f64>>
 }

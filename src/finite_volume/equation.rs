@@ -20,12 +20,6 @@ pub enum DifferentialOperator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Formulation {
-    Implicit,
-    Explicit,
-}
-
-#[derive(Clone, Debug, PartialEq)]
 pub struct Equation {
     pub op: Op,
     pub unknown: Variable,
@@ -35,7 +29,8 @@ pub struct Equation {
 pub enum Variable {
     Pressure,
     /// [u(0).x, u(0).y, u(1).x, u(1).y, ...]
-    Speed2DFlattened,
+    Speed2D,
+    IntermediateSpeed,
     Temperature,
 }
 
