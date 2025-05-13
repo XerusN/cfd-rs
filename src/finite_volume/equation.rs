@@ -13,10 +13,10 @@ pub enum Op {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DifferentialOperator {
-    Laplacian{var: Variable, formulation: Formulation},
-    Convection {var: Variable, speed: Variable, formulation: Formulation},
-    Divergence{var: Variable, formulation: Formulation},
-    TimeDerivative{var: Variable, formulation: Formulation},
+    Laplacian(Variable),
+    Convection {var: Variable, speed: Variable},
+    Divergence(Variable),
+    TimeDerivative(Variable),
 }
 
 #[derive(Clone, Debug, PartialEq)]

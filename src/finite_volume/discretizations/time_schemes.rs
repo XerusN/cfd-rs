@@ -1,4 +1,4 @@
 #[derive(Clone, Debug, PartialEq)]
-pub enum TimeScheme {
-    
+pub enum TimeIntegration {
+    ForwardEuler,
 }
