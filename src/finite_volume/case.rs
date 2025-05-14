@@ -1,6 +1,18 @@
-use std::io;
+use std::{collections::HashMap, io};
 
-use super::{base::Field, equation::Variable};
+use super::{base::Field, equation::{Variable, System}};
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct VariableFields{
+    pub map: HashMap<Variable, Field>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaseSystems{
+    pub map: HashMap<String, System>,
+}
+
+
 
 pub trait Case {
     fn name(&self) -> &str;
@@ -17,9 +29,15 @@ pub trait Case {
     
     fn export(&self, directory: &str) -> io::Result<()>;
     
+    fn fields_list(&self) -> Vec<&Variable>;
+    
     fn field(&self, var: &Variable) -> Option<&Field>;
     
     fn field_mut(&mut self, var: &Variable) -> Option<&mut Field>;
     
-    fn fields_list(&self) -> Vec<&Variable>;
+    fn equations_list(&self) -> Vec<&String>;
+    
+    fn equation(&self, name: &str) -> Option<&System>;
+    
+    fn equation_mut(&mut self, name: &str) -> Option<&mut System>;
 }

@@ -68,15 +68,22 @@ pub enum DifferentialOperator {
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Variable {
     name: String,
+    grads_cell_required: bool,
+    grads_face_required: bool,
 }
 
 impl Variable {
-    pub fn new(name: String) -> Self {
-        Variable{name}
+    pub fn new(name: String, grads_cell_required: bool, grads_face_required: bool) -> Self {
+        Variable{name, grads_cell_required, grads_face_required}
     }
     
     pub fn name(&self) -> &str {
         &self.name
+    }
+    
+    pub fn update_grads_requirements(&mut self, other: &Variable) {
+        self.grads_cell_required = self.grads_cell_required | other.grads_cell_required;
+        self.grads_face_required = self.grads_face_required | other.grads_face_required;
     }
 }
 
@@ -93,7 +100,7 @@ impl Equation {
         Equation { lhs, rhs, unknown }
     }
 
-    pub fn into_system<T: Case>(self, case: &T) -> System {
+    pub fn into_system<T: Case>(self, case: &T) -> (System, Vec<Variable>) {
         System::new(self, case)
     }
 }
@@ -106,7 +113,7 @@ pub struct System {
 }
 
 impl System {
-    pub fn new<T: Case>(equation: Equation, case: &T) -> System {
+    pub fn new<T: Case>(equation: Equation, case: &T) -> (System, Vec<Variable>) {
         todo!()
         
         //System { equation, matrix: (), rhs: () }

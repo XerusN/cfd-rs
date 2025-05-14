@@ -2,26 +2,23 @@ use std::collections::HashMap;
 
 use cfd_rs_utils::mesh::computational_mesh::*;
 use nalgebra::Vector2;
-use crate::finite_volume::{base::Field, case::Case, config::CaseConfig};
+use crate::finite_volume::{base::Field, case::{Case, CaseSystems, VariableFields}, config::CaseConfig};
 use super::super::equation::{Variable, System};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase {
-    pub name: String,
-    pub step: usize,
-    pub time: f64,
-    pub time_step: f64,
+    name: String,
+    step: usize,
+    time: f64,
+    time_step: f64,
     
-    pub density: f64,
-    pub kinematic_viscosity: f64,
+    density: f64,
+    kinematic_viscosity: f64,
     
-    pub mesh: Computational2DMesh,
+    mesh: Computational2DMesh,
     
-    pub fields: HashMap<Variable, Field>,
-    pub systems: HashMap<String, System>,
-    
-    pub next_step: fn(&mut SimpleCase),
-    
+    fields: VariableFields,
+    systems: CaseSystems,
 }
 
 impl Case for SimpleCase {
@@ -49,23 +46,36 @@ impl Case for SimpleCase {
         todo!()
     }
     
-    fn next_step(&mut self) {
-        (self.next_step)(self)
+    fn fields_list(&self) -> Vec<&Variable> {
+        self.fields.map.keys().collect()
     }
     
     #[inline]
     fn field(&self, var: &Variable) -> Option<&Field> {
-        self.fields.get(var)
+        self.fields.map.get(var)
     }
     
     #[inline]
     fn field_mut(&mut self, var: &Variable) -> Option<&mut Field> {
-        self.fields.get_mut(var)
+        self.fields.map.get_mut(var)
     }
     
-    fn fields_list(&self) -> Vec<&Variable> {
-        self.fields.keys().collect()
+    fn equations_list(&self) -> Vec<&String> {
+        self.systems.map.keys().collect()
     }
+    
+    fn equation(&self, name: &str) -> Option<&System> {
+        self.systems.map.get(name)
+    }
+    
+    fn equation_mut(&mut self, name: &str) -> Option<&mut System> {
+        self.systems.map.get_mut(name)
+    }
+    
+    fn next_step(&mut self) {
+        todo!()
+    }
+    
 }
 
 pub fn setup(config: CaseConfig) -> SimpleCase {
