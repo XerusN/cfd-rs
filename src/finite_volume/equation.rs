@@ -25,13 +25,19 @@ pub struct Equation {
     pub unknown: Variable,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Variable {
-    Pressure,
-    /// [u(0).x, u(0).y, u(1).x, u(1).y, ...]
-    Speed2D,
-    IntermediateSpeed,
-    Temperature,
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub struct Variable {
+    name: String,
+}
+
+impl Variable {
+    pub fn new(name: String) -> Self {
+        Variable{name}
+    }
+    
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl Equation {

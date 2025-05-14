@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cfd_rs_utils::mesh::computational_mesh::*;
 use nalgebra::Vector2;
 use crate::finite_volume::{base::Field, case::Case, config::CaseConfig};
@@ -15,8 +17,7 @@ pub struct SimpleCase {
     
     pub mesh: Computational2DMesh,
     
-    pub speed: Vec<Field>,
-    pub pressure: Vec<Field>,
+    pub fields: HashMap<Variable, Field>,
     
     pub next_step: fn(&mut SimpleCase),
     
@@ -56,24 +57,25 @@ impl Case for SimpleCase {
     }
     
     #[inline]
-    fn variable_field(&self, var: Variable) -> &Vec<Field> {
-        match var {
-            Variable::Speed2DFlattened => &self.speed,
-            Variable::Pressure => &self.pressure,
-            _ => panic!(),
-        }
+    fn field(&self, var: &Variable) -> Option<&Field> {
+        self.fields.get(var)
     }
     
     #[inline]
-    fn variable_field_mut(&mut self, var: Variable) -> &mut Vec<Field> {
-        match var {
-            Variable::Speed2DFlattened => &mut self.speed,
-            Variable::Pressure => &mut self.pressure,
-            _ => panic!(),
-        }
+    fn field_mut(&mut self, var: &Variable) -> Option<&mut Field> {
+        self.fields.get_mut(var)
+    }
+    
+    fn fields_list(&self) -> Vec<&Variable> {
+        self.fields.keys().collect()
     }
 }
 
 pub fn setup(config: CaseConfig) -> SimpleCase {
+    
+    
+    
+    
+    
     todo!()
 }
