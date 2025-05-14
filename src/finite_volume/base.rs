@@ -1,7 +1,7 @@
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::Vector2;
 
-use super::gradients::GradientConfig;
+use super::gradients::{update_grads, GradientConfig};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
@@ -81,14 +81,27 @@ impl CellScalarField {
         self.gradients_up_to_date
     }
 
-    /// Updates the gradients to match the values
-    pub fn update_grads(&mut self, mesh: Computational2DMesh, config: GradientConfig) {
-        todo!();
-        self.gradients_up_to_date = true;
-    }
+    
 
     /// Will set the gradients as updated with no check
     pub unsafe fn gradients_updated(&mut self) {
         self.gradients_up_to_date = true
+    }
+}
+
+impl Field {
+    /// Updates the gradients to match the values
+    pub fn update_grads(&mut self, mesh: &Computational2DMesh, config: &GradientConfig) {
+        update_grads(self, mesh, config);
+        unsafe {
+            match self {
+            Field::Scalar(field) => field.gradients_updated(),
+            Field::Vector2(fields) => {
+                fields.x.gradients_updated();
+                fields.y.gradients_updated();
+            },
+        }
+        }
+        
     }
 }
