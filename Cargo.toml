@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 cfd-rs-utils = { path = "../cfd-rs-utils" }
 cfd-rs-mesh = { path = "../cfd-rs-mesh" }
-nalgebra = "0.33.1"
+nalgebra = { version = "0.33.1"}
 nalgebra-sparse = "0.10.0"

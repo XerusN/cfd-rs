@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cfd_rs_utils::mesh::computational_mesh::*;
 use nalgebra::Vector2;
 use crate::finite_volume::{base::Field, case::Case, config::CaseConfig};
-use super::super::equation::Variable;
+use super::super::equation::{Variable, System};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase {
@@ -18,13 +18,10 @@ pub struct SimpleCase {
     pub mesh: Computational2DMesh,
     
     pub fields: HashMap<Variable, Field>,
+    pub systems: HashMap<String, System>,
     
     pub next_step: fn(&mut SimpleCase),
     
-    /// Iterative solvers matrices and vectors
-    pub a: nalgebra_sparse::CsrMatrix<f64>,
-    pub b: nalgebra::DVector<f64>,
-    pub x: nalgebra::DVector<f64>,
 }
 
 impl Case for SimpleCase {
@@ -72,7 +69,6 @@ impl Case for SimpleCase {
 }
 
 pub fn setup(config: CaseConfig) -> SimpleCase {
-    
     
     
     
