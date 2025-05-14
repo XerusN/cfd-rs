@@ -6,6 +6,17 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct GradRequirements {
+    cell: bool,
+    face: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NeededVariables {
+    pub map: HashMap<Variable, GradRequirements>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct VariableFields {
     pub map: HashMap<Variable, Field>,
 }

@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use super::super::equation::{System, Variable};
 use crate::finite_volume::{
     base::Field,
-    case::{Case, CaseSystems, VariableFields},
+    case::{Case, CaseSystems, NeededVariables, VariableFields},
     config::CaseConfig,
 };
 use cfd_rs_utils::mesh::computational_mesh::*;
@@ -21,6 +19,7 @@ pub struct SimpleCase {
 
     mesh: Computational2DMesh,
 
+    variables: NeededVariables,
     fields: VariableFields,
     systems: CaseSystems,
 }
@@ -77,6 +76,10 @@ impl Case for SimpleCase {
     }
 
     fn next_step(&mut self) {
+        //
+        //
+        //
+        //
         todo!()
     }
 }

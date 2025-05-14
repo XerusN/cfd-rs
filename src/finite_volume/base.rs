@@ -81,8 +81,6 @@ impl CellScalarField {
         self.gradients_up_to_date
     }
 
-    
-
     /// Will set the gradients as updated with no check
     pub unsafe fn gradients_updated(&mut self) {
         self.gradients_up_to_date = true
@@ -95,13 +93,12 @@ impl Field {
         update_grads(self, mesh, config);
         unsafe {
             match self {
-            Field::Scalar(field) => field.gradients_updated(),
-            Field::Vector2(fields) => {
-                fields.x.gradients_updated();
-                fields.y.gradients_updated();
-            },
+                Field::Scalar(field) => field.gradients_updated(),
+                Field::Vector2(fields) => {
+                    fields.x.gradients_updated();
+                    fields.y.gradients_updated();
+                }
+            }
         }
-        }
-        
     }
 }

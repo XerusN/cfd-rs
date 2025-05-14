@@ -65,29 +65,26 @@ pub enum DifferentialOperator {
     TimeDerivative(Variable),
 }
 
+/// Will help to implement unit checking
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Variable {
     name: String,
-    grads_cell_required: bool,
-    grads_face_required: bool,
+    dim: Dimension,
+}
+
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum Dimension {
+    Scalar,
+    Vector2,
 }
 
 impl Variable {
-    pub fn new(name: String, grads_cell_required: bool, grads_face_required: bool) -> Self {
-        Variable {
-            name,
-            grads_cell_required,
-            grads_face_required,
-        }
+    pub fn new(name: String, dim: Dimension) -> Self {
+        Variable { name, dim }
     }
 
     pub fn name(&self) -> &str {
         &self.name
-    }
-
-    pub fn update_grads_requirements(&mut self, other: &Variable) {
-        self.grads_cell_required = self.grads_cell_required | other.grads_cell_required;
-        self.grads_face_required = self.grads_face_required | other.grads_face_required;
     }
 }
 
