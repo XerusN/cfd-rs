@@ -1,4 +1,2 @@
 #[derive(Clone, Debug, PartialEq)]
-pub enum LaplacianScheme {
-    
-}
+pub enum LaplacianScheme {}

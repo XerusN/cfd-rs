@@ -7,7 +7,7 @@ impl TimeIntegration {
     pub fn time_integration_type(&self) -> TimeIntegrationCategory {
         match *self {
             Self::ForwardEuler => TimeIntegrationCategory::Explicit,
-            _ => panic!("TimeIntegrationCategory not defined for {self:?}"),
+            _ => panic!("TimeIntegrationCategory not implemented for {self:?}"),
         }
     }
 }

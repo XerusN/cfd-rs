@@ -1,4 +1,2 @@
 #[derive(Clone, Debug, PartialEq)]
-pub enum DivergenceScheme {
-    
-}
+pub enum DivergenceScheme {}

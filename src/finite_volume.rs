@@ -1,9 +1,9 @@
-pub mod discretizations;
-pub mod interpolations;
-pub mod solvers;
 pub mod base;
 pub mod case;
 pub mod config;
-pub mod gradients;
-pub mod linalg;
+pub mod discretizations;
 pub mod equation;
+pub mod gradients;
+pub mod interpolations;
+pub mod linalg;
+pub mod solvers;

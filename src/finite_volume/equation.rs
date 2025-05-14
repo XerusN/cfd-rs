@@ -1,7 +1,7 @@
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Sub};
 
-use nalgebra_sparse::CsrMatrix;
 use nalgebra::DVector;
+use nalgebra_sparse::CsrMatrix;
 
 use super::case::Case;
 
@@ -19,7 +19,7 @@ pub enum Op {
 
 impl Add for Op {
     type Output = Op;
-    
+
     fn add(self, rhs: Self) -> Self::Output {
         Op::Add(Box::new((self, rhs)))
     }
@@ -27,7 +27,7 @@ impl Add for Op {
 
 impl Sub for Op {
     type Output = Op;
-    
+
     fn sub(self, rhs: Self) -> Self::Output {
         Op::Sub(Box::new((self, rhs)))
     }
@@ -35,7 +35,7 @@ impl Sub for Op {
 
 impl Mul<f64> for Op {
     type Output = Op;
-    
+
     fn mul(self, rhs: f64) -> Self::Output {
         Op::MulScalar(rhs, Box::new(self))
     }
@@ -43,7 +43,7 @@ impl Mul<f64> for Op {
 
 impl Mul<Op> for f64 {
     type Output = Op;
-    
+
     fn mul(self, rhs: Op) -> Self::Output {
         Op::MulScalar(self, Box::new(rhs))
     }
@@ -51,7 +51,7 @@ impl Mul<Op> for f64 {
 
 impl Div<f64> for Op {
     type Output = Op;
-    
+
     fn div(self, rhs: f64) -> Self::Output {
         Op::DivScalar(rhs, Box::new(self))
     }
@@ -60,7 +60,7 @@ impl Div<f64> for Op {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DifferentialOperator {
     Laplacian(Variable),
-    Convection {var: Variable, speed: Variable},
+    Convection { var: Variable, speed: Variable },
     Divergence(Variable),
     TimeDerivative(Variable),
 }
@@ -74,13 +74,17 @@ pub struct Variable {
 
 impl Variable {
     pub fn new(name: String, grads_cell_required: bool, grads_face_required: bool) -> Self {
-        Variable{name, grads_cell_required, grads_face_required}
+        Variable {
+            name,
+            grads_cell_required,
+            grads_face_required,
+        }
     }
-    
+
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     pub fn update_grads_requirements(&mut self, other: &Variable) {
         self.grads_cell_required = self.grads_cell_required | other.grads_cell_required;
         self.grads_face_required = self.grads_face_required | other.grads_face_required;
@@ -95,7 +99,6 @@ pub struct Equation {
 }
 
 impl Equation {
-    
     pub fn new(lhs: Op, rhs: Op, unknown: Variable) -> Equation {
         Equation { lhs, rhs, unknown }
     }
@@ -115,39 +118,35 @@ pub struct System {
 impl System {
     pub fn new<T: Case>(equation: Equation, case: &T) -> (System, Vec<Variable>) {
         todo!()
-        
+
         //System { equation, matrix: (), rhs: () }
     }
-    
+
     pub fn equation(&self) -> &Equation {
         &self.equation
     }
-    
+
     pub fn equation_mut(&mut self) -> &mut Equation {
         &mut self.equation
     }
-    
+
     pub fn matrix(&self) -> &CsrMatrix<f64> {
         &self.matrix
     }
-    
+
     pub fn matrix_mut(&mut self) -> &mut CsrMatrix<f64> {
         &mut self.matrix
     }
-    
+
     pub fn rhs(&self) -> &DVector<f64> {
         &self.rhs
     }
-    
+
     pub fn rhs_mut(&mut self) -> &mut DVector<f64> {
         &mut self.rhs
     }
-    
+
     pub fn solve<T: Case>(case: &mut T, name: &str) {
         todo!()
     }
-    
 }
-
-
-

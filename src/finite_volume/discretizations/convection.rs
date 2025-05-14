@@ -1,5 +1,2 @@
 #[derive(Clone, Debug, PartialEq)]
-pub enum ConvectionScheme {
-    
-}
-
+pub enum ConvectionScheme {}

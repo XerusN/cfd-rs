@@ -1,4 +1,11 @@
-use super::{discretizations::{time_schemes::TimeIntegration, laplacian::LaplacianScheme, convection::ConvectionScheme, divergence::DivergenceScheme}, gradients::GradientScheme, interpolations::GradientInterpConfig};
+use super::{
+    discretizations::{
+        convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
+        time_schemes::TimeIntegration,
+    },
+    gradients::GradientScheme,
+    interpolations::GradientInterpConfig,
+};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum CaseConfig {
@@ -6,9 +13,7 @@ pub enum CaseConfig {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct GeometryConfig {
-    
-}
+pub struct GeometryConfig {}
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Schemes {
