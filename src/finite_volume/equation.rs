@@ -3,7 +3,11 @@ use std::ops::{Add, Div, Mul, Sub};
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 
-use super::case::Case;
+use super::{
+    case::{Case, GradRequirements},
+    discretizations::time_schemes::TimeIntegration,
+    error::CfdError,
+};
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
 
@@ -15,6 +19,22 @@ pub enum Op {
     MulScalar(f64, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
+}
+
+impl Op {
+    pub fn collect_differential_operators(&self, collector: &mut Vec<DifferentialOperator>) {
+        match self {
+            Op::Add(pair) | Op::Sub(pair) => {
+                Self::collect_differential_operators(&pair.0, collector);
+                Self::collect_differential_operators(&pair.1, collector);
+            }
+            Op::MulScalar(_, inner) | Op::DivScalar(_, inner) => {
+                Self::collect_differential_operators(inner, collector);
+            }
+            Op::Discretize(dop) => collector.push(dop.clone()),
+            Op::Scalar(_) => {}
+        }
+    }
 }
 
 impl Add for Op {
@@ -58,10 +78,20 @@ impl Div<f64> for Op {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum IntegrationCategory {
+    Implicit,
+    Explicit,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum DifferentialOperator {
-    Laplacian(Variable),
-    Convection { var: Variable, speed: Variable },
-    Divergence(Variable),
+    Laplacian(Variable, IntegrationCategory),
+    Convection {
+        var: Variable,
+        speed: Variable,
+        integration: IntegrationCategory,
+    },
+    Divergence(Variable, IntegrationCategory),
     TimeDerivative(Variable),
 }
 
@@ -88,6 +118,7 @@ impl Variable {
     }
 }
 
+/// Implicit formulations are allowed on one variable only
 #[derive(Clone, Debug, PartialEq)]
 pub struct Equation {
     lhs: Op,
@@ -96,11 +127,64 @@ pub struct Equation {
 }
 
 impl Equation {
-    pub fn new(lhs: Op, rhs: Op, unknown: Variable) -> Equation {
-        Equation { lhs, rhs, unknown }
+    pub fn new(lhs: Op, rhs: Op) -> Result<Equation, CfdError> {
+        let mut collector = vec![];
+        lhs.collect_differential_operators(&mut collector);
+        rhs.collect_differential_operators(&mut collector);
+
+        let mut unknown_var = None;
+
+        for diff_op in collector {
+            match diff_op {
+                DifferentialOperator::TimeDerivative(var) => match &unknown_var {
+                    None => unknown_var = Some(var),
+                    Some(current) => {
+                        if current != &var {
+                            return Err(CfdError::EquationInconsistentUnknown {
+                                lhs,
+                                rhs,
+                                var1: current.clone(),
+                                var2: var,
+                            });
+                        }
+                    }
+                },
+
+                DifferentialOperator::Convection {
+                    var, integration, ..
+                }
+                | DifferentialOperator::Divergence(var, integration)
+                | DifferentialOperator::Laplacian(var, integration) => {
+                    if let IntegrationCategory::Implicit = integration {
+                        match &unknown_var {
+                            None => unknown_var = Some(var),
+                            Some(current) => {
+                                if current != &var {
+                                    return Err(CfdError::EquationInconsistentUnknown {
+                                        lhs,
+                                        rhs,
+                                        var1: current.clone(),
+                                        var2: var,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        match unknown_var {
+            None => Err(CfdError::EquationNoUnknown { lhs, rhs }),
+            Some(var) => Ok(Equation {
+                lhs,
+                rhs,
+                unknown: var,
+            }),
+        }
     }
 
-    pub fn into_system<T: Case>(self, case: &T) -> (System, Vec<Variable>) {
+    pub fn into_system<T: Case>(self, case: &T) -> (System, Vec<(Variable, GradRequirements)>) {
         System::new(self, case)
     }
 }
@@ -113,7 +197,10 @@ pub struct System {
 }
 
 impl System {
-    pub fn new<T: Case>(equation: Equation, case: &T) -> (System, Vec<Variable>) {
+    pub fn new<T: Case>(
+        equation: Equation,
+        case: &T,
+    ) -> (System, Vec<(Variable, GradRequirements)>) {
         todo!()
 
         //System { equation, matrix: (), rhs: () }

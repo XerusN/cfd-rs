@@ -3,17 +3,10 @@ pub enum TimeIntegration {
     ForwardEuler,
 }
 
-impl TimeIntegration {
-    pub fn time_integration_type(&self) -> TimeIntegrationCategory {
-        match *self {
-            Self::ForwardEuler => TimeIntegrationCategory::Explicit,
-            _ => panic!("TimeIntegrationCategory not implemented for {self:?}"),
-        }
-    }
-}
+impl TimeIntegration {}
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TimeIntegrationCategory {
+pub enum IntegrationCategory {
     Implicit,
     Explicit,
 }

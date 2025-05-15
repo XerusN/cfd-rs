@@ -12,13 +12,8 @@ pub struct GradRequirements {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NeededVariables {
-    pub map: HashMap<Variable, GradRequirements>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
 pub struct VariableFields {
-    pub map: HashMap<Variable, Field>,
+    pub map: HashMap<Variable, (Field, GradRequirements)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

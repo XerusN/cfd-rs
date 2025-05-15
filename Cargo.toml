@@ -12,3 +12,4 @@ cfd-rs-mesh = { path = "../cfd-rs-mesh" }
 nalgebra = { version = "0.33.1"}
 nalgebra-sparse = "0.10.0"
 nalgebra-sparse-linalg = "0.1.0"
+thiserror = "2.0.12"

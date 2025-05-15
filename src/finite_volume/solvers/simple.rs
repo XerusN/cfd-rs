@@ -1,7 +1,7 @@
 use super::super::equation::{System, Variable};
 use crate::finite_volume::{
     base::Field,
-    case::{Case, CaseSystems, NeededVariables, VariableFields},
+    case::{Case, CaseSystems, VariableFields},
     config::CaseConfig,
 };
 use cfd_rs_utils::mesh::computational_mesh::*;
@@ -19,7 +19,6 @@ pub struct SimpleCase {
 
     mesh: Computational2DMesh,
 
-    variables: NeededVariables,
     fields: VariableFields,
     systems: CaseSystems,
 }
@@ -55,12 +54,18 @@ impl Case for SimpleCase {
 
     #[inline]
     fn field(&self, var: &Variable) -> Option<&Field> {
-        self.fields.map.get(var)
+        match self.fields.map.get(var) {
+            None => None,
+            Some((field, _)) => Some(field),
+        }
     }
 
     #[inline]
     fn field_mut(&mut self, var: &Variable) -> Option<&mut Field> {
-        self.fields.map.get_mut(var)
+        match self.fields.map.get_mut(var) {
+            None => None,
+            Some((field, _)) => Some(field),
+        }
     }
 
     fn equations_list(&self) -> Vec<&String> {

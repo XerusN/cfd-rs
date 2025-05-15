@@ -3,6 +3,7 @@ pub mod case;
 pub mod config;
 pub mod discretizations;
 pub mod equation;
+pub mod error;
 pub mod gradients;
 pub mod interpolations;
 pub mod linalg;
