@@ -14,8 +14,7 @@ pub struct SimpleCase {
     time: f64,
     time_step: f64,
 
-    schemes: Schemes,
-    geometry: GeometryConfig,
+    config: CaseConfig,
 
     density: f64,
     kinematic_viscosity: f64,
@@ -84,13 +83,17 @@ impl Case for SimpleCase {
     }
 
     fn schemes(&self) -> &Schemes {
-        &self.schemes
+        &self.config.schemes
     }
 
     fn mesh(&self) -> &Computational2DMesh {
         &self.mesh
     }
-
+    
+    fn equation_solver_borrow(&mut self) -> (&mut CaseSystems, &mut VariableFields, &Computational2DMesh, &CaseConfig) {
+        (&mut self.systems, &mut self.fields, &self.mesh, &self.config)
+    }
+    
     fn next_step(&mut self) {
         //
         //

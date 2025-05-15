@@ -4,8 +4,8 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use super::{
     base::Field,
-    config::Schemes,
-    equation::{System, Variable},
+    config::{CaseConfig, Schemes},
+    equation::{Equation, System, Variable},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -16,9 +16,9 @@ pub struct GradRequirements {
 
 impl GradRequirements {
     pub fn new(cell: bool, face: bool) -> Self {
-        Self{cell, face}
+        Self { cell, face }
     }
-    
+
     pub fn cell(&self) -> bool {
         self.cell
     }
@@ -74,4 +74,6 @@ pub trait Case {
     fn schemes(&self) -> &Schemes;
 
     fn mesh(&self) -> &Computational2DMesh;
+    
+    fn equation_solver_borrow(&mut self) -> (&mut CaseSystems, &mut VariableFields, &Computational2DMesh, &CaseConfig);
 }

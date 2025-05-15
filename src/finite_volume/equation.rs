@@ -8,7 +8,10 @@ use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use super::{
-    case::{Case, GradRequirements}, config::Schemes, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration}, error::CfdError
+    case::{Case, GradRequirements},
+    config::Schemes,
+    discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration},
+    error::CfdError,
 };
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
@@ -101,18 +104,27 @@ impl DifferentialOperator {
     pub fn required_grads(&self, schemes: &Schemes) -> (&Variable, GradRequirements) {
         match self {
             Self::Laplacian(var, _) => (var, schemes.laplacian.required_grads()),
-            Self::Convection{var, ..} => (var, schemes.convection.required_grads()),
+            Self::Convection { var, .. } => (var, schemes.convection.required_grads()),
             Self::Divergence(var, _) => (var, schemes.divergence.required_grads()),
             Self::TimeDerivative(var) => (var, schemes.transient.required_grads()),
         }
     }
-    
+
     pub fn variable(&self) -> &Variable {
         match self {
             Self::Laplacian(var, _) => &var,
-            Self::Convection{var, ..} => &var,
+            Self::Convection { var, .. } => &var,
             Self::Divergence(var, _) => &var,
             Self::TimeDerivative(var) => &var,
+        }
+    }
+    
+    pub fn integration(&self) -> Option<&IntegrationCategory> {
+        match self {
+            Self::Laplacian(_, int) => Some(&int),
+            Self::Convection { integration, .. } => Some(&integration),
+            Self::Divergence(_, int) => Some(&int),
+            Self::TimeDerivative(_) => None,
         }
     }
 }
@@ -160,7 +172,7 @@ impl Equation {
     pub fn unknown(&self) -> &Variable {
         &self.unknown
     }
-    
+
     pub fn collect_differential_operators(&self) -> Vec<DifferentialOperator> {
         let mut collector = vec![];
         self.lhs.collect_differential_operators(&mut collector);
@@ -235,6 +247,7 @@ pub struct System {
     equation: Equation,
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
+    int_cat: IntegrationCategory,
 }
 
 impl System {
@@ -256,11 +269,21 @@ impl System {
         let rhs = DVector::zeros(case.mesh().num_cells());
 
         let mut variable_requirements = HashMap::new();
+        let mut integration = IntegrationCategory::Explicit;
         
+
         for diff_operator in equation.collect_differential_operators() {
             let var = diff_operator.variable();
-            let (_, required_grad)= diff_operator.required_grads(case.schemes());
-            variable_requirements.entry(var.clone()).and_modify(|current: &mut GradRequirements| current.update_requirements(required_grad.clone())).or_insert(required_grad);
+            let (_, required_grad) = diff_operator.required_grads(case.schemes());
+            variable_requirements
+                .entry(var.clone())
+                .and_modify(|current: &mut GradRequirements| {
+                    current.update_requirements(required_grad.clone())
+                })
+                .or_insert(required_grad);
+            if diff_operator.integration() == Some(&IntegrationCategory::Implicit) {
+                integration = IntegrationCategory::Implicit;
+            }
         }
         
         (
@@ -268,10 +291,10 @@ impl System {
                 equation,
                 matrix,
                 rhs,
+                int_cat: integration,
             },
             variable_requirements,
         )
-        
     }
 
     pub fn equation(&self) -> &Equation {
@@ -297,8 +320,22 @@ impl System {
     pub fn rhs_mut(&mut self) -> &mut DVector<f64> {
         &mut self.rhs
     }
-
-    pub fn solve<T: Case>(case: &mut T, name: &str) {
-        todo!()
+    
+    pub fn integration_category(&self) -> &IntegrationCategory {
+        &self.int_cat
     }
+    
+    pub fn solve<T: Case>(case: &mut T, name: &str) {
+        let system = case.equation_mut(name).expect("This equation is not defined: {name:?}");
+        
+        
+        
+        
+        
+        
+        
+        
+    }
+    
+    
 }

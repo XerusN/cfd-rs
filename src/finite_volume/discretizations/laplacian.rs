@@ -2,7 +2,7 @@ use crate::finite_volume::case::GradRequirements;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LaplacianScheme {
-    Centered
+    Centered,
 }
 
 impl LaplacianScheme {

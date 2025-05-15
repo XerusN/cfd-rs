@@ -1,13 +1,18 @@
 use super::{
-    case::GradRequirements, discretizations::{
+    case::GradRequirements,
+    discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
-    }, gradients::GradientScheme, interpolations::GradientInterpConfig
+    },
+    gradients::GradientScheme,
+    interpolations::GradientInterpConfig,
 };
 
+/// Switch to private fields
 #[derive(Clone, PartialEq, Debug)]
-pub enum CaseConfig {
-    Simple(Schemes, GeometryConfig),
+pub struct CaseConfig {
+    pub schemes: Schemes,
+    pub geometry: GeometryConfig,
 }
 
 #[derive(Clone, PartialEq, Debug)]

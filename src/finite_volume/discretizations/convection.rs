@@ -11,9 +11,4 @@ impl ConvectionScheme {
             Self::UpwindSecondOrder => GradRequirements::new(false, false),
         }
     }
-    
 }
-
-
-
-
