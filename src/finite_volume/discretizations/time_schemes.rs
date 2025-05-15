@@ -7,5 +7,3 @@ pub enum TimeIntegration {
 impl TimeIntegration {
     
 }
-
-

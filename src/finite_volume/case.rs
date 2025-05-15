@@ -1,8 +1,7 @@
 use std::{collections::HashMap, io};
 
 use super::{
-    base::Field,
-    equation::{System, Variable},
+    base::Field, config::Schemes, equation::{System, Variable}
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -63,4 +62,6 @@ pub trait Case {
     fn equation(&self, name: &str) -> Option<&System>;
 
     fn equation_mut(&mut self, name: &str) -> Option<&mut System>;
+    
+    fn schemes(&self) -> &Schemes;
 }

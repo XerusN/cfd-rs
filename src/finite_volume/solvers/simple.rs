@@ -2,7 +2,7 @@ use super::super::equation::{System, Variable};
 use crate::finite_volume::{
     base::Field,
     case::{Case, CaseSystems, VariableFields},
-    config::CaseConfig,
+    config::{CaseConfig, GeometryConfig, Schemes},
 };
 use cfd_rs_utils::mesh::computational_mesh::*;
 use nalgebra::Vector2;
@@ -13,7 +13,10 @@ pub struct SimpleCase {
     step: usize,
     time: f64,
     time_step: f64,
-
+    
+    schemes: Schemes,
+    geometry: GeometryConfig,
+    
     density: f64,
     kinematic_viscosity: f64,
 
@@ -79,7 +82,11 @@ impl Case for SimpleCase {
     fn equation_mut(&mut self, name: &str) -> Option<&mut System> {
         self.systems.map.get_mut(name)
     }
-
+    
+    fn schemes(&self) -> &Schemes {
+        &self.schemes
+    }
+    
     fn next_step(&mut self) {
         //
         //
