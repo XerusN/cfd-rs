@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{collections::HashMap, ops::{Add, Div, Mul, Sub}};
 
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
@@ -127,6 +127,19 @@ pub struct Equation {
 }
 
 impl Equation {
+    
+    pub fn lhs(&self) -> &Op {
+        &self.lhs
+    }
+    
+    pub fn rhs(&self) -> &Op {
+        &self.rhs
+    }
+    
+    pub fn unknown(&self) -> &Variable {
+        &self.unknown
+    }
+    
     pub fn new(lhs: Op, rhs: Op) -> Result<Equation, CfdError> {
         let mut collector = vec![];
         lhs.collect_differential_operators(&mut collector);
@@ -184,7 +197,7 @@ impl Equation {
         }
     }
 
-    pub fn into_system<T: Case>(self, case: &T) -> (System, Vec<(Variable, GradRequirements)>) {
+    pub fn into_system<T: Case>(self, case: &T) -> (System, HashMap<Variable, GradRequirements>) {
         System::new(self, case)
     }
 }
@@ -200,9 +213,11 @@ impl System {
     pub fn new<T: Case>(
         equation: Equation,
         case: &T,
-    ) -> (System, Vec<(Variable, GradRequirements)>) {
-        todo!()
-
+    ) -> (System, HashMap<Variable, GradRequirements>) {
+        
+        
+        
+        todo!();
         //System { equation, matrix: (), rhs: () }
     }
 

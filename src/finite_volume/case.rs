@@ -11,6 +11,22 @@ pub struct GradRequirements {
     face: bool,
 }
 
+impl GradRequirements {
+    pub fn cell(&self) -> bool {
+        self.cell
+    }
+    
+    pub fn face(&self) -> bool {
+        self.face
+    }
+    
+    /// Returns the most restrictive requirement (true)
+    pub fn update_requirements(&mut self, other: GradRequirements) {
+        self.cell =  self.cell | other.cell;
+        self.face =  self.face | other.face;
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct VariableFields {
     pub map: HashMap<Variable, (Field, GradRequirements)>,
