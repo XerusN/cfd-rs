@@ -1,7 +1,11 @@
 use std::{collections::HashMap, io};
 
+use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+
 use super::{
-    base::Field, config::Schemes, equation::{System, Variable}
+    base::Field,
+    config::Schemes,
+    equation::{System, Variable},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -11,18 +15,22 @@ pub struct GradRequirements {
 }
 
 impl GradRequirements {
+    pub fn new(cell: bool, face: bool) -> Self {
+        Self{cell, face}
+    }
+    
     pub fn cell(&self) -> bool {
         self.cell
     }
-    
+
     pub fn face(&self) -> bool {
         self.face
     }
-    
+
     /// Returns the most restrictive requirement (true)
-    pub fn update_requirements(&mut self, other: GradRequirements) {
-        self.cell =  self.cell | other.cell;
-        self.face =  self.face | other.face;
+    pub fn update_requirements(&mut self, other: Self) {
+        self.cell = self.cell | other.cell;
+        self.face = self.face | other.face;
     }
 }
 
@@ -62,6 +70,8 @@ pub trait Case {
     fn equation(&self, name: &str) -> Option<&System>;
 
     fn equation_mut(&mut self, name: &str) -> Option<&mut System>;
-    
+
     fn schemes(&self) -> &Schemes;
+
+    fn mesh(&self) -> &Computational2DMesh;
 }

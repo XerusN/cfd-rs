@@ -1,12 +1,14 @@
-use std::{collections::HashMap, ops::{Add, Div, Mul, Sub}};
+use std::{
+    collections::HashMap,
+    ops::{Add, Div, Mul, Sub},
+};
 
+use cfd_rs_utils::mesh::indices::CellIndex;
 use nalgebra::DVector;
-use nalgebra_sparse::CsrMatrix;
+use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use super::{
-    case::{Case, GradRequirements},
-    discretizations::time_schemes::TimeIntegration,
-    error::CfdError,
+    case::{Case, GradRequirements}, config::Schemes, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration}, error::CfdError
 };
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
@@ -95,6 +97,26 @@ pub enum DifferentialOperator {
     TimeDerivative(Variable),
 }
 
+impl DifferentialOperator {
+    pub fn required_grads(&self, schemes: &Schemes) -> (&Variable, GradRequirements) {
+        match self {
+            Self::Laplacian(var, _) => (var, schemes.laplacian.required_grads()),
+            Self::Convection{var, ..} => (var, schemes.convection.required_grads()),
+            Self::Divergence(var, _) => (var, schemes.divergence.required_grads()),
+            Self::TimeDerivative(var) => (var, schemes.transient.required_grads()),
+        }
+    }
+    
+    pub fn variable(&self) -> &Variable {
+        match self {
+            Self::Laplacian(var, _) => &var,
+            Self::Convection{var, ..} => &var,
+            Self::Divergence(var, _) => &var,
+            Self::TimeDerivative(var) => &var,
+        }
+    }
+}
+
 /// Will help to implement unit checking
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Variable {
@@ -127,19 +149,25 @@ pub struct Equation {
 }
 
 impl Equation {
-    
     pub fn lhs(&self) -> &Op {
         &self.lhs
     }
-    
+
     pub fn rhs(&self) -> &Op {
         &self.rhs
     }
-    
+
     pub fn unknown(&self) -> &Variable {
         &self.unknown
     }
     
+    pub fn collect_differential_operators(&self) -> Vec<DifferentialOperator> {
+        let mut collector = vec![];
+        self.lhs.collect_differential_operators(&mut collector);
+        self.rhs.collect_differential_operators(&mut collector);
+        collector
+    }
+
     pub fn new(lhs: Op, rhs: Op) -> Result<Equation, CfdError> {
         let mut collector = vec![];
         lhs.collect_differential_operators(&mut collector);
@@ -214,11 +242,36 @@ impl System {
         equation: Equation,
         case: &T,
     ) -> (System, HashMap<Variable, GradRequirements>) {
+        let mut matrix = CooMatrix::new(case.mesh().num_cells(), case.mesh().num_cells());
+
+        for i in 0..case.mesh().num_cells() {
+            matrix.push(i, i, 0.);
+            for neighbor in case.mesh().neighboring_cells_id(CellIndex(i)) {
+                matrix.push(i, neighbor.0, 0.)
+            }
+        }
+
+        let matrix = CsrMatrix::from(&matrix);
+
+        let rhs = DVector::zeros(case.mesh().num_cells());
+
+        let mut variable_requirements = HashMap::new();
         
+        for diff_operator in equation.collect_differential_operators() {
+            let var = diff_operator.variable();
+            let (_, required_grad)= diff_operator.required_grads(case.schemes());
+            variable_requirements.entry(var.clone()).and_modify(|current: &mut GradRequirements| current.update_requirements(required_grad.clone())).or_insert(required_grad);
+        }
         
+        (
+            System {
+                equation,
+                matrix,
+                rhs,
+            },
+            variable_requirements,
+        )
         
-        todo!();
-        //System { equation, matrix: (), rhs: () }
     }
 
     pub fn equation(&self) -> &Equation {

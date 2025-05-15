@@ -13,10 +13,10 @@ pub struct SimpleCase {
     step: usize,
     time: f64,
     time_step: f64,
-    
+
     schemes: Schemes,
     geometry: GeometryConfig,
-    
+
     density: f64,
     kinematic_viscosity: f64,
 
@@ -82,11 +82,15 @@ impl Case for SimpleCase {
     fn equation_mut(&mut self, name: &str) -> Option<&mut System> {
         self.systems.map.get_mut(name)
     }
-    
+
     fn schemes(&self) -> &Schemes {
         &self.schemes
     }
-    
+
+    fn mesh(&self) -> &Computational2DMesh {
+        &self.mesh
+    }
+
     fn next_step(&mut self) {
         //
         //

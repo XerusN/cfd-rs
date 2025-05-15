@@ -1,10 +1,8 @@
 use super::{
-    discretizations::{
+    case::GradRequirements, discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
-    },
-    gradients::GradientScheme,
-    interpolations::GradientInterpConfig,
+    }, gradients::GradientScheme, interpolations::GradientInterpConfig
 };
 
 #[derive(Clone, PartialEq, Debug)]
