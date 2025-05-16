@@ -1,4 +1,8 @@
-use std::{cell::{Ref, RefCell, RefMut}, collections::HashMap, io};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    collections::HashMap,
+    io,
+};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 

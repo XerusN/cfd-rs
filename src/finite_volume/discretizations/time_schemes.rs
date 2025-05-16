@@ -1,6 +1,10 @@
 use std::cell::RefMut;
 
-use crate::finite_volume::{base::Field, case::GradRequirements, equation::{System, Variable}};
+use crate::finite_volume::{
+    base::Field,
+    case::GradRequirements,
+    equation::{System, Variable},
+};
 
 use super::find_var_in_fields;
 
@@ -17,17 +21,19 @@ impl TimeIntegration {
         }
     }
 
-    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &Vec<RefMut<Field>>, coeff: f64) {
-        
+    pub fn discretize(
+        &self,
+        var: &Variable,
+        system: &mut System,
+        fields: &Vec<RefMut<Field>>,
+        coeff: f64,
+    ) {
         let var = find_var_in_fields(var, system, fields);
-        
+
         match *self {
             Self::ForwardEuler => forward_euler(var, system, coeff),
         }
-        
     }
 }
 
-fn forward_euler(var: &RefMut<Field>, system: &mut System, coeff: f64) {
-    
-}
+fn forward_euler(var: &RefMut<Field>, system: &mut System, coeff: f64) {}
