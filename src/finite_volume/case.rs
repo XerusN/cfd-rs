@@ -1,11 +1,11 @@
-use std::{collections::HashMap, io};
+use std::{cell::{Ref, RefCell, RefMut}, collections::HashMap, io};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use super::{
     base::Field,
     config::{CaseConfig, Schemes},
-    equation::{Equation, System, Variable},
+    equation::{System, Variable},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,7 +36,7 @@ impl GradRequirements {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VariableFields {
-    pub map: HashMap<Variable, (Field, GradRequirements)>,
+    pub map: HashMap<Variable, (RefCell<Field>, GradRequirements)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,9 +61,9 @@ pub trait Case {
 
     fn fields_list(&self) -> Vec<&Variable>;
 
-    fn field(&self, var: &Variable) -> Option<&Field>;
+    fn field(&self, var: &Variable) -> Option<Ref<Field>>;
 
-    fn field_mut(&mut self, var: &Variable) -> Option<&mut Field>;
+    fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>>;
 
     fn equations_list(&self) -> Vec<&String>;
 
@@ -74,6 +74,13 @@ pub trait Case {
     fn schemes(&self) -> &Schemes;
 
     fn mesh(&self) -> &Computational2DMesh;
-    
-    fn equation_solver_borrow(&mut self) -> (&mut CaseSystems, &mut VariableFields, &Computational2DMesh, &CaseConfig);
+
+    fn equation_solver_borrow(
+        &mut self,
+    ) -> (
+        &mut CaseSystems,
+        &mut VariableFields,
+        &Computational2DMesh,
+        &CaseConfig,
+    );
 }

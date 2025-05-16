@@ -1,17 +1,13 @@
 use std::{
-    collections::HashMap,
-    ops::{Add, Div, Mul, Sub},
+    cell::{RefCell, RefMut}, collections::HashMap, ops::{Add, Div, Mul, Sub}
 };
 
-use cfd_rs_utils::mesh::indices::CellIndex;
+use cfd_rs_utils::mesh::{self, computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use super::{
-    case::{Case, GradRequirements},
-    config::Schemes,
-    discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration},
-    error::CfdError,
+    base::Field, case::{Case, GradRequirements}, config::{CaseConfig, Schemes}, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration}, error::CfdError
 };
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
@@ -248,6 +244,7 @@ pub struct System {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
     int_cat: IntegrationCategory,
+    fields_required: Vec<Variable>,
 }
 
 impl System {
@@ -292,6 +289,7 @@ impl System {
                 matrix,
                 rhs,
                 int_cat: integration,
+                fields_required: variable_requirements.keys().map(|var| var.clone()).collect(),
             },
             variable_requirements,
         )
@@ -325,17 +323,27 @@ impl System {
         &self.int_cat
     }
     
-    pub fn solve<T: Case>(case: &mut T, name: &str) {
-        let system = case.equation_mut(name).expect("This equation is not defined: {name:?}");
+    pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
+        let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
         
+        let system = systems.map.get_mut(name).expect(&format!("This equation is not defined: {name:?}"));
         
+        let fields_grad_required: Vec<&(RefCell<Field>, GradRequirements)> = system.fields_required.iter().map(|var| variable_fields.map.get(var).expect(&format!("A field ({var:?}) needed for equation {name:?}"))).collect();
         
+        let fields_required: Vec<RefMut<Field>> = fields_grad_required.iter().map(|tuple| tuple.0.borrow_mut()).collect();
         
-        
-        
-        
+        solve(system, fields_required, mesh, config)
         
     }
+}
+
+fn solve(system: &mut System, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, config: &CaseConfig) -> usize {
     
     
+    
+    
+    
+    
+    
+    0
 }

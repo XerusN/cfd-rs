@@ -1,3 +1,5 @@
+use std::cell::{Ref, RefMut};
+
 use super::super::equation::{System, Variable};
 use crate::finite_volume::{
     base::Field,
@@ -55,15 +57,15 @@ impl Case for SimpleCase {
     }
 
     #[inline]
-    fn field(&self, var: &Variable) -> Option<&Field> {
+    fn field(&self, var: &Variable) -> Option<Ref<Field>> {
         match self.fields.map.get(var) {
             None => None,
-            Some((field, _)) => Some(field),
+            Some((field, _)) => Some(field.borrow()),
         }
     }
 
     #[inline]
-    fn field_mut(&mut self, var: &Variable) -> Option<&mut Field> {
+    fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>> {
         match self.fields.map.get_mut(var) {
             None => None,
             Some((field, _)) => Some(field),
@@ -89,11 +91,23 @@ impl Case for SimpleCase {
     fn mesh(&self) -> &Computational2DMesh {
         &self.mesh
     }
-    
-    fn equation_solver_borrow(&mut self) -> (&mut CaseSystems, &mut VariableFields, &Computational2DMesh, &CaseConfig) {
-        (&mut self.systems, &mut self.fields, &self.mesh, &self.config)
+
+    fn equation_solver_borrow(
+        &mut self,
+    ) -> (
+        &mut CaseSystems,
+        &mut VariableFields,
+        &Computational2DMesh,
+        &CaseConfig,
+    ) {
+        (
+            &mut self.systems,
+            &mut self.fields,
+            &self.mesh,
+            &self.config,
+        )
     }
-    
+
     fn next_step(&mut self) {
         //
         //

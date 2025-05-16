@@ -36,6 +36,7 @@ fn update_grad_scalar(
     config: &GradientConfig,
 ) {
     match config.scheme {
+        GradientScheme::GreenGaussCompact => (),
         _ => panic!("GradientScheme not implemented for {:?}", config.scheme),
     }
 

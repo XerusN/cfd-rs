@@ -1,5 +1,4 @@
 use super::{
-    case::GradRequirements,
     discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
