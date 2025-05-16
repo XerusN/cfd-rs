@@ -1,4 +1,6 @@
-use super::{case::GradRequirements, config::Schemes, equation::{IntegrationCategory, Variable}};
+use std::cell::RefMut;
+
+use super::{base::Field, case::GradRequirements, config::{CaseConfig, Schemes}, equation::{IntegrationCategory, System, Variable}};
 
 pub mod convection;
 pub mod divergence;
@@ -42,6 +44,15 @@ impl DifferentialOperator {
             Self::Convection { integration, .. } => Some(&integration),
             Self::Divergence(_, int) => Some(&int),
             Self::TimeDerivative(_) => None,
+        }
+    }
+    
+    pub fn discretize(&self, system: &mut System, fields: &RefMut<Field>, schemes: &Schemes) {
+        match self {
+            Self::Laplacian(var, integration) => schemes.laplacian.discretize(&var, system, &integration, fields),
+            Self::Convection {var, integration, speed } => schemes.convection.discretize(&var, &speed, system, &integration, fields),
+            Self::Divergence(var, integration) => schemes.divergence.discretize(&var, system, &integration, fields),
+            Self::TimeDerivative(var) => schemes.transient.discretize(&var, system, fields),
         }
     }
 }

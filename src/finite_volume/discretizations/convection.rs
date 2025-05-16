@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::finite_volume::{base::Field, case::GradRequirements, equation::{IntegrationCategory, System}};
+use crate::finite_volume::{base::Field, case::GradRequirements, equation::{IntegrationCategory, System, Variable}};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConvectionScheme {
@@ -14,15 +14,15 @@ impl ConvectionScheme {
         }
     }
     
-    pub fn discretize(&self, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, speed: &(Variable, Variable), system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
         
         match *self {
-            Self::UpwindSecondOrder => upwind_second_order(system, integration, fields),
+            Self::UpwindSecondOrder => upwind_second_order(var, system, integration, fields),
         }
         
     }
 }
 
-fn upwind_second_order(system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+fn upwind_second_order(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
     
 }

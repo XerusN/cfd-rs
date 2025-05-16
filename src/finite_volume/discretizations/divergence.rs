@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::finite_volume::{base::Field, case::GradRequirements, equation::{IntegrationCategory, System}};
+use crate::finite_volume::{base::Field, case::GradRequirements, equation::{IntegrationCategory, System, Variable}};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DivergenceScheme {
@@ -14,15 +14,15 @@ impl DivergenceScheme {
         }
     }
     
-    pub fn discretize(&self, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
         
         match *self {
-            Self::Centered => centered(system, integration, fields),
+            Self::Centered => centered(var, system, integration, fields),
         }
         
     }
 }
 
-fn centered(system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+fn centered(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
     
 }

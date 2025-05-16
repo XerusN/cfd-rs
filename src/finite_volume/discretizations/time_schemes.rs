@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::finite_volume::{base::Field, case::GradRequirements, equation::System};
+use crate::finite_volume::{base::Field, case::GradRequirements, equation::{System, Variable}};
 
 /// Only explicit time schemes are usable for now
 #[derive(Clone, Debug, PartialEq)]
@@ -15,14 +15,14 @@ impl TimeIntegration {
         }
     }
 
-    pub fn discretize(&self, system: &mut System, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &RefMut<Field>) {
         
         match *self {
-            Self::ForwardEuler => forward_euler(system, fields),
+            Self::ForwardEuler => forward_euler(var, system, fields),
         }
     }
 }
 
-fn forward_euler(system: &mut System, fields: &RefMut<Field>) {
+fn forward_euler(var: &Variable, system: &mut System, fields: &RefMut<Field>) {
     
 }
