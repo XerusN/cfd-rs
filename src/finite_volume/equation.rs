@@ -293,6 +293,10 @@ impl System {
         &self.int_cat
     }
     
+    pub fn fields_required(&self) -> &[Variable] {
+        &self.fields_required
+    }
+    
     pub fn apply_op(&mut self, op: &Op, fields: &Vec<RefMut<Field>>, mesh: &Computational2DMesh, schemes: &Schemes, coeff: f64) {
         match op {
             Op::Add(op) => {
@@ -343,9 +347,14 @@ fn solve(system: &mut System, fields: Vec<RefMut<Field>>, mesh: &Computational2D
     
     system.clear();
     
+    let lhs = system.equation.lhs.clone();
+    let rhs = system.equation.rhs.clone();
     
+    let eq = lhs - rhs;
     
+    system.apply_op(&eq, &fields, mesh, schemes, 1.);
     
+    // Add linear solver
     
     0
 }
