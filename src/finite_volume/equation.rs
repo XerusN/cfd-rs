@@ -2,12 +2,12 @@ use std::{
     cell::{RefCell, RefMut}, collections::HashMap, ops::{Add, Div, Mul, Sub}
 };
 
-use cfd_rs_utils::mesh::{self, computational_mesh::Computational2DMesh, indices::CellIndex};
+use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use super::{
-    base::Field, case::{Case, GradRequirements}, config::{CaseConfig, Schemes}, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration, DifferentialOperator}, error::CfdError
+    base::Field, case::{Case, GradRequirements}, config::Schemes, discretizations::DifferentialOperator, error::CfdError
 };
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
@@ -23,6 +23,7 @@ pub enum Op {
 }
 
 impl Op {
+    
     pub fn collect_differential_operators(&self, collector: &mut Vec<DifferentialOperator>) {
         match self {
             Op::Add(pair) | Op::Sub(pair) => {
@@ -295,16 +296,18 @@ impl System {
     pub fn apply_op(&mut self, op: &Op, fields: &Vec<RefMut<Field>>, mesh: &Computational2DMesh, schemes: &Schemes, coeff: f64) {
         match op {
             Op::Add(op) => {
-                
+                self.apply_op(&op.as_ref().0, fields, mesh, schemes, coeff);
+                self.apply_op(&op.as_ref().1, fields, mesh, schemes, coeff);
             },
             Op::Sub(op) => {
-                
+                self.apply_op(&op.as_ref().0, fields, mesh, schemes, coeff);
+                self.apply_op(&op.as_ref().1, fields, mesh, schemes, -coeff);
             },
             Op::MulScalar(scalar, op) => {
-                
+                self.apply_op(op.as_ref(), fields, mesh, schemes, coeff*scalar);
             },
             Op::DivScalar(scalar, op) => {
-                
+                self.apply_op(op.as_ref(), fields, mesh, schemes, coeff/scalar);
             },
             Op::Discretize(d_op) => {
                 d_op.discretize(self, fields, schemes, coeff);

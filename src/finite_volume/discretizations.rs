@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use super::{base::Field, case::GradRequirements, config::{CaseConfig, Schemes}, equation::{IntegrationCategory, System, Variable}};
+use super::{base::Field, case::GradRequirements, config::Schemes, equation::{IntegrationCategory, System, Variable}};
 
 pub mod convection;
 pub mod divergence;
