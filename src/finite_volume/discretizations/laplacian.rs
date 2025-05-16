@@ -14,7 +14,7 @@ impl LaplacianScheme {
         }
     }
     
-    pub fn discretize(&self, var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &Vec<RefMut<Field>>, coeff: f64) {
         
         match *self {
             Self::Centered => centered(var, system, integration, fields, coeff),
@@ -23,6 +23,6 @@ impl LaplacianScheme {
     }
 }
 
-fn centered(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
+fn centered(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &Vec<RefMut<Field>>, coeff: f64) {
     
 }

@@ -47,7 +47,7 @@ impl DifferentialOperator {
         }
     }
     
-    pub fn discretize(&self, system: &mut System, fields: &RefMut<Field>, schemes: &Schemes, coeff: f64) {
+    pub fn discretize(&self, system: &mut System, fields: &Vec<RefMut<Field>>, schemes: &Schemes, coeff: f64) {
         match self {
             Self::Laplacian(var, integration) => schemes.laplacian.discretize(&var, system, &integration, fields, coeff),
             Self::Convection {var, integration, speed } => schemes.convection.discretize(&var, &speed, system, &integration, fields, coeff),

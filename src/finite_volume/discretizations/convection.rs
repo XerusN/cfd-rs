@@ -14,7 +14,7 @@ impl ConvectionScheme {
         }
     }
     
-    pub fn discretize(&self, var: &Variable, speed: &(Variable, Variable), system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
+    pub fn discretize(&self, var: &Variable, speed: &(Variable, Variable), system: &mut System, integration: &IntegrationCategory, fields: &Vec<RefMut<Field>>, coeff: f64) {
         
         match *self {
             Self::UpwindSecondOrder => upwind_second_order(var, system, integration, fields, coeff),
@@ -23,6 +23,6 @@ impl ConvectionScheme {
     }
 }
 
-fn upwind_second_order(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
+fn upwind_second_order(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &Vec<RefMut<Field>>, coeff: f64) {
     
 }

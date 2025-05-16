@@ -257,10 +257,10 @@ impl System {
     
     pub fn clear(&mut self) {
         for  v in self.matrix.values_mut() {
-            *v = 0.
+            *v = 0.;
         }
         for v in self.rhs.iter_mut() {
-            *v = 0.
+            *v = 0.;
         }
     }
 
@@ -292,31 +292,39 @@ impl System {
         &self.int_cat
     }
     
-    pub fn apply_op(op: &Op, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, config: &CaseConfig) {
+    pub fn apply_op(&mut self, op: &Op, fields: &Vec<RefMut<Field>>, mesh: &Computational2DMesh, schemes: &Schemes, coeff: f64) {
         match op {
-            Op::Add(pair) => {
+            Op::Add(op) => {
                 
             },
-            Op::Sub(pair) => {
+            Op::Sub(op) => {
                 
             },
-            Op::MulScalar(_, inner) => {
+            Op::MulScalar(scalar, op) => {
                 
             },
-            Op::DivScalar(_, inner) => {
+            Op::DivScalar(scalar, op) => {
                 
             },
-            Op::Discretize(dop) => {
-                
+            Op::Discretize(d_op) => {
+                d_op.discretize(self, fields, schemes, coeff);
             },
-            Op::Scalar(_) => {
-                
+            Op::Scalar(scalar) => {
+                self.add_scalar(*scalar*coeff);
             }
+        }
+    }
+    
+    fn add_scalar(&mut self, scalar: f64) {
+        for v in self.rhs.iter_mut() {
+            *v -= scalar;
         }
     }
     
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
         let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
+        
+        let schemes = &config.schemes;
         
         let system = systems.map.get_mut(name).expect(&format!("This equation is not defined: {name:?}"));
         
@@ -324,11 +332,11 @@ impl System {
         
         let fields_required: Vec<RefMut<Field>> = fields_grad_required.iter().map(|tuple| tuple.0.borrow_mut()).collect();
         
-        solve(system, fields_required, mesh, config)
+        solve(system, fields_required, mesh, schemes)
     }
 }
 
-fn solve(system: &mut System, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, config: &CaseConfig) -> usize {
+fn solve(system: &mut System, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, schemes: &Schemes) -> usize {
     
     system.clear();
     

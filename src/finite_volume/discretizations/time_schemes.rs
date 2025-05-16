@@ -15,7 +15,7 @@ impl TimeIntegration {
         }
     }
 
-    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &RefMut<Field>, coeff: f64) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &Vec<RefMut<Field>>, coeff: f64) {
         
         match *self {
             Self::ForwardEuler => forward_euler(var, system, fields, coeff),
@@ -23,6 +23,6 @@ impl TimeIntegration {
     }
 }
 
-fn forward_euler(var: &Variable, system: &mut System, fields: &RefMut<Field>, coeff: f64) {
+fn forward_euler(var: &Variable, system: &mut System, fields: &Vec<RefMut<Field>>, coeff: f64) {
     
 }
