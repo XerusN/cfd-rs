@@ -14,15 +14,15 @@ impl DivergenceScheme {
         }
     }
     
-    pub fn discretize(&self, var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
         
         match *self {
-            Self::Centered => centered(var, system, integration, fields),
+            Self::Centered => centered(var, system, integration, fields, coeff),
         }
         
     }
 }
 
-fn centered(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+fn centered(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
     
 }

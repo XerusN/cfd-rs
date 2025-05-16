@@ -15,14 +15,14 @@ impl TimeIntegration {
         }
     }
 
-    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, system: &mut System, fields: &RefMut<Field>, coeff: f64) {
         
         match *self {
-            Self::ForwardEuler => forward_euler(var, system, fields),
+            Self::ForwardEuler => forward_euler(var, system, fields, coeff),
         }
     }
 }
 
-fn forward_euler(var: &Variable, system: &mut System, fields: &RefMut<Field>) {
+fn forward_euler(var: &Variable, system: &mut System, fields: &RefMut<Field>, coeff: f64) {
     
 }

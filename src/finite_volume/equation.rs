@@ -254,6 +254,15 @@ impl System {
             variable_requirements,
         )
     }
+    
+    pub fn clear(&mut self) {
+        for  v in self.matrix.values_mut() {
+            *v = 0.
+        }
+        for v in self.rhs.iter_mut() {
+            *v = 0.
+        }
+    }
 
     pub fn equation(&self) -> &Equation {
         &self.equation
@@ -283,6 +292,29 @@ impl System {
         &self.int_cat
     }
     
+    pub fn apply_op(op: &Op, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, config: &CaseConfig) {
+        match op {
+            Op::Add(pair) => {
+                
+            },
+            Op::Sub(pair) => {
+                
+            },
+            Op::MulScalar(_, inner) => {
+                
+            },
+            Op::DivScalar(_, inner) => {
+                
+            },
+            Op::Discretize(dop) => {
+                
+            },
+            Op::Scalar(_) => {
+                
+            }
+        }
+    }
+    
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
         let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
         
@@ -293,13 +325,12 @@ impl System {
         let fields_required: Vec<RefMut<Field>> = fields_grad_required.iter().map(|tuple| tuple.0.borrow_mut()).collect();
         
         solve(system, fields_required, mesh, config)
-        
     }
 }
 
 fn solve(system: &mut System, fields: Vec<RefMut<Field>>, mesh: &Computational2DMesh, config: &CaseConfig) -> usize {
     
-    
+    system.clear();
     
     
     

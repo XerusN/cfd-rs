@@ -14,15 +14,15 @@ impl ConvectionScheme {
         }
     }
     
-    pub fn discretize(&self, var: &Variable, speed: &(Variable, Variable), system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+    pub fn discretize(&self, var: &Variable, speed: &(Variable, Variable), system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
         
         match *self {
-            Self::UpwindSecondOrder => upwind_second_order(var, system, integration, fields),
+            Self::UpwindSecondOrder => upwind_second_order(var, system, integration, fields, coeff),
         }
         
     }
 }
 
-fn upwind_second_order(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>) {
+fn upwind_second_order(var: &Variable, system: &mut System, integration: &IntegrationCategory, fields: &RefMut<Field>, coeff: f64) {
     
 }
