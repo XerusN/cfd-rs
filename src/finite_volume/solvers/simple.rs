@@ -68,7 +68,7 @@ impl Case for SimpleCase {
     fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>> {
         match self.fields.map.get_mut(var) {
             None => None,
-            Some((field, _)) => Some(field),
+            Some((field, _)) => Some(field.borrow_mut()),
         }
     }
 

@@ -3,10 +3,11 @@ use nalgebra::Vector2;
 
 use super::gradients::{update_grads, GradientConfig};
 
+/// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
     Scalar(CellScalarField),
-    Vector2(Vector2<CellScalarField>),
+    //Vector2(Vector2<CellScalarField>),
 }
 
 /// The grads will only be allocated if necessary
@@ -94,10 +95,10 @@ impl Field {
         unsafe {
             match self {
                 Field::Scalar(field) => field.gradients_updated(),
-                Field::Vector2(fields) => {
-                    fields.x.gradients_updated();
-                    fields.y.gradients_updated();
-                }
+                // Field::Vector2(fields) => {
+                //     fields.x.gradients_updated();
+                //     fields.y.gradients_updated();
+                // }
             }
         }
     }

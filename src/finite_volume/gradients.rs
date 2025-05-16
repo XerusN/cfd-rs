@@ -23,10 +23,10 @@ pub struct GradientConfig {
 pub fn update_grads(field: &mut Field, mesh: &Computational2DMesh, config: &GradientConfig) {
     match field {
         Field::Scalar(field) => update_grad_scalar(field, mesh, config),
-        Field::Vector2(field) => {
-            update_grad_scalar(&mut field.x, mesh, config);
-            update_grad_scalar(&mut field.y, mesh, config);
-        }
+        // Field::Vector2(field) => {
+        //     update_grad_scalar(&mut field.x, mesh, config);
+        //     update_grad_scalar(&mut field.y, mesh, config);
+        // }
     }
 }
 

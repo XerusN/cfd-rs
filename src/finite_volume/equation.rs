@@ -7,7 +7,7 @@ use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use super::{
-    base::Field, case::{Case, GradRequirements}, config::{CaseConfig, Schemes}, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration}, error::CfdError
+    base::Field, case::{Case, GradRequirements}, config::{CaseConfig, Schemes}, discretizations::{laplacian::LaplacianScheme, time_schemes::TimeIntegration, DifferentialOperator}, error::CfdError
 };
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
@@ -84,47 +84,6 @@ pub enum IntegrationCategory {
     Explicit,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum DifferentialOperator {
-    Laplacian(Variable, IntegrationCategory),
-    Convection {
-        var: Variable,
-        speed: Variable,
-        integration: IntegrationCategory,
-    },
-    Divergence(Variable, IntegrationCategory),
-    TimeDerivative(Variable),
-}
-
-impl DifferentialOperator {
-    pub fn required_grads(&self, schemes: &Schemes) -> (&Variable, GradRequirements) {
-        match self {
-            Self::Laplacian(var, _) => (var, schemes.laplacian.required_grads()),
-            Self::Convection { var, .. } => (var, schemes.convection.required_grads()),
-            Self::Divergence(var, _) => (var, schemes.divergence.required_grads()),
-            Self::TimeDerivative(var) => (var, schemes.transient.required_grads()),
-        }
-    }
-
-    pub fn variable(&self) -> &Variable {
-        match self {
-            Self::Laplacian(var, _) => &var,
-            Self::Convection { var, .. } => &var,
-            Self::Divergence(var, _) => &var,
-            Self::TimeDerivative(var) => &var,
-        }
-    }
-    
-    pub fn integration(&self) -> Option<&IntegrationCategory> {
-        match self {
-            Self::Laplacian(_, int) => Some(&int),
-            Self::Convection { integration, .. } => Some(&integration),
-            Self::Divergence(_, int) => Some(&int),
-            Self::TimeDerivative(_) => None,
-        }
-    }
-}
-
 /// Will help to implement unit checking
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Variable {
@@ -132,10 +91,11 @@ pub struct Variable {
     dim: Dimension,
 }
 
+/// For now only support of 1D fields
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Dimension {
     Scalar,
-    Vector2,
+    //Vector2,
 }
 
 impl Variable {
