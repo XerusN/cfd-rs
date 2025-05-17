@@ -1,8 +1,8 @@
 use std::{
     cell::{RefCell, RefMut},
-    collections::HashMap,
     ops::{Add, Div, Mul, Sub},
 };
+use hashbrown::HashMap;
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;

@@ -30,7 +30,7 @@ fn square_4_bc() -> Modifiable2DMesh {
 }
 
 /// Needs a lot of rework
-pub fn mesh(geometry: GeometryConfig) -> Computational2DMesh {
+pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     let mut mesh = square_4_bc();
     advancing_front(&mut mesh, 0.01, OutputControl::Final);
     Computational2DMesh::new_from_he(mesh.0)

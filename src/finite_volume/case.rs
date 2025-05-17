@@ -1,13 +1,13 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
     io,
 };
+use hashbrown::HashMap;
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use super::{
-    base::Field,
+    base::{CellScalarField, Field},
     config::{CaseConfig, Schemes},
     equation::{System, Variable},
 };
@@ -41,6 +41,16 @@ impl GradRequirements {
 #[derive(Clone, Debug, PartialEq)]
 pub struct VariableFields {
     pub map: HashMap<Variable, (RefCell<Field>, GradRequirements)>,
+}
+
+impl VariableFields {
+    pub fn new(mut variables: HashMap<Variable, GradRequirements>, mesh: &Computational2DMesh) -> Self {
+        let mut fields = HashMap::new();
+        for (var, grad_req) in variables.drain() {
+            fields.insert(var, (RefCell::new(Field::Scalar(CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req))), grad_req));
+        }
+        VariableFields { map: fields }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

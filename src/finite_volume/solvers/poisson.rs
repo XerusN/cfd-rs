@@ -1,8 +1,9 @@
-use std::{cell::{Ref, RefMut}, collections::HashMap};
+use std::{cell::{Ref, RefMut}};
+use hashbrown::HashMap;
 
 use super::super::equation::{System, Variable};
 use crate::finite_volume::{
-    base::Field, case::{Case, CaseSystems, VariableFields}, config::{CaseConfig, GeometryConfig, Schemes}, discretizations::DifferentialOperator, equation::{Dimension, Equation, IntegrationCategory, Op}
+    base::Field, case::{Case, CaseSystems, VariableFields}, config::{CaseConfig, GeometryConfig, Schemes}, discretizations::DifferentialOperator, equation::{Dimension, Equation, IntegrationCategory, Op}, mesh::mesh
 };
 use cfd_rs_mesh::triangle::advancing_front;
 use cfd_rs_utils::mesh::computational_mesh::*;
@@ -16,9 +17,6 @@ pub struct PoissonCase {
     time_step: f64,
 
     config: CaseConfig,
-
-    density: f64,
-    kinematic_viscosity: f64,
 
     mesh: Computational2DMesh,
 
@@ -120,7 +118,7 @@ impl Case for PoissonCase {
     
     fn new(config: CaseConfig) -> Self {
         
-        let mesh = 
+        let mesh = mesh(&config.geometry);
         
         let p = Variable::new("P".to_string(), Dimension::Scalar);
         
@@ -129,11 +127,24 @@ impl Case for PoissonCase {
         
         let eq = Equation::new(lhs, rhs).expect("Equation not valid");
         
-        let variables = HashMap::new();
         
-        let new_var = eq.into_system(mesh, &config.schemes);
+        let (system, variables) = eq.into_system(&mesh, &config.schemes);
         
+        let mut systems = HashMap::new();
+        systems.insert("Poisson".to_string(), system);
+        let fields = VariableFields::new(variables, &mesh);
         
-        todo!()
+        PoissonCase {
+            name: "Poisson 2D".to_string(),
+            
+            time: 0.,
+            time_step: 1.,
+            step: 0,
+            
+            config,
+            mesh,
+            fields,
+            systems: CaseSystems { map: systems },
+        }
     }
 }

@@ -23,7 +23,7 @@ impl CellScalarField {
     pub fn new(
         cells_num: usize,
         faces_num: usize,
-        grads_required: GradRequirements,
+        grads_required: &GradRequirements,
     ) -> Self {
         let values = DVector::zeros(cells_num);
 

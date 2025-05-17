@@ -3,8 +3,7 @@ use super::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
     },
-    gradients::GradientScheme,
-    interpolations::GradientInterpConfig,
+    gradients::GradientConfig,
 };
 
 /// Switch to private fields
@@ -20,7 +19,7 @@ pub struct GeometryConfig {}
 #[derive(Clone, PartialEq, Debug)]
 pub struct Schemes {
     pub transient: TimeIntegration,
-    pub gradients: (GradientScheme, GradientInterpConfig),
+    pub gradients: GradientConfig,
     pub laplacian: LaplacianScheme,
     pub convection: ConvectionScheme,
     pub divergence: DivergenceScheme,
