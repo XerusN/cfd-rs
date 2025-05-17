@@ -199,8 +199,8 @@ impl Equation {
         }
     }
 
-    pub fn into_system<T: Case>(self, case: &T) -> (System, HashMap<Variable, GradRequirements>) {
-        System::new(self, case)
+    pub fn into_system(self, mesh: &Computational2DMesh, schemes: &Schemes) -> (System, HashMap<Variable, GradRequirements>) {
+        System::new(self, mesh, schemes)
     }
 }
 
@@ -214,29 +214,30 @@ pub struct System {
 }
 
 impl System {
-    pub fn new<T: Case>(
+    pub fn new(
         equation: Equation,
-        case: &T,
+        mesh: &Computational2DMesh,
+        schemes: &Schemes,
     ) -> (System, HashMap<Variable, GradRequirements>) {
-        let mut matrix = CooMatrix::new(case.mesh().num_cells(), case.mesh().num_cells());
+        let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
 
-        for i in 0..case.mesh().num_cells() {
+        for i in 0..mesh.num_cells() {
             matrix.push(i, i, 0.);
-            for neighbor in case.mesh().neighboring_cells_id(CellIndex(i)) {
+            for neighbor in mesh.neighboring_cells_id(CellIndex(i)) {
                 matrix.push(i, neighbor.0, 0.)
             }
         }
 
         let matrix = CsrMatrix::from(&matrix);
 
-        let rhs = DVector::zeros(case.mesh().num_cells());
+        let rhs = DVector::zeros(mesh.num_cells());
 
         let mut variable_requirements = HashMap::new();
         let mut integration = IntegrationCategory::Explicit;
 
         for diff_operator in equation.collect_differential_operators() {
             let var = diff_operator.variable();
-            let (_, required_grad) = diff_operator.required_grads(case.schemes());
+            let (_, required_grad) = diff_operator.required_grads(schemes);
             variable_requirements
                 .entry(var.clone())
                 .and_modify(|current: &mut GradRequirements| {

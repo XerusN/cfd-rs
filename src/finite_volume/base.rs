@@ -1,7 +1,7 @@
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
-use super::gradients::{update_grads, GradientConfig};
+use super::{case::GradRequirements, gradients::{update_grads, GradientConfig}};
 
 /// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
@@ -23,20 +23,19 @@ impl CellScalarField {
     pub fn new(
         cells_num: usize,
         faces_num: usize,
-        grads_cell_required: bool,
-        grads_face_required: bool,
+        grads_required: GradRequirements,
     ) -> Self {
         let values = DVector::zeros(cells_num);
 
         let grads_cell;
-        if grads_cell_required {
+        if grads_required.cell() {
             grads_cell = DVector::zeros(cells_num);
         } else {
             grads_cell = DVector::zeros(0);
         }
 
         let grads_face;
-        if grads_face_required {
+        if grads_required.face() {
             grads_face = DVector::zeros(faces_num);
         } else {
             grads_face = DVector::zeros(0);
