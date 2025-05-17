@@ -1,4 +1,5 @@
 pub mod base;
+pub mod boundary;
 pub mod case;
 pub mod config;
 pub mod discretizations;
@@ -7,6 +8,5 @@ pub mod error;
 pub mod gradients;
 pub mod interpolations;
 pub mod linalg;
-pub mod solvers;
-pub mod boundary;
 pub mod mesh;
+pub mod solvers;

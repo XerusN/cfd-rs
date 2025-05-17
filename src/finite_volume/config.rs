@@ -1,4 +1,5 @@
 use super::{
+    boundary::FieldsBoundaryConditions,
     discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
@@ -11,6 +12,7 @@ use super::{
 pub struct CaseConfig {
     pub schemes: Schemes,
     pub geometry: GeometryConfig,
+    pub bc: FieldsBoundaryConditions,
 }
 
 #[derive(Clone, PartialEq, Debug)]

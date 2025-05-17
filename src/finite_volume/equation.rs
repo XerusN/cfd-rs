@@ -1,8 +1,8 @@
+use hashbrown::HashMap;
 use std::{
     cell::{RefCell, RefMut},
     ops::{Add, Div, Mul, Sub},
 };
-use hashbrown::HashMap;
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
@@ -199,7 +199,11 @@ impl Equation {
         }
     }
 
-    pub fn into_system(self, mesh: &Computational2DMesh, schemes: &Schemes) -> (System, HashMap<Variable, GradRequirements>) {
+    pub fn into_system(
+        self,
+        mesh: &Computational2DMesh,
+        schemes: &Schemes,
+    ) -> (System, HashMap<Variable, GradRequirements>) {
         System::new(self, mesh, schemes)
     }
 }

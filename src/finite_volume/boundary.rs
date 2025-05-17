@@ -16,6 +16,6 @@ pub struct FieldsBoundaryConditions {
 
 impl FieldsBoundaryConditions {
     pub fn new(map: HashMap<Variable, Vec<BoundaryCondition>>) -> Self {
-        FieldsBoundaryConditions{map}
+        FieldsBoundaryConditions { map }
     }
 }

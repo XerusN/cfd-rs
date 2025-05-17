@@ -1,11 +1,24 @@
 use cfd_rs_mesh::triangle::advancing_front::{self, advancing_front};
-use cfd_rs_utils::{boundary::Boundary, control::OutputControl, mesh::{computational_mesh::Computational2DMesh, indices::{ParentIndex, VertexIndex}, Modifiable2DMesh, Parent}};
+use cfd_rs_utils::{
+    boundary::Boundary,
+    control::OutputControl,
+    mesh::{
+        computational_mesh::Computational2DMesh,
+        indices::{ParentIndex, VertexIndex},
+        Modifiable2DMesh, Parent,
+    },
+};
 use nalgebra::Point2;
 
 use super::config::GeometryConfig;
 
 fn square_4_bc() -> Modifiable2DMesh {
-    let parents = vec![Parent::Boundary(Boundary(0)), Parent::Boundary(Boundary(1)), Parent::Boundary(Boundary(2)), Parent::Boundary(Boundary(3))];
+    let parents = vec![
+        Parent::Boundary(Boundary(0)),
+        Parent::Boundary(Boundary(1)),
+        Parent::Boundary(Boundary(2)),
+        Parent::Boundary(Boundary(3)),
+    ];
     let vertices = vec![
         Point2::new(0.0, 0.0),
         Point2::new(1.0, 0.0),

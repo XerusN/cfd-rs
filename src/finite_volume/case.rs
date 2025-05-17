@@ -1,8 +1,8 @@
+use hashbrown::HashMap;
 use std::{
     cell::{Ref, RefCell, RefMut},
     io,
 };
-use hashbrown::HashMap;
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
@@ -44,10 +44,23 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new(mut variables: HashMap<Variable, GradRequirements>, mesh: &Computational2DMesh) -> Self {
+    pub fn new(
+        mut variables: HashMap<Variable, GradRequirements>,
+        mesh: &Computational2DMesh,
+    ) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in variables.drain() {
-            fields.insert(var, (RefCell::new(Field::Scalar(CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req))), grad_req));
+            fields.insert(
+                var,
+                (
+                    RefCell::new(Field::Scalar(CellScalarField::new(
+                        mesh.num_cells(),
+                        mesh.num_faces(),
+                        &grad_req,
+                    ))),
+                    grad_req,
+                ),
+            );
         }
         VariableFields { map: fields }
     }
@@ -97,6 +110,6 @@ pub trait Case {
         &Computational2DMesh,
         &CaseConfig,
     );
-    
+
     fn new(config: CaseConfig) -> Self;
 }
