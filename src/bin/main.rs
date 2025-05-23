@@ -1,3 +1,5 @@
+use cfd_rs::finite_volume::config::OutputConfig;
+use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
 use cfd_rs::finite_volume::solvers::poisson;
@@ -35,6 +37,10 @@ fn main() {
         BoundaryCondition::Neumann(0.),
         BoundaryCondition::Neumann(0.),
     ];
+    let output = OutputConfig {
+        control: OutputControl::Iteration(1),
+        directory: "./target/exports".to_string(),
+    };
     let mut bc_fields = HashMap::new();
     bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
@@ -42,12 +48,13 @@ fn main() {
         schemes,
         geometry,
         bc: bc_fields,
+        output,
     };
 
     let mut case = PoissonCase::new(config);
 
-    case.next_step();
-
     #[cfg(debug_assertions)]
-    case.export("./target/exports");
+    case.export().unwrap();
+
+    case.next_step();
 }

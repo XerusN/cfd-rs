@@ -1,3 +1,5 @@
+use cfd_rs_utils::control::OutputControl;
+
 use super::{
     boundary::FieldsBoundaryConditions,
     discretizations::{
@@ -13,6 +15,7 @@ pub struct CaseConfig {
     pub schemes: Schemes,
     pub geometry: GeometryConfig,
     pub bc: FieldsBoundaryConditions,
+    pub output: OutputConfig,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -25,4 +28,10 @@ pub struct Schemes {
     pub laplacian: LaplacianScheme,
     pub convection: ConvectionScheme,
     pub divergence: DivergenceScheme,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct OutputConfig {
+    pub control: OutputControl,
+    pub directory: String,
 }

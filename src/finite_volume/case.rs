@@ -1,7 +1,9 @@
 use hashbrown::HashMap;
 use std::{
     cell::{Ref, RefCell, RefMut},
-    io,
+    fs::File,
+    io::{self, Write},
+    path::{Path, PathBuf},
 };
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
@@ -84,7 +86,90 @@ pub trait Case {
 
     fn import_from_file(file_name: &str) -> io::Result<()>;
 
-    fn export(&self, directory: &str) -> io::Result<()>;
+    /// https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html#unstructuredgrid
+    fn export(&self) -> io::Result<()> {
+        let path = PathBuf::from(format!(
+            "{}/{}_{:06}.vtu",
+            &self.config().output.directory,
+            &self.name(),
+            &self.step()
+        ));
+
+        let mut file = File::create(&path)?;
+
+        writeln!(
+            file,
+            "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
+        )?;
+        writeln!(file, "  <UnstructuredGrid>")?;
+        writeln!(
+            file,
+            "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
+            self.mesh().num_vertices(),
+            self.mesh().num_cells()
+        )?;
+        writeln!(file, "      <Points>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        for vertex in self.mesh().vertices() {
+            write!(file, "{} {} 0 ", vertex.x, vertex.y)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(file, "      </Points>")?;
+
+        writeln!(file, "      <Cells>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        for cell in self.mesh().cells() {
+            for vertex_id in cell.vertices_id() {
+                write!(file, "{} ", vertex_id.0)?;
+            }
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"offsets\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        let mut offset = 0;
+        for cell in self.mesh().cells() {
+            offset += cell.vertices_id().len();
+            write!(file, "{} ", offset)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        for cell in self.mesh().cells() {
+            if cell.vertices_id().len() == 3 {
+                write!(file, "5 ")?;
+            } else {
+                unimplemented!();
+            }
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(file, "      </Cells>")?;
+
+        writeln!(file, "    </Piece>")?;
+        writeln!(file, "  </UnstructuredGrid>")?;
+        writeln!(file, "</VTKFile>")?;
+
+        Ok(())
+    }
+
+    fn config(&self) -> &CaseConfig;
 
     fn fields_list(&self) -> Vec<&Variable>;
 

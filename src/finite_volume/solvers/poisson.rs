@@ -10,9 +10,8 @@ use crate::finite_volume::{
     equation::{Dimension, Equation, IntegrationCategory, Op},
     mesh::mesh,
 };
-use cfd_rs_mesh::triangle::advancing_front;
-use cfd_rs_utils::mesh::computational_mesh::*;
-use nalgebra::Vector2;
+
+use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PoissonCase {
@@ -46,12 +45,12 @@ impl Case for PoissonCase {
         self.time_step
     }
 
-    fn export(&self, directory: &str) -> std::io::Result<()> {
+    fn import_from_file(file_name: &str) -> std::io::Result<()> {
         todo!()
     }
 
-    fn import_from_file(file_name: &str) -> std::io::Result<()> {
-        todo!()
+    fn config(&self) -> &CaseConfig {
+        &self.config
     }
 
     fn fields_list(&self) -> Vec<&Variable> {
@@ -111,11 +110,10 @@ impl Case for PoissonCase {
     }
 
     fn next_step(&mut self) {
-        //
-        //
-        //
-        //
-        todo!()
+        // Check if gradients are correctly updated
+        System::solve(self, "Poisson");
+
+        self.time += self.time_step;
     }
 
     fn new(config: CaseConfig) -> Self {
