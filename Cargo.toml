@@ -13,7 +13,7 @@ cfd-rs-utils = { path = "../cfd-rs-utils" }
 cfd-rs-mesh = { path = "../cfd-rs-mesh" }
 nalgebra = { version = "0.33.1"}
 nalgebra-sparse = "0.10.0"
-nalgebra-sparse-linalg = "0.1.0"
+nalgebra-sparse-linalg = "0.1.5"
 thiserror = "2.0.12"
 hashbrown = "0.15.3"
 log = "0.4.27"

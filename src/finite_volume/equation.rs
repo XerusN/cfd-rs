@@ -1,9 +1,11 @@
 use hashbrown::HashMap;
+use log::warn;
 use std::{
     cell::{RefCell, RefMut},
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, DerefMut, Div, Mul, Sub},
 };
 
+use nalgebra_sparse_linalg::iteratives;
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
@@ -381,7 +383,6 @@ fn solve(
     mut fields: Vec<RefMut<Field>>,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
-    
 ) -> usize {
     system.clear();
 
@@ -395,8 +396,29 @@ fn solve(
     }
     
     system.apply_op(&eq, &fields, mesh, &config.schemes, 1.);
-
-    // Add linear solver
-
-    todo!()
+    
+    let index = system
+        .fields_required()
+        .iter()
+        .position(|var_i| system.equation().unknown() == var_i)
+        .expect(&format!(
+            "Missing variable {:?} in fields for equation {:?}",
+            system.equation().unknown(),
+            system.equation()
+        ));
+    
+    let field = fields[index].deref_mut();
+    
+    let mut field = match field {
+        Field::Scalar(value) => value,
+    };
+    
+    warn!("Hard-coded tol and maxx iter for solve");
+    let result = iteratives::biconjugate_gradient::solve_with_initial_guess(system.matrix(), &system.rhs, field.values_mut(), 1000, 1e-3);
+    
+    if !result {
+        panic!("Did not converge when solving {:?}", system.equation())
+    }
+    
+    0
 }
