@@ -1,3 +1,6 @@
+use std::ops::Index;
+
+use cfd_rs_utils::mesh::indices::BoundaryPatchIndex;
 use hashbrown::HashMap;
 
 use super::equation::Variable;
