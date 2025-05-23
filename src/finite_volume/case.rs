@@ -1,9 +1,6 @@
 use hashbrown::HashMap;
 use std::{
-    cell::{Ref, RefCell, RefMut},
-    fs::File,
-    io::{self, Write},
-    path::PathBuf,
+    cell::{Ref, RefCell, RefMut}, fs::File, io::{self, Write}, ops::Deref, path::PathBuf
 };
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
@@ -161,6 +158,28 @@ pub trait Case {
         writeln!(file)?;
         writeln!(file, "        </DataArray>")?;
         writeln!(file, "      </Cells>")?;
+        
+        writeln!(file, "      <CellData>")?;
+        // Does not support vector fields yet
+        for var in self.fields_list() {
+            writeln!(
+                file,
+                "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                var.name(),
+            )?;
+            write!(file, "          ")?;
+            let temp = self.field(var).expect("Incoherence between variable list and fields");
+            let field = match temp.deref() {
+                Field::Scalar(scalar_field) => scalar_field.values(),
+            };
+            for value in field {
+                write!(file, "{} ", value)?;
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+        }
+       
+        writeln!(file, "      </CellData>")?;
 
         writeln!(file, "    </Piece>")?;
         writeln!(file, "  </UnstructuredGrid>")?;
