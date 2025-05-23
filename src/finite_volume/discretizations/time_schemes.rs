@@ -4,6 +4,7 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
     base::Field,
+    boundary::FieldsBoundaryConditions,
     case::GradRequirements,
     equation::{System, Variable},
 };
@@ -28,6 +29,7 @@ impl TimeIntegration {
         var: &Variable,
         system: &mut System,
         mesh: &Computational2DMesh,
+        bc: &FieldsBoundaryConditions,
         fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {

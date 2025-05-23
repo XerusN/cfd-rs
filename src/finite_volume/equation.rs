@@ -1,16 +1,19 @@
 use hashbrown::HashMap;
 use log::warn;
 use std::{
-    cell::{RefCell, RefMut}, clone, ops::{Add, DerefMut, Div, Mul, Sub}
+    cell::{RefCell, RefMut},
+    clone,
+    ops::{Add, DerefMut, Div, Mul, Sub},
 };
 
-use nalgebra_sparse_linalg::iteratives;
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
+use nalgebra_sparse_linalg::iteratives;
 
 use super::{
     base::Field,
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::{Case, GradRequirements},
     config::{CaseConfig, Schemes},
     discretizations::DifferentialOperator,
@@ -302,6 +305,10 @@ impl System {
         &mut self.rhs
     }
 
+    pub fn system_update_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
+        (&mut self.matrix, &mut self.rhs)
+    }
+
     pub fn integration_category(&self) -> &IntegrationCategory {
         &self.int_cat
     }
@@ -315,26 +322,27 @@ impl System {
         op: &Op,
         fields: &Vec<RefMut<Field>>,
         mesh: &Computational2DMesh,
+        bc: &FieldsBoundaryConditions,
         schemes: &Schemes,
         coeff: f64,
     ) {
         match op {
             Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, schemes, coeff);
+                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
+                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, coeff);
             }
             Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, schemes, -coeff);
+                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
+                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, -coeff);
             }
             Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, schemes, coeff * scalar);
+                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff * scalar);
             }
             Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, schemes, coeff / scalar);
+                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff / scalar);
             }
             Op::Discretize(d_op) => {
-                d_op.discretize(self, fields, mesh, schemes, coeff);
+                d_op.discretize(self, fields, mesh, bc, schemes, coeff);
             }
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff);
@@ -351,7 +359,6 @@ impl System {
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
         let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
 
-
         let system = systems
             .map
             .get_mut(name)
@@ -361,17 +368,13 @@ impl System {
             .fields_required
             .iter()
             .map(|var| {
-                variable_fields
-                    .map
-                    .get(var)
-                    .expect(&format!("A field ({var:?}) needed for equation {name:?} is missing"))
+                variable_fields.map.get(var).expect(&format!(
+                    "A field ({var:?}) needed for equation {name:?} is missing"
+                ))
             })
             .collect();
-        
-        let grad_requirements = fields_grad_required
-            .iter()
-            .map(|tuple| &tuple.1)
-            .collect();
+
+        let grad_requirements = fields_grad_required.iter().map(|tuple| &tuple.1).collect();
         let fields_required: Vec<RefMut<Field>> = fields_grad_required
             .iter()
             .map(|tuple| tuple.0.borrow_mut())
@@ -394,13 +397,22 @@ fn solve(
     let rhs = system.equation.rhs.clone();
 
     let eq = lhs - rhs;
-    
+
     for (i, field) in fields.iter_mut().enumerate() {
-        field.update_grads(grad_requirements[i], mesh, &config.schemes.gradients, config.bc.map.get(&system.fields_required()[i]).expect("Boundary Condition missing for field"));
+        field.update_grads(
+            grad_requirements[i],
+            mesh,
+            &config.schemes.gradients,
+            config
+                .bc
+                .map
+                .get(&system.fields_required()[i])
+                .expect("Boundary Condition missing for field"),
+        );
     }
-    
-    system.apply_op(&eq, &fields, mesh, &config.schemes, 1.);
-    
+
+    system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1.);
+
     let index = system
         .fields_required()
         .iter()
@@ -410,19 +422,25 @@ fn solve(
             system.equation().unknown(),
             system.equation()
         ));
-    
+
     let field = fields[index].deref_mut();
-    
+
     let mut field = match field {
         Field::Scalar(value) => value,
     };
-    
+
     warn!("Hard-coded tol and maxx iter for solve");
-    let result = iteratives::biconjugate_gradient::solve_with_initial_guess(system.matrix(), &system.rhs, field.values_mut(), 1000, 1e-3);
-    
+    let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
+        system.matrix(),
+        &system.rhs,
+        field.values_mut(),
+        1000,
+        1e-3,
+    );
+
     if !result {
         panic!("Did not converge when solving {:?}", system.equation())
     }
-    
+
     0
 }

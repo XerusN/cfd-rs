@@ -4,6 +4,7 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
     base::Field,
+    boundary::FieldsBoundaryConditions,
     case::GradRequirements,
     equation::{IntegrationCategory, System, Variable},
 };
@@ -27,6 +28,7 @@ impl DivergenceScheme {
         var: &Variable,
         system: &mut System,
         mesh: &Computational2DMesh,
+        bc: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         fields: &Vec<RefMut<Field>>,
         coeff: f64,

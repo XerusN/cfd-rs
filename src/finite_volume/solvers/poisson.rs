@@ -114,6 +114,7 @@ impl Case for PoissonCase {
         System::solve(self, "Poisson");
 
         self.time += self.time_step;
+        self.step += 1;
     }
 
     fn new(config: CaseConfig) -> Self {

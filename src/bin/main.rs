@@ -22,7 +22,7 @@ fn main() {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
-        laplacian: LaplacianScheme::Centered,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
         divergence: DivergenceScheme::Centered,
         gradients: GradientConfig {
             scheme: GradientScheme::GreenGaussCompact,
@@ -32,10 +32,10 @@ fn main() {
 
     let geometry = GeometryConfig {};
     let bc = vec![
-        BoundaryCondition::Neumann(300.),
-        BoundaryCondition::Neumann(200.),
-        BoundaryCondition::Neumann(0.),
-        BoundaryCondition::Neumann(0.),
+        BoundaryCondition::Dirichlet(300.),
+        BoundaryCondition::Dirichlet(200.),
+        BoundaryCondition::Dirichlet(0.),
+        BoundaryCondition::Dirichlet(0.),
     ];
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
@@ -57,4 +57,7 @@ fn main() {
     case.export().unwrap();
 
     case.next_step();
+    
+    #[cfg(debug_assertions)]
+    case.export().unwrap();
 }

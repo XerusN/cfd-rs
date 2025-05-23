@@ -2,7 +2,9 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
 use super::{
-    boundary::BoundaryCondition, case::GradRequirements, gradients::{update_grads, GradientConfig}
+    boundary::BoundaryCondition,
+    case::GradRequirements,
+    gradients::{update_grads, GradientConfig},
 };
 
 /// For now only support of scalar fields
@@ -24,11 +26,14 @@ pub struct CellScalarField {
 
 impl CellScalarField {
     pub fn new(cells_num: usize, faces_num: usize, grads_required: &GradRequirements) -> Self {
-        let values = DVector::zeros(cells_num);
+        let mut values = DVector::zeros(cells_num);
+        for value in values.iter_mut() {
+            *value = 200.;
+        }
         let face_values = DVector::zeros(faces_num);
         
         let grads_cell;
-        if grads_required.cell() {
+        if grads_required.cell() | grads_required.face() {
             grads_cell = DVector::zeros(cells_num);
         } else {
             grads_cell = DVector::zeros(0);
@@ -46,7 +51,7 @@ impl CellScalarField {
             face_values,
             grads_cell,
             grads_face,
-            gradients_up_to_date: true,
+            gradients_up_to_date: false,
         }
     }
 
@@ -59,11 +64,11 @@ impl CellScalarField {
         self.gradients_up_to_date = false;
         &mut self.values
     }
-    
+
     pub fn face_values(&self) -> &DVector<f64> {
         &self.face_values
     }
-    
+
     pub fn face_values_mut(&mut self) -> &mut DVector<f64> {
         &mut self.face_values
     }
@@ -94,15 +99,33 @@ impl CellScalarField {
     pub unsafe fn gradients_updated(&mut self) {
         self.gradients_up_to_date = true
     }
-    
-    pub fn get_deconstructed_field_mut(&mut self) -> (&mut DVector<f64>, &mut DVector<f64>, &mut DVector<Vector2<f64>>, &mut DVector<Vector2<f64>>) {
-        (&mut self.values, &mut self.face_values, &mut self.grads_cell, &mut self.grads_face)
+
+    pub fn get_deconstructed_field_mut(
+        &mut self,
+    ) -> (
+        &mut DVector<f64>,
+        &mut DVector<f64>,
+        &mut DVector<Vector2<f64>>,
+        &mut DVector<Vector2<f64>>,
+    ) {
+        (
+            &mut self.values,
+            &mut self.face_values,
+            &mut self.grads_cell,
+            &mut self.grads_face,
+        )
     }
 }
 
 impl Field {
     /// Updates the gradients to match the values
-    pub fn update_grads(&mut self, grad_requirements: &GradRequirements, mesh: &Computational2DMesh, config: &GradientConfig, bc: &Vec<BoundaryCondition>) {
+    pub fn update_grads(
+        &mut self,
+        grad_requirements: &GradRequirements,
+        mesh: &Computational2DMesh,
+        config: &GradientConfig,
+        bc: &Vec<BoundaryCondition>,
+    ) {
         update_grads(self, grad_requirements, mesh, config, bc);
         unsafe {
             match self {

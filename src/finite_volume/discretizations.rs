@@ -4,6 +4,7 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use super::{
     base::Field,
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::GradRequirements,
     config::Schemes,
     equation::{IntegrationCategory, System, Variable},
@@ -60,6 +61,7 @@ impl DifferentialOperator {
         system: &mut System,
         fields: &Vec<RefMut<Field>>,
         mesh: &Computational2DMesh,
+        bc: &FieldsBoundaryConditions,
         schemes: &Schemes,
         coeff: f64,
     ) {
@@ -67,21 +69,30 @@ impl DifferentialOperator {
             Self::Laplacian(var, integration) => {
                 schemes
                     .laplacian
-                    .discretize(&var, system, mesh, &integration, fields, coeff);
+                    .discretize(&var, system, mesh, bc, &integration, fields, coeff);
             }
             Self::Convection {
                 var,
                 integration,
                 speed,
-            } => schemes
-                .convection
-                .discretize(&var, &speed, system, mesh, &integration, fields, coeff),
+            } => schemes.convection.discretize(
+                &var,
+                &speed,
+                system,
+                mesh,
+                bc,
+                &integration,
+                fields,
+                coeff,
+            ),
             Self::Divergence(var, integration) => {
                 schemes
                     .divergence
-                    .discretize(&var, system, mesh, &integration, fields, coeff)
+                    .discretize(&var, system, mesh, bc, &integration, fields, coeff)
             }
-            Self::TimeDerivative(var) => schemes.transient.discretize(&var, system, mesh, fields, coeff),
+            Self::TimeDerivative(var) => schemes
+                .transient
+                .discretize(&var, system, mesh, bc, fields, coeff),
         }
     }
 }
