@@ -94,6 +94,10 @@ impl CellScalarField {
     pub unsafe fn gradients_updated(&mut self) {
         self.gradients_up_to_date = true
     }
+    
+    pub fn get_deconstructed_field_mut(&mut self) -> (&mut DVector<f64>, &mut DVector<f64>, &mut DVector<Vector2<f64>>, &mut DVector<Vector2<f64>>) {
+        (&mut self.values, &mut self.face_values, &mut self.grads_cell, &mut self.grads_face)
+    }
 }
 
 impl Field {

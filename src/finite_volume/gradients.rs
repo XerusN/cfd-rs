@@ -1,7 +1,9 @@
+use std::iter::Skip;
+
 use super::{
     base::{CellScalarField, Field}, boundary::BoundaryCondition, case::{Case, GradRequirements}, equation::*, interpolations::GradientInterpConfig
 };
-use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::FaceIndex};
 use nalgebra::Vector2;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,9 +54,20 @@ fn update_grad_scalar(
 
 fn green_gauss_compact(field: &mut CellScalarField, mesh: &Computational2DMesh) {
     
-    for (i, value) in field.face_values_mut().iter().enumerate() {
-        value = field.grads_cell()
+    let (values, face_values, grads, face_grads) = field.get_deconstructed_field_mut();
+    
+    for (i, value) in face_values.iter_mut().enumerate() {
+        let (id_1, id_2, g_c) = match mesh.geometric_weighting_factor(FaceIndex(i)) {
+            None => continue,
+            Some(value) => value,
+        };
+        *value = values[id_1.0]*g_c + values[id_2.0]*(1. - g_c);
     }
+    for (i, grad) in grads.iter_mut().enumerate() {
+        
+    }
+    
+    
     
     
     todo!()
