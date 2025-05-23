@@ -1,8 +1,5 @@
 use super::{
-    base::{CellScalarField, Field},
-    case::Case,
-    equation::*,
-    interpolations::GradientInterpConfig,
+    base::{CellScalarField, Field}, boundary::BoundaryCondition, case::{Case, GradRequirements}, equation::*, interpolations::GradientInterpConfig
 };
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::Vector2;
@@ -20,9 +17,9 @@ pub struct GradientConfig {
     pub interp: GradientInterpConfig,
 }
 
-pub fn update_grads(field: &mut Field, mesh: &Computational2DMesh, config: &GradientConfig) {
+pub fn update_grads(field: &mut Field, grad_requirements: &GradRequirements, mesh: &Computational2DMesh, config: &GradientConfig, bc: &Vec<BoundaryCondition>) {
     match field {
-        Field::Scalar(field) => update_grad_scalar(field, mesh, config),
+        Field::Scalar(field) => update_grad_scalar(field, grad_requirements, mesh, config, bc),
         // Field::Vector2(field) => {
         //     update_grad_scalar(&mut field.x, mesh, config);
         //     update_grad_scalar(&mut field.y, mesh, config);
@@ -32,15 +29,33 @@ pub fn update_grads(field: &mut Field, mesh: &Computational2DMesh, config: &Grad
 
 fn update_grad_scalar(
     field: &mut CellScalarField,
+    grad_requirements: &GradRequirements,
     mesh: &Computational2DMesh,
     config: &GradientConfig,
+    bc: &Vec<BoundaryCondition>,
 ) {
-    match config.scheme {
-        GradientScheme::GreenGaussCompact => todo!(),
-        _ => unimplemented!("GradientScheme not implemented for {:?}", config.scheme),
+    if !field.gradients_up_to_date() {
+        if grad_requirements.cell() | grad_requirements.face() {
+            match config.scheme {
+                GradientScheme::GreenGaussCompact => green_gauss_compact(field, mesh),
+                _ => unimplemented!("GradientScheme not implemented for {:?}", config.scheme),
+            }
+        }
+        
+        if grad_requirements.face() {
+            match config.interp {
+                _ => unimplemented!("GradientInterp not implemented for {:?}", config.interp),
+            }
+        }
     }
+}
 
-    match config.interp {
-        _ => unimplemented!("GradientInterp not implemented for {:?}", config.interp),
+fn green_gauss_compact(field: &mut CellScalarField, mesh: &Computational2DMesh) {
+    
+    for (i, value) in field.face_values_mut().iter().enumerate() {
+        value = field.grads_cell()
     }
+    
+    
+    todo!()
 }

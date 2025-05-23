@@ -2,8 +2,7 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
 use super::{
-    case::GradRequirements,
-    gradients::{update_grads, GradientConfig},
+    boundary::BoundaryCondition, case::GradRequirements, gradients::{update_grads, GradientConfig}
 };
 
 /// For now only support of scalar fields
@@ -17,6 +16,7 @@ pub enum Field {
 #[derive(Debug, PartialEq, Clone)]
 pub struct CellScalarField {
     values: DVector<f64>,
+    face_values: DVector<f64>,
     grads_cell: DVector<Vector2<f64>>,
     grads_face: DVector<Vector2<f64>>,
     gradients_up_to_date: bool,
@@ -25,7 +25,8 @@ pub struct CellScalarField {
 impl CellScalarField {
     pub fn new(cells_num: usize, faces_num: usize, grads_required: &GradRequirements) -> Self {
         let values = DVector::zeros(cells_num);
-
+        let face_values = DVector::zeros(faces_num);
+        
         let grads_cell;
         if grads_required.cell() {
             grads_cell = DVector::zeros(cells_num);
@@ -42,6 +43,7 @@ impl CellScalarField {
 
         CellScalarField {
             values,
+            face_values,
             grads_cell,
             grads_face,
             gradients_up_to_date: true,
@@ -56,6 +58,14 @@ impl CellScalarField {
     pub fn values_mut(&mut self) -> &mut DVector<f64> {
         self.gradients_up_to_date = false;
         &mut self.values
+    }
+    
+    pub fn face_values(&self) -> &DVector<f64> {
+        &self.face_values
+    }
+    
+    pub fn face_values_mut(&mut self) -> &mut DVector<f64> {
+        &mut self.face_values
     }
 
     pub fn grads_cell(&self) -> &DVector<Vector2<f64>> {
@@ -88,8 +98,8 @@ impl CellScalarField {
 
 impl Field {
     /// Updates the gradients to match the values
-    pub fn update_grads(&mut self, mesh: &Computational2DMesh, config: &GradientConfig) {
-        update_grads(self, mesh, config);
+    pub fn update_grads(&mut self, grad_requirements: &GradRequirements, mesh: &Computational2DMesh, config: &GradientConfig, bc: &Vec<BoundaryCondition>) {
+        update_grads(self, grad_requirements, mesh, config, bc);
         unsafe {
             match self {
                 Field::Scalar(field) => field.gradients_updated(),

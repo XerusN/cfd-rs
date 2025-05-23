@@ -1,4 +1,7 @@
 use cfd_rs_utils::mesh::{computational_mesh::*, indices::FaceIndex};
+use nalgebra::Field;
+
+use super::{base::CellScalarField, boundary::BoundaryCondition};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum InterpolationConfig {
@@ -34,3 +37,4 @@ pub enum DecompositionConfig {
 // pub fn linear_interp(face_index: FaceIndex, mut field: CellFaceField, mesh: Computational2DMesh) {
 //     todo!()
 // }
+

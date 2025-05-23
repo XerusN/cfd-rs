@@ -1,8 +1,7 @@
 use hashbrown::HashMap;
 use log::warn;
 use std::{
-    cell::{RefCell, RefMut},
-    ops::{Add, DerefMut, Div, Mul, Sub},
+    cell::{RefCell, RefMut}, clone, ops::{Add, DerefMut, Div, Mul, Sub}
 };
 
 use nalgebra_sparse_linalg::iteratives;
@@ -365,22 +364,27 @@ impl System {
                 variable_fields
                     .map
                     .get(var)
-                    .expect(&format!("A field ({var:?}) needed for equation {name:?}"))
+                    .expect(&format!("A field ({var:?}) needed for equation {name:?} is missing"))
             })
             .collect();
-
+        
+        let grad_requirements = fields_grad_required
+            .iter()
+            .map(|tuple| &tuple.1)
+            .collect();
         let fields_required: Vec<RefMut<Field>> = fields_grad_required
             .iter()
             .map(|tuple| tuple.0.borrow_mut())
             .collect();
 
-        solve(system, fields_required, mesh, config)
+        solve(system, fields_required, grad_requirements, mesh, config)
     }
 }
 
 fn solve(
     system: &mut System,
     mut fields: Vec<RefMut<Field>>,
+    grad_requirements: Vec<&GradRequirements>,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
 ) -> usize {
@@ -391,8 +395,8 @@ fn solve(
 
     let eq = lhs - rhs;
     
-    for field in &mut fields {
-        field.update_grads(mesh, &config.schemes.gradients);
+    for (i, field) in fields.iter_mut().enumerate() {
+        field.update_grads(grad_requirements[i], mesh, &config.schemes.gradients, config.bc.map.get(&system.fields_required()[i]).expect("Boundary Condition missing for field"));
     }
     
     system.apply_op(&eq, &fields, mesh, &config.schemes, 1.);
