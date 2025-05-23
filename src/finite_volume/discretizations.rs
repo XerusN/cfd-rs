@@ -1,5 +1,7 @@
 use std::cell::RefMut;
 
+use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+
 use super::{
     base::Field,
     case::GradRequirements,
@@ -57,6 +59,7 @@ impl DifferentialOperator {
         &self,
         system: &mut System,
         fields: &Vec<RefMut<Field>>,
+        mesh: &Computational2DMesh,
         schemes: &Schemes,
         coeff: f64,
     ) {
@@ -64,7 +67,7 @@ impl DifferentialOperator {
             Self::Laplacian(var, integration) => {
                 schemes
                     .laplacian
-                    .discretize(&var, system, &integration, fields, coeff);
+                    .discretize(&var, system, mesh, &integration, fields, coeff);
             }
             Self::Convection {
                 var,
@@ -72,13 +75,13 @@ impl DifferentialOperator {
                 speed,
             } => schemes
                 .convection
-                .discretize(&var, &speed, system, &integration, fields, coeff),
+                .discretize(&var, &speed, system, mesh, &integration, fields, coeff),
             Self::Divergence(var, integration) => {
                 schemes
                     .divergence
-                    .discretize(&var, system, &integration, fields, coeff)
+                    .discretize(&var, system, mesh, &integration, fields, coeff)
             }
-            Self::TimeDerivative(var) => schemes.transient.discretize(&var, system, fields, coeff),
+            Self::TimeDerivative(var) => schemes.transient.discretize(&var, system, mesh, fields, coeff),
         }
     }
 }

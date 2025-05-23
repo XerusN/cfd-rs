@@ -3,7 +3,7 @@ use std::{
     cell::{Ref, RefCell, RefMut},
     fs::File,
     io::{self, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;

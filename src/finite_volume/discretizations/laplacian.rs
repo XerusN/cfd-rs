@@ -1,9 +1,9 @@
 use std::cell::RefMut;
 
+use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+
 use crate::finite_volume::{
-    base::Field,
-    case::GradRequirements,
-    equation::{IntegrationCategory, System, Variable},
+    base::Field, case::GradRequirements, config::CaseConfig, equation::{IntegrationCategory, System, Variable}, gradients::GradientConfig
 };
 
 use super::find_var_in_fields;
@@ -24,12 +24,12 @@ impl LaplacianScheme {
         &self,
         var: &Variable,
         system: &mut System,
+        mesh: &Computational2DMesh,
         integration: &IntegrationCategory,
         fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
         let var = find_var_in_fields(var, system, fields);
-
         match *self {
             Self::Centered => centered(var, system, integration, coeff),
         }
@@ -42,4 +42,5 @@ fn centered(
     integration: &IntegrationCategory,
     coeff: f64,
 ) {
+    todo!()
 }

@@ -11,7 +11,7 @@ use nalgebra_sparse::{CooMatrix, CsrMatrix};
 use super::{
     base::Field,
     case::{Case, GradRequirements},
-    config::Schemes,
+    config::{CaseConfig, Schemes},
     discretizations::DifferentialOperator,
     error::CfdError,
 };
@@ -333,7 +333,7 @@ impl System {
                 self.apply_op(op.as_ref(), fields, mesh, schemes, coeff / scalar);
             }
             Op::Discretize(d_op) => {
-                d_op.discretize(self, fields, schemes, coeff);
+                d_op.discretize(self, fields, mesh, schemes, coeff);
             }
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff);
@@ -350,7 +350,6 @@ impl System {
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
         let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
 
-        let schemes = &config.schemes;
 
         let system = systems
             .map
@@ -373,15 +372,16 @@ impl System {
             .map(|tuple| tuple.0.borrow_mut())
             .collect();
 
-        solve(system, fields_required, mesh, schemes)
+        solve(system, fields_required, mesh, config)
     }
 }
 
 fn solve(
     system: &mut System,
-    fields: Vec<RefMut<Field>>,
+    mut fields: Vec<RefMut<Field>>,
     mesh: &Computational2DMesh,
-    schemes: &Schemes,
+    config: &CaseConfig,
+    
 ) -> usize {
     system.clear();
 
@@ -389,10 +389,14 @@ fn solve(
     let rhs = system.equation.rhs.clone();
 
     let eq = lhs - rhs;
-
-    system.apply_op(&eq, &fields, mesh, schemes, 1.);
+    
+    for field in &mut fields {
+        field.update_grads(mesh, &config.schemes.gradients);
+    }
+    
+    system.apply_op(&eq, &fields, mesh, &config.schemes, 1.);
 
     // Add linear solver
 
-    0
+    todo!()
 }

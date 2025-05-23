@@ -36,11 +36,11 @@ fn update_grad_scalar(
     config: &GradientConfig,
 ) {
     match config.scheme {
-        GradientScheme::GreenGaussCompact => (),
-        _ => panic!("GradientScheme not implemented for {:?}", config.scheme),
+        GradientScheme::GreenGaussCompact => todo!(),
+        _ => unimplemented!("GradientScheme not implemented for {:?}", config.scheme),
     }
 
     match config.interp {
-        _ => panic!("GradientInterp not implemented for {:?}", config.interp),
+        _ => unimplemented!("GradientInterp not implemented for {:?}", config.interp),
     }
 }

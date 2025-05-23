@@ -68,6 +68,5 @@ fn square_4_bc() -> Modifiable2DMesh {
 pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     let mut mesh = square_4_bc();
     advancing_front(&mut mesh, 0.07, OutputControl::None).expect("Error in meshing");
-    println!("{:?}", mesh);
     Computational2DMesh::new_from_he(mesh.0)
 }

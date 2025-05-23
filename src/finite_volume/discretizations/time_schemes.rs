@@ -1,5 +1,7 @@
 use std::cell::RefMut;
 
+use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+
 use crate::finite_volume::{
     base::Field,
     case::GradRequirements,
@@ -25,6 +27,7 @@ impl TimeIntegration {
         &self,
         var: &Variable,
         system: &mut System,
+        mesh: &Computational2DMesh,
         fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
@@ -36,4 +39,6 @@ impl TimeIntegration {
     }
 }
 
-fn forward_euler(var: &RefMut<Field>, system: &mut System, coeff: f64) {}
+fn forward_euler(var: &RefMut<Field>, system: &mut System, coeff: f64) {
+    todo!()
+}

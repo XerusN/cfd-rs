@@ -1,5 +1,7 @@
 use std::cell::RefMut;
 
+use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+
 use crate::finite_volume::{
     base::Field,
     case::GradRequirements,
@@ -25,6 +27,7 @@ impl ConvectionScheme {
         var: &Variable,
         speed: &(Variable, Variable),
         system: &mut System,
+        mesh: &Computational2DMesh,
         integration: &IntegrationCategory,
         fields: &Vec<RefMut<Field>>,
         coeff: f64,
@@ -47,9 +50,10 @@ impl ConvectionScheme {
 fn upwind_second_order(
     var: &RefMut<Field>,
     speed: (&RefMut<Field>, &RefMut<Field>),
-    system: &mut System,
+    system: &System,
     integration: &IntegrationCategory,
     fields: &Vec<RefMut<Field>>,
     coeff: f64,
 ) {
+    todo!()
 }
