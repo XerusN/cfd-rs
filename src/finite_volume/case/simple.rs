@@ -27,6 +27,9 @@ pub struct SimpleCase {
     fields: VariableFields,
     equations: CaseEquations,
     solver: EquationSolver,
+    
+    density: f64,
+    kinematic_viscosity: f64,
 }
 
 impl Case for SimpleCase {
@@ -121,28 +124,52 @@ impl Case for SimpleCase {
     }
 
     fn next_step(&mut self) {
+        
         // Check if gradients are correctly updated
+        Equation::solve(self, "Prediction");
+        
         Equation::solve(self, "Poisson");
-
+        
+        Equation::solve(self, "Correction");
+        
         self.time += self.time_step;
         self.step += 1;
     }
 
     fn new(config: CaseConfig) -> Self {
         let mesh = mesh(&config.geometry);
-
+        
+        let density = 1.;
+        let kinematic_viscosity = 1.;
+        
+        let time_step = 0.01;
+        
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("P".to_string(), Dimension::Scalar);
+        let p = Variable::new("P".to_string(), Dimension::Scalar);
+        let u = Variable::new("U".to_string(), Dimension::Vector2);
 
+        let lhs = Op::Discretize(DifferentialOperator::TimeDerivative(
+            u.clone(),
+        )) + Op::Discretize(DifferentialOperator::Convection { var: u.clone(), speed: u.clone(), integration: IntegrationCategory::Explicit });
+        let rhs = Op::Discretize(DifferentialOperator::Laplacian(u.clone(), IntegrationCategory::Explicit));
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Prediction".to_string(), eq).unwrap();
+        
         let lhs = Op::Discretize(DifferentialOperator::Laplacian(
-            t,
+            p.clone(),
             IntegrationCategory::Implicit,
         ));
-        let rhs = Op::Scalar(0.);
-
+        let rhs = density/time_step*Op::Discretize(DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit));
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
+        
+        let lhs = Op::Discretize(DifferentialOperator::TimeDerivative(
+            u.clone(),
+        ));
+        let rhs = - 1./density * Op::Discretize(DifferentialOperator::Gradient(p.clone(), IntegrationCategory::Explicit));
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Correction".to_string(), eq).unwrap();
 
         let fields = VariableFields::new(&equations, &mesh);
 
@@ -160,6 +187,9 @@ impl Case for SimpleCase {
             fields,
             equations: equations,
             solver,
+            
+            density,
+            kinematic_viscosity,
         }
     }
 }
