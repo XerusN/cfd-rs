@@ -14,7 +14,7 @@ use nalgebra_sparse_linalg::iteratives;
 use super::{
     base::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::{Case, GradRequirements},
+    case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
     discretizations::DifferentialOperator,
     error::CfdError,
@@ -127,6 +127,7 @@ pub struct Equation {
     lhs: Op,
     rhs: Op,
     unknown: Variable,
+    fields_required: Vec<Variable>,
 }
 
 impl Equation {
@@ -149,7 +150,7 @@ impl Equation {
         collector
     }
 
-    pub fn new(lhs: Op, rhs: Op) -> Result<Equation, CfdError> {
+    pub fn new(lhs: Op, rhs: Op, schemes: &Schemes) -> Result<Equation, CfdError> {
         let mut collector = vec![];
         lhs.collect_differential_operators(&mut collector);
         rhs.collect_differential_operators(&mut collector);
@@ -195,58 +196,14 @@ impl Equation {
                 }
             }
         }
-
-        match unknown_var {
-            None => Err(CfdError::EquationNoUnknown { lhs, rhs }),
-            Some(var) => Ok(Equation {
-                lhs,
-                rhs,
-                unknown: var,
-            }),
-        }
-    }
-
-    pub fn into_system(
-        self,
-        mesh: &Computational2DMesh,
-        schemes: &Schemes,
-    ) -> (System, HashMap<Variable, GradRequirements>) {
-        System::new(self, mesh, schemes)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct System {
-    equation: Equation,
-    matrix: CsrMatrix<f64>,
-    rhs: DVector<f64>,
-    int_cat: IntegrationCategory,
-    fields_required: Vec<Variable>,
-}
-
-impl System {
-    pub fn new(
-        equation: Equation,
-        mesh: &Computational2DMesh,
-        schemes: &Schemes,
-    ) -> (System, HashMap<Variable, GradRequirements>) {
-        let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
-
-        for i in 0..mesh.num_cells() {
-            matrix.push(i, i, 0.);
-            for neighbor in mesh.neighboring_cells_id(CellIndex(i)) {
-                matrix.push(i, neighbor.0, 0.)
-            }
-        }
-
-        let matrix = CsrMatrix::from(&matrix);
-
-        let rhs = DVector::zeros(mesh.num_cells());
-
+        
         let mut variable_requirements = HashMap::new();
         let mut integration = IntegrationCategory::Explicit;
-
-        for diff_operator in equation.collect_differential_operators() {
+        
+        let mut collector = vec![];
+        (lhs.clone() - rhs.clone()).collect_differential_operators(&mut collector);
+        
+        for diff_operator in collector {
             let var = diff_operator.variable();
             let (_, required_grad) = diff_operator.required_grads(schemes);
             variable_requirements
@@ -260,21 +217,88 @@ impl System {
             }
         }
 
-        (
-            System {
-                equation,
-                matrix,
+        match unknown_var {
+            None => Err(CfdError::EquationNoUnknown { lhs: lhs, rhs: rhs }),
+            Some(var) => Ok(Equation {
+                lhs,
                 rhs,
-                int_cat: integration,
+                unknown: var,
                 fields_required: variable_requirements
                     .keys()
                     .map(|var| var.clone())
                     .collect(),
-            },
-            variable_requirements,
-        )
+            }),
+        }
+    }
+    
+    pub fn apply_op(
+        &self,
+        op: &Op,
+        solver: &mut EquationSolver,
+        fields: &Vec<RefMut<Field>>,
+        mesh: &Computational2DMesh,
+        config: &CaseConfig,
+        coeff: f64,
+    ) {
+        match op {
+            Op::Add(op) => {
+                self.apply_op(&op.as_ref().0, solver, fields, mesh, config, coeff);
+                self.apply_op(&op.as_ref().1, solver, fields, mesh, config, coeff);
+            }
+            Op::Sub(op) => {
+                self.apply_op(&op.as_ref().0, solver, fields, mesh, config, coeff);
+                self.apply_op(&op.as_ref().1, solver, fields, mesh, config, -coeff);
+            }
+            Op::MulScalar(scalar, op) => {
+                self.apply_op(op.as_ref(), solver, fields, mesh, config, coeff * scalar);
+            }
+            Op::DivScalar(scalar, op) => {
+                self.apply_op(op.as_ref(), solver, fields, mesh, config, coeff / scalar);
+            }
+            Op::Discretize(d_op) => {
+                d_op.discretize(self, solver, fields, mesh, config, coeff);
+            }
+            Op::Scalar(scalar) => {
+                todo!();
+                //solver.add_scalar(*scalar * coeff);
+            }
+            Op::Field(field) => {
+                todo!();
+            }
+        }
+    }
+    
+    pub fn solve(&self, solver: &mut EquationSolver, fields: &mut VariableFields, mesh: &Computational2DMesh, config: &CaseConfig) {
+        
     }
 
+}
+
+pub fn 
+
+pub struct EquationSolver {
+    matrix: CsrMatrix<f64>,
+    rhs: DVector<f64>,
+}
+
+impl EquationSolver {
+    pub fn new(mesh: &Computational2DMesh) -> Self {
+        let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
+
+        for i in 0..mesh.num_cells() {
+            matrix.push(i, i, 0.);
+            for neighbor in mesh.neighboring_cells_id(CellIndex(i)) {
+                matrix.push(i, neighbor.0, 0.)
+            }
+        }
+
+        let matrix = CsrMatrix::from(&matrix);
+
+        let rhs = DVector::zeros(mesh.num_cells());
+        
+        EquationSolver { matrix, rhs}
+    }
+    
     pub fn clear(&mut self) {
         for v in self.matrix.values_mut() {
             *v = 0.;
@@ -282,14 +306,6 @@ impl System {
         for v in self.rhs.iter_mut() {
             *v = 0.;
         }
-    }
-    
-    pub fn equation(&self) -> &Equation {
-        &self.equation
-    }
-
-    pub fn equation_mut(&mut self) -> &mut Equation {
-        &mut self.equation
     }
 
     pub fn matrix(&self) -> &CsrMatrix<f64> {
@@ -308,54 +324,22 @@ impl System {
         &mut self.rhs
     }
 
-    pub fn system_update_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
+    pub fn solver_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
         (&mut self.matrix, &mut self.rhs)
     }
-
-    pub fn integration_category(&self) -> &IntegrationCategory {
-        &self.int_cat
-    }
-
-    pub fn fields_required(&self) -> &[Variable] {
-        &self.fields_required
-    }
-
-    pub fn apply_op(
-        &mut self,
-        op: &Op,
-        fields: &Vec<RefMut<Field>>,
-        mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
-        schemes: &Schemes,
-        coeff: f64,
-        dim_eq: &Dimension,
-    ) {
-        match op {
-            Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff, dim_eq);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, coeff, dim_eq);
-            }
-            Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff, dim_eq);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, -coeff, dim_eq);
-            }
-            Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff * scalar, dim_eq);
-            }
-            Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff / scalar, dim_eq);
-            }
-            Op::Discretize(d_op) => {
-                d_op.discretize(self, fields, mesh, bc, schemes, coeff, dim_eq);
-            }
-            Op::Scalar(scalar) => {
-                self.add_scalar(*scalar * coeff);
-            }
-            Op::Field(field) => {
-                todo!();
-            }
+    
+    fn add_scalar(&mut self, scalar: f64) {
+        for v in self.rhs.iter_mut() {
+            *v -= scalar;
         }
     }
+    
+    
+}
+
+impl System {
+
+    
 
     fn add_scalar(&mut self, scalar: f64) {
         for v in self.rhs.iter_mut() {

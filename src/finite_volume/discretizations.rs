@@ -7,7 +7,7 @@ use super::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::GradRequirements,
     config::Schemes,
-    equation::{Dimension, IntegrationCategory, System, Variable},
+    equation::{Dimension, IntegrationCategory, Variable},
 };
 use std::ops::DerefMut;
 
