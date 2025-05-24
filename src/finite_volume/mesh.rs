@@ -8,6 +8,7 @@ use cfd_rs_utils::{
     },
 };
 use nalgebra::Point2;
+use std::io;
 
 use super::config::GeometryConfig;
 
@@ -66,7 +67,26 @@ fn square_4_bc() -> Modifiable2DMesh {
 
 /// Needs a lot of rework
 pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
-    let mut mesh = square_4_bc();
-    advancing_front(&mut mesh, 0.07, OutputControl::None).expect("Error in meshing");
-    Computational2DMesh::new_from_he(mesh.0)
+    match &geometry.import_path {
+        None => {
+            let mut mesh = square_4_bc();
+            advancing_front(&mut mesh, geometry.element_size, OutputControl::None)
+                .expect("Error in meshing");
+            Computational2DMesh::new_from_he(mesh.0)
+        }
+        Some(path) => match Computational2DMesh::deserialize_file(&path) {
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    let mut mesh = square_4_bc();
+                    advancing_front(&mut mesh, geometry.element_size, OutputControl::None)
+                        .expect("Error in meshing");
+                    let mesh = Computational2DMesh::new_from_he(mesh.0);
+                    mesh.serialize_file(path).unwrap();
+                    mesh
+                }
+                _ => Err(err).unwrap(),
+            },
+            Ok(mesh) => mesh,
+        },
+    }
 }

@@ -17,6 +17,7 @@ use cfd_rs::finite_volume::{
     solvers::poisson::PoissonCase,
 };
 use cfd_rs_utils::geometry;
+use serde::Serialize;
 
 fn main() {
     let schemes = Schemes {
@@ -30,7 +31,10 @@ fn main() {
         },
     };
 
-    let geometry = GeometryConfig {};
+    let geometry = GeometryConfig {
+        import_path: Some("./target/exports/mesh.cfd".to_string()),
+        element_size: 0.01,
+    };
     let bc = vec![
         BoundaryCondition::Dirichlet(300.),
         BoundaryCondition::Dirichlet(200.),
@@ -53,11 +57,13 @@ fn main() {
 
     let mut case = PoissonCase::new(config);
 
+    //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
+
     #[cfg(debug_assertions)]
     case.export().unwrap();
 
     case.next_step();
-    
+
     #[cfg(debug_assertions)]
     case.export().unwrap();
 }

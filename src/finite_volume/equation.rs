@@ -430,7 +430,7 @@ fn solve(
     };
 
     warn!("Hard-coded tol and maxx iter for solve");
-    let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
+    let result = iteratives::jacobi::solve_with_initial_guess(
         system.matrix(),
         &system.rhs,
         field.values_mut(),

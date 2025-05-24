@@ -19,7 +19,10 @@ pub struct CaseConfig {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct GeometryConfig {}
+pub struct GeometryConfig {
+    pub import_path: Option<String>,
+    pub element_size: f64,
+}
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Schemes {

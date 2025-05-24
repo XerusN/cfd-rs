@@ -31,7 +31,7 @@ impl CellScalarField {
             *value = 200.;
         }
         let face_values = DVector::zeros(faces_num);
-        
+
         let grads_cell;
         if grads_required.cell() | grads_required.face() {
             grads_cell = DVector::zeros(cells_num);
