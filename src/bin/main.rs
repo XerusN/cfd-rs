@@ -1,4 +1,5 @@
 use cfd_rs::finite_volume::config::OutputConfig;
+use cfd_rs::finite_volume::solvers::simple::SimpleCase;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
@@ -16,8 +17,6 @@ use cfd_rs::finite_volume::{
     interpolations::GradientInterpConfig,
     solvers::poisson::PoissonCase,
 };
-use cfd_rs_utils::geometry;
-use serde::Serialize;
 
 fn main() {
     let schemes = Schemes {
@@ -55,15 +54,17 @@ fn main() {
         output,
     };
 
-    let mut case = PoissonCase::new(config);
+    let mut case = SimpleCase::new(config);
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
-
-    #[cfg(debug_assertions)]
-    case.export().unwrap();
+    
+    println!("{}", case.name());
+    
+    // #[cfg(debug_assertions)]
+    // case.export().unwrap();
 
     case.next_step();
-
-    #[cfg(debug_assertions)]
+    
+    // #[cfg(debug_assertions)]
     case.export().unwrap();
 }

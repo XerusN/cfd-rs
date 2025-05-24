@@ -35,7 +35,7 @@ impl GradRequirements {
     }
 
     /// Returns the most restrictive requirement (true)
-    pub fn update_requirements(&mut self, other: Self) {
+    pub fn update_requirements(&mut self, other: &Self) {
         self.cell = self.cell | other.cell;
         self.face = self.face | other.face;
     }
@@ -166,21 +166,38 @@ pub trait Case {
         writeln!(file, "      <CellData>")?;
         // Does not support vector fields yet
         for var in self.fields_list() {
-            writeln!(
-                file,
-                "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                var.name(),
-            )?;
-            write!(file, "          ")?;
+            
             let temp = self
                 .field(var)
                 .expect("Incoherence between variable list and fields");
-            let field = match temp.deref() {
-                Field::Scalar(scalar_field) => scalar_field.values(),
+            match temp.deref() {
+                Field::Scalar(scalar_field) => {
+                    writeln!(
+                        file,
+                        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                        var.name(),
+                    )?;
+                    write!(file, "          ")?;
+                    let field = scalar_field.values();
+                    for value in field {
+                        write!(file, "{} ", value)?;
+                    }
+                },
+                Field::Vector2(fields) => {
+                    writeln!(
+                        file,
+                        "        <DataArray NumberOfComponents=\"2\" type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                        var.name(),
+                    )?;
+                    write!(file, "          ")?;
+                    let field_x = fields.x.values();
+                    let field_y = fields.y.values();
+                    for i in 0..field_x.len() {
+                        write!(file, "{} {} ", field_x[i], field_y[i])?;
+                    }
+                },
             };
-            for value in field {
-                write!(file, "{} ", value)?;
-            }
+            
             writeln!(file)?;
             writeln!(file, "        </DataArray>")?;
         }

@@ -30,6 +30,7 @@ pub enum Op {
     MulScalar(f64, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
+    Field(Field),
 }
 
 impl Op {
@@ -105,7 +106,9 @@ pub struct Variable {
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Dimension {
     Scalar,
-    //Vector2,
+    Vector2,
+    XComponent,
+    YComponent,
 }
 
 impl Variable {
@@ -249,7 +252,7 @@ impl System {
             variable_requirements
                 .entry(var.clone())
                 .and_modify(|current: &mut GradRequirements| {
-                    current.update_requirements(required_grad.clone())
+                    current.update_requirements(&required_grad)
                 })
                 .or_insert(required_grad);
             if diff_operator.integration() == Some(&IntegrationCategory::Implicit) {
@@ -280,7 +283,7 @@ impl System {
             *v = 0.;
         }
     }
-
+    
     pub fn equation(&self) -> &Equation {
         &self.equation
     }
@@ -325,27 +328,31 @@ impl System {
         bc: &FieldsBoundaryConditions,
         schemes: &Schemes,
         coeff: f64,
+        dim_eq: &Dimension,
     ) {
         match op {
             Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, coeff);
+                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff, dim_eq);
+                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, coeff, dim_eq);
             }
             Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, -coeff);
+                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff, dim_eq);
+                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, -coeff, dim_eq);
             }
             Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff * scalar);
+                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff * scalar, dim_eq);
             }
             Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff / scalar);
+                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff / scalar, dim_eq);
             }
             Op::Discretize(d_op) => {
-                d_op.discretize(self, fields, mesh, bc, schemes, coeff);
+                d_op.discretize(self, fields, mesh, bc, schemes, coeff, dim_eq);
             }
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff);
+            }
+            Op::Field(field) => {
+                todo!();
             }
         }
     }
@@ -410,37 +417,82 @@ fn solve(
                 .expect("Boundary Condition missing for field"),
         );
     }
+    
+    match system.equation().unknown().dim {
+        Dimension::Scalar => {
+            let dim = Dimension::Scalar;
+            system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1., dim);
 
-    system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1.);
+            let index = system
+                .fields_required()
+                .iter()
+                .position(|var_i| system.equation().unknown() == var_i)
+                .expect(&format!(
+                    "Missing variable {:?} in fields for equation {:?}",
+                    system.equation().unknown(),
+                    system.equation()
+                ));
+            
 
-    let index = system
-        .fields_required()
-        .iter()
-        .position(|var_i| system.equation().unknown() == var_i)
-        .expect(&format!(
-            "Missing variable {:?} in fields for equation {:?}",
-            system.equation().unknown(),
-            system.equation()
-        ));
+            let field = fields[index].deref_mut();
 
-    let field = fields[index].deref_mut();
+            let field = match field {
+                Field::Scalar(value) => value,
+                _ => panic!("Unknown should be scalar"),
+            };
+            
+            warn!("Hard-coded tol and max_iter for solve");
+            let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
+                system.matrix(),
+                &system.rhs,
+                field.values_mut(),
+                1000,
+                1e-3,
+            );
 
-    let mut field = match field {
-        Field::Scalar(value) => value,
-    };
+            if !result {
+                panic!("Did not converge when solving {:?}", system.equation())
+            }
+        },
+        Dimension::Vector2 => {
+            
+            system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1.);
 
-    warn!("Hard-coded tol and maxx iter for solve");
-    let result = iteratives::jacobi::solve_with_initial_guess(
-        system.matrix(),
-        &system.rhs,
-        field.values_mut(),
-        1000,
-        1e-3,
-    );
+            let index = system
+                .fields_required()
+                .iter()
+                .position(|var_i| system.equation().unknown() == var_i)
+                .expect(&format!(
+                    "Missing variable {:?} in fields for equation {:?}",
+                    system.equation().unknown(),
+                    system.equation()
+                ));
+            
 
-    if !result {
-        panic!("Did not converge when solving {:?}", system.equation())
+            let field = fields[index].deref_mut();
+
+            let field = match field {
+                Field::Vector2(value) => value,
+                _ => panic!("Unknown should be scalar"),
+            };
+            
+            warn!("Hard-coded tol and max_iter for solve");
+            let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
+                system.matrix(),
+                &system.rhs,
+                field.values_mut(),
+                1000,
+                1e-3,
+            );
+
+            if !result {
+                panic!("Did not converge when solving {:?}", system.equation())
+            }
+        },
+        _ => (),
     }
+    
+    
 
     0
 }

@@ -4,17 +4,17 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::{System, Variable};
 use crate::finite_volume::{
     base::Field,
-    case::{Case, CaseSystems, VariableFields},
-    config::{CaseConfig, GeometryConfig, Schemes},
+    case::{Case, CaseSystems, GradRequirements, VariableFields},
+    config::{CaseConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, IntegrationCategory, Op},
     mesh::mesh,
 };
 
-use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
+use cfd_rs_utils::mesh::computational_mesh::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase {
+pub struct SimpleCase {
     name: String,
     step: usize,
     time: f64,
@@ -28,7 +28,7 @@ pub struct PoissonCase {
     systems: CaseSystems,
 }
 
-impl Case for PoissonCase {
+impl Case for SimpleCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -108,8 +108,9 @@ impl Case for PoissonCase {
             &self.config,
         )
     }
-
+    
     fn next_step(&mut self) {
+        println!("Ok");
         // Check if gradients are correctly updated
         System::solve(self, "Poisson");
 
@@ -119,25 +120,37 @@ impl Case for PoissonCase {
 
     fn new(config: CaseConfig) -> Self {
         let mesh = mesh(&config.geometry);
-
+        
+        let u_x = Variable::new("U_x".to_string(), Dimension::Scalar);
+        let u_y = Variable::new("U_y".to_string(), Dimension::Scalar);
+        let u_x_temp = Variable::new("U_x_temp".to_string(), Dimension::Scalar);
+        let u_y_temp = Variable::new("U_y_temp".to_string(), Dimension::Scalar);
         let p = Variable::new("P".to_string(), Dimension::Scalar);
-
+        
+        let mut systems = HashMap::new();
+        
+        let mut variables_glob = HashMap::new();
+        
         let lhs = Op::Discretize(DifferentialOperator::Laplacian(
             p,
             IntegrationCategory::Implicit,
         ));
         let rhs = Op::Scalar(0.);
-
         let eq = Equation::new(lhs, rhs).expect("Equation not valid");
-
         let (system, variables) = eq.into_system(&mesh, &config.schemes);
-
-        let mut systems = HashMap::new();
         systems.insert("Poisson".to_string(), system);
-        let fields = VariableFields::new(variables, &mesh);
-
-        PoissonCase {
-            name: "Poisson-2D".to_string(),
+        for (variable, grad) in &variables {
+            let old_value = variables_glob.try_insert(variable.clone(), grad.clone());
+            match old_value {
+                Ok(_) => (),
+                Err(mut old_value) => old_value.value.update_requirements(&grad),
+            }
+        }
+        
+        let fields = VariableFields::new(variables_glob, &mesh);
+        
+        SimpleCase {
+            name: "Simple-2D".to_string(),
 
             time: 0.,
             time_step: 1.,

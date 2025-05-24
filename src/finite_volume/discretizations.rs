@@ -7,7 +7,7 @@ use super::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::GradRequirements,
     config::Schemes,
-    equation::{IntegrationCategory, System, Variable},
+    equation::{Dimension, IntegrationCategory, System, Variable},
 };
 use std::ops::DerefMut;
 
@@ -64,6 +64,7 @@ impl DifferentialOperator {
         bc: &FieldsBoundaryConditions,
         schemes: &Schemes,
         coeff: f64,
+        dim_eq: &Dimension,
     ) {
         match self {
             Self::Laplacian(var, integration) => {

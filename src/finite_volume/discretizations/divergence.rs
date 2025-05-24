@@ -13,13 +13,13 @@ use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DivergenceScheme {
-    Centered,
+    RhieAndChow,
 }
 
 impl DivergenceScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
-            Self::Centered => GradRequirements::new(false, false),
+            Self::RhieAndChow => GradRequirements::new(false, false),
         }
     }
 
@@ -36,12 +36,12 @@ impl DivergenceScheme {
         let var = find_var_in_fields(var, system, fields);
 
         match *self {
-            Self::Centered => centered(var, system, integration, coeff),
+            Self::RhieAndChow => rhie_and_chow(var, system, integration, coeff),
         }
     }
 }
 
-fn centered(
+fn rhie_and_chow(
     var: &RefMut<Field>,
     system: &mut System,
     integration: &IntegrationCategory,
