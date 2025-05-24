@@ -18,6 +18,7 @@ use super::{
 };
 
 pub mod poisson;
+pub mod simple;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {

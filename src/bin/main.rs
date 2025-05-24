@@ -1,3 +1,4 @@
+use cfd_rs::finite_volume::case::simple::SimpleCase;
 use cfd_rs::finite_volume::config::OutputConfig;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
@@ -44,7 +45,7 @@ fn main() {
         directory: "./target/exports".to_string(),
     };
     let mut bc_fields = HashMap::new();
-    bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
     let config = CaseConfig {
         schemes,
@@ -53,7 +54,7 @@ fn main() {
         output,
     };
 
-    let mut case = PoissonCase::new(config);
+    let mut case = SimpleCase::new(config);
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
 

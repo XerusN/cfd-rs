@@ -14,7 +14,7 @@ use crate::finite_volume::{
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase {
+pub struct SimpleCase {
     name: String,
     step: usize,
     time: f64,
@@ -29,7 +29,7 @@ pub struct PoissonCase {
     solver: EquationSolver,
 }
 
-impl Case for PoissonCase {
+impl Case for SimpleCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -133,7 +133,7 @@ impl Case for PoissonCase {
 
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar);
+        let t = Variable::new("P".to_string(), Dimension::Scalar);
 
         let lhs = Op::Discretize(DifferentialOperator::Laplacian(
             t,
@@ -149,7 +149,7 @@ impl Case for PoissonCase {
         let solver = EquationSolver::new(&mesh);
 
         Self {
-            name: "Poisson-2D".to_string(),
+            name: "Simple-2D".to_string(),
 
             time: 0.,
             time_step: 1.,

@@ -2,7 +2,10 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
 use super::{
-    boundary::BoundaryCondition, case::{CaseEquations, GradRequirements}, config::CaseConfig, gradients::{update_grads, GradientConfig}
+    boundary::BoundaryCondition,
+    case::{CaseEquations, GradRequirements},
+    config::CaseConfig,
+    gradients::{update_grads, GradientConfig},
 };
 
 /// For now only support of scalar fields
