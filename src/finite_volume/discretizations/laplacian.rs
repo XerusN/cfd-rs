@@ -7,10 +7,7 @@ use cfd_rs_utils::mesh::{
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    base::Field,
-    boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::GradRequirements,
-    equation::{IntegrationCategory, System, Variable},
+    base::Field, boundary::{BoundaryCondition, FieldsBoundaryConditions}, case::{GradRequirements, VariableFields}, config::{self, CaseConfig}, equation::{Component, EquationSolver, IntegrationCategory, Variable}
 };
 
 use super::find_var_in_fields;
@@ -26,43 +23,50 @@ impl LaplacianScheme {
             Self::OrthogonalCorrection => GradRequirements::new(false, true),
         }
     }
-
+    
     pub fn discretize(
         &self,
         var: &Variable,
-        system: &mut System,
+        component: &Component,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
+        config: &CaseConfig,
         integration: &IntegrationCategory,
-        fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
-        let field = find_var_in_fields(var, system, fields);
-        let bc = bc
+        let field = find_var_in_fields(var, fields);
+        let bc = config.bc
             .map
             .get(var)
             .expect("Missing boundary condition for field");
         match *self {
             Self::OrthogonalCorrection => {
-                orthogonal_correction(field, system, mesh, bc, integration, coeff)
+                orthogonal_correction(component, solver, field, mesh, bc, integration, coeff)
             }
         }
     }
 }
 
 fn orthogonal_correction(
+    component: &Component,
+    solver: &mut EquationSolver,
     field: &RefMut<Field>,
-    system: &mut System,
     mesh: &Computational2DMesh,
-    bc: &Vec<BoundaryCondition>,
+    boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
 ) {
-    let (matrix, rhs) = system.system_update_borrow_mut();
+    
+    let (matrix, rhs) = solver.solver_borrow_mut();
     let field = match field.deref() {
         Field::Scalar(value) => value,
+        Field::Vector2(value) => match *component {
+            Component::X => &value.x,
+            Component::Y => &value.y,
+        }
     };
-
+    
     match *integration {
         IntegrationCategory::Implicit => {
             for cell in 0..rhs.len() {
@@ -93,7 +97,7 @@ fn orthogonal_correction(
                                 - e_f;
                             rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
                         }
-                        Patch::Boundary(id) => match bc[id.0] {
+                        Patch::Boundary(id) => match boundary_condition[id.0] {
                             BoundaryCondition::Dirichlet(bc_value) => {
                                 let d_cb = face.middle_point(mesh.vertices())
                                     - mesh.cells()[cell].centroid();
@@ -153,7 +157,7 @@ fn orthogonal_correction(
                                 - e_f;
                             rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
                         }
-                        Patch::Boundary(id) => match bc[id.0] {
+                        Patch::Boundary(id) => match boundary_condition[id.0] {
                             BoundaryCondition::Dirichlet(bc_value) => {
                                 let d_cb = face.middle_point(mesh.vertices())
                                     - mesh.cells()[cell].centroid();
@@ -183,6 +187,7 @@ fn orthogonal_correction(
                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                 }
             }
+            todo!();
         }
     }
 }

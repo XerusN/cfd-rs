@@ -3,10 +3,7 @@ use std::cell::RefMut;
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
-    base::Field,
-    boundary::FieldsBoundaryConditions,
-    case::GradRequirements,
-    equation::{IntegrationCategory, System, Variable},
+    base::Field, boundary::FieldsBoundaryConditions, case::{GradRequirements, VariableFields}, config::CaseConfig, equation::{Component, EquationSolver, IntegrationCategory, System, Variable}
 };
 
 use super::find_var_in_fields;
@@ -26,12 +23,13 @@ impl ConvectionScheme {
     pub fn discretize(
         &self,
         var: &Variable,
+        component: &Component,
         speed: &(Variable, Variable),
-        system: &mut System,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
+        config: &CaseConfig,
         integration: &IntegrationCategory,
-        fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
         let speed = (

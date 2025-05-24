@@ -12,7 +12,7 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use super::{
     base::{CellScalarField, Field},
     config::{CaseConfig, Schemes},
-    equation::{System, Variable},
+    equation::{Equation, EquationSolver, Variable},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -70,8 +70,8 @@ impl VariableFields {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CaseSystems {
-    pub map: HashMap<String, System>,
+pub struct CaseEquations {
+    pub map: HashMap<String, Equation>,
 }
 
 pub trait Case {
@@ -232,8 +232,9 @@ pub trait Case {
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut CaseSystems,
+        &mut EquationSolver,
         &mut VariableFields,
+        &CaseEquations,
         &Computational2DMesh,
         &CaseConfig,
     );

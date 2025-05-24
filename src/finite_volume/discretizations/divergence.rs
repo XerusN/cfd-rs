@@ -26,11 +26,12 @@ impl DivergenceScheme {
     pub fn discretize(
         &self,
         var: &Variable,
-        system: &mut System,
+        component: &Component,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
+        config: &CaseConfig,
         integration: &IntegrationCategory,
-        fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
         let var = find_var_in_fields(var, system, fields);

@@ -5,9 +5,9 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use super::{
     base::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::GradRequirements,
-    config::Schemes,
-    equation::{Dimension, IntegrationCategory, Variable},
+    case::{GradRequirements, VariableFields},
+    config::{CaseConfig, Schemes},
+    equation::{Component, Dimension, Equation, EquationSolver, IntegrationCategory, Variable},
 };
 use std::ops::DerefMut;
 
@@ -21,7 +21,7 @@ pub enum DifferentialOperator {
     Laplacian(Variable, IntegrationCategory),
     Convection {
         var: Variable,
-        speed: (Variable, Variable),
+        speed: Variable,
         integration: IntegrationCategory,
     },
     Divergence(Variable, IntegrationCategory),
@@ -55,61 +55,60 @@ impl DifferentialOperator {
             Self::TimeDerivative(_) => None,
         }
     }
-
+    
     pub fn discretize(
         &self,
-        system: &mut System,
-        fields: &Vec<RefMut<Field>>,
+        component: &Component,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
-        schemes: &Schemes,
+        config: &CaseConfig,
         coeff: f64,
-        dim_eq: &Dimension,
     ) {
         match self {
             Self::Laplacian(var, integration) => {
-                schemes
+                config.schemes
                     .laplacian
-                    .discretize(&var, system, mesh, bc, &integration, fields, coeff);
+                    .discretize(&var, component, solver, fields, mesh, config, &integration, coeff);
             }
             Self::Convection {
                 var,
                 integration,
                 speed,
-            } => schemes.convection.discretize(
+            } => config.schemes.convection.discretize(
                 &var,
                 &speed,
-                system,
+                solver,
                 mesh,
-                bc,
+                config,
                 &integration,
                 fields,
                 coeff,
             ),
             Self::Divergence(var, integration) => {
-                schemes
+                config.schemes
                     .divergence
-                    .discretize(&var, system, mesh, bc, &integration, fields, coeff)
+                    .discretize(&var, component, solver, fields, mesh, config, &integration, coeff);
             }
-            Self::TimeDerivative(var) => schemes
+            Self::TimeDerivative(var) => config.schemes
                 .transient
-                .discretize(&var, system, mesh, bc, fields, coeff),
+                .discretize(&var, component, solver, fields, mesh, config, coeff),
         }
     }
 }
 
 fn find_var_in_fields<'a, 'b>(
     var: &Variable,
-    system: &System,
-    fields: &'a Vec<RefMut<'b, Field>>,
+    fields: &VariableFields,
 ) -> &'a RefMut<'b, Field> {
-    let index = system
+    todo!();
+    let index = equation
         .fields_required()
         .iter()
         .position(|var_i| var == var_i)
         .expect(&format!(
             "Missing variable {var:?} in fields for equation {:?}",
-            system.equation()
+            equation
         ));
     &fields[index]
 }
