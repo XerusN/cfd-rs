@@ -1,4 +1,4 @@
-use std::{cell::RefMut, ops::Deref};
+use std::{cell::{RefCell, RefMut}, ops::Deref};
 
 use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},
@@ -7,7 +7,11 @@ use cfd_rs_utils::mesh::{
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    base::Field, boundary::{BoundaryCondition, FieldsBoundaryConditions}, case::{GradRequirements, VariableFields}, config::{self, CaseConfig}, equation::{Component, EquationSolver, IntegrationCategory, Variable}
+    base::Field,
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    case::{GradRequirements, VariableFields},
+    config::{self, CaseConfig},
+    equation::{Component, EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;
@@ -23,7 +27,7 @@ impl LaplacianScheme {
             Self::OrthogonalCorrection => GradRequirements::new(false, true),
         }
     }
-    
+
     pub fn discretize(
         &self,
         var: &Variable,
@@ -36,7 +40,8 @@ impl LaplacianScheme {
         coeff: f64,
     ) {
         let field = find_var_in_fields(var, fields);
-        let bc = config.bc
+        let bc = config
+            .bc
             .map
             .get(var)
             .expect("Missing boundary condition for field");
@@ -51,22 +56,22 @@ impl LaplacianScheme {
 fn orthogonal_correction(
     component: &Component,
     solver: &mut EquationSolver,
-    field: &RefMut<Field>,
+    field: &RefCell<Field>,
     mesh: &Computational2DMesh,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
 ) {
-    
     let (matrix, rhs) = solver.solver_borrow_mut();
+    let field = field.borrow();
     let field = match field.deref() {
         Field::Scalar(value) => value,
         Field::Vector2(value) => match *component {
             Component::X => &value.x,
             Component::Y => &value.y,
-        }
+        },
     };
-    
+
     match *integration {
         IntegrationCategory::Implicit => {
             for cell in 0..rhs.len() {

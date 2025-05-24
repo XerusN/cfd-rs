@@ -57,14 +57,14 @@ fn main() {
     let mut case = SimpleCase::new(config);
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
-    
+
     println!("{}", case.name());
-    
+
     // #[cfg(debug_assertions)]
     // case.export().unwrap();
 
     case.next_step();
-    
+
     // #[cfg(debug_assertions)]
     case.export().unwrap();
 }

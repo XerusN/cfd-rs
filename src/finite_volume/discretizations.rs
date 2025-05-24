@@ -1,4 +1,4 @@
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
@@ -55,7 +55,7 @@ impl DifferentialOperator {
             Self::TimeDerivative(_) => None,
         }
     }
-    
+
     pub fn discretize(
         &self,
         component: &Component,
@@ -67,9 +67,16 @@ impl DifferentialOperator {
     ) {
         match self {
             Self::Laplacian(var, integration) => {
-                config.schemes
-                    .laplacian
-                    .discretize(&var, component, solver, fields, mesh, config, &integration, coeff);
+                config.schemes.laplacian.discretize(
+                    &var,
+                    component,
+                    solver,
+                    fields,
+                    mesh,
+                    config,
+                    &integration,
+                    coeff,
+                );
             }
             Self::Convection {
                 var,
@@ -77,38 +84,38 @@ impl DifferentialOperator {
                 speed,
             } => config.schemes.convection.discretize(
                 &var,
+                component,
                 &speed,
                 solver,
+                fields,
                 mesh,
                 config,
                 &integration,
-                fields,
                 coeff,
             ),
             Self::Divergence(var, integration) => {
-                config.schemes
-                    .divergence
-                    .discretize(&var, component, solver, fields, mesh, config, &integration, coeff);
+                config.schemes.divergence.discretize(
+                    &var,
+                    component,
+                    solver,
+                    fields,
+                    mesh,
+                    config,
+                    &integration,
+                    coeff,
+                );
             }
-            Self::TimeDerivative(var) => config.schemes
+            Self::TimeDerivative(var) => config
+                .schemes
                 .transient
                 .discretize(&var, component, solver, fields, mesh, config, coeff),
         }
     }
 }
 
-fn find_var_in_fields<'a, 'b>(
-    var: &Variable,
-    fields: &VariableFields,
-) -> &'a RefMut<'b, Field> {
-    todo!();
-    let index = equation
-        .fields_required()
-        .iter()
-        .position(|var_i| var == var_i)
+fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
+    &fields.map.get(var)
         .expect(&format!(
-            "Missing variable {var:?} in fields for equation {:?}",
-            equation
-        ));
-    &fields[index]
+            "Missing variable {var:?} in fields",
+        )).0
 }

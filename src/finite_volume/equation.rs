@@ -3,7 +3,7 @@ use log::warn;
 use std::{
     cell::{RefCell, RefMut},
     clone,
-    ops::{Add, DerefMut, Div, Mul, Sub},
+    ops::{Add, Deref, DerefMut, Div, Mul, Sub},
 };
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
@@ -30,7 +30,7 @@ pub enum Op {
     MulScalar(f64, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
-    Field(Field),
+    Field(Variable),
 }
 
 impl Op {
@@ -45,6 +45,7 @@ impl Op {
             }
             Op::Discretize(dop) => collector.push(dop.clone()),
             Op::Scalar(_) => {}
+            Op::Field(_) => {}
         }
     }
 }
@@ -145,7 +146,7 @@ impl Equation {
     pub fn unknown(&self) -> &Variable {
         &self.unknown
     }
-    
+
     pub fn fields_required(&self) -> &[Variable] {
         &self.fields_required
     }
@@ -203,13 +204,13 @@ impl Equation {
                 }
             }
         }
-        
+
         let mut variable_requirements = HashMap::new();
         let mut integration = IntegrationCategory::Explicit;
-        
+
         let mut collector = vec![];
         (lhs.clone() - rhs.clone()).collect_differential_operators(&mut collector);
-        
+
         for diff_operator in collector {
             let var = diff_operator.variable();
             let (_, required_grad) = diff_operator.required_grads(schemes);
@@ -237,38 +238,20 @@ impl Equation {
             }),
         }
     }
-    
-    
-    
+
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
         let (solver, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
-        
+
         let equation = equations
             .map
             .get(name)
             .expect(&format!("This equation is not defined: {name:?}"));
-        
-        let fields_grad_required: Vec<&(RefCell<Field>, GradRequirements)> = equation
-            .fields_required
-            .iter()
-            .map(|var| {
-                variable_fields.map.get(var).expect(&format!(
-                    "A field ({var:?}) needed for equation {name:?} is missing"
-                ))
-            })
-            .collect();
-        
-        let grad_requirements = fields_grad_required.iter().map(|tuple| &tuple.1).collect();
-        let fields_required: Vec<RefMut<Field>> = fields_grad_required
-            .iter()
-            .map(|tuple| tuple.0.borrow_mut())
-            .collect();
-            
-        solve(solver, equation, fields_required, grad_requirements, mesh, config)
-    }
 
+        solve(solver, equation, variable_fields, mesh, config)
+    }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct EquationSolver {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
@@ -288,10 +271,10 @@ impl EquationSolver {
         let matrix = CsrMatrix::from(&matrix);
 
         let rhs = DVector::zeros(mesh.num_cells());
-        
-        EquationSolver { matrix, rhs}
+
+        EquationSolver { matrix, rhs }
     }
-    
+
     pub fn clear(&mut self) {
         for v in self.matrix.values_mut() {
             *v = 0.;
@@ -320,13 +303,13 @@ impl EquationSolver {
     pub fn solver_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
         (&mut self.matrix, &mut self.rhs)
     }
-    
+
     fn add_scalar(&mut self, scalar: f64) {
         for v in self.rhs.iter_mut() {
             *v -= scalar;
         }
     }
-    
+
     pub fn apply_op(
         &mut self,
         op: &Op,
@@ -352,7 +335,7 @@ impl EquationSolver {
                 self.apply_op(op.as_ref(), component, fields, mesh, config, coeff / scalar);
             }
             Op::Discretize(d_op) => {
-                d_op.discretize(self, component, fields, mesh, config, coeff);
+                d_op.discretize(component, self, fields, mesh, config, coeff);
             }
             Op::Scalar(scalar) => {
                 todo!();
@@ -363,14 +346,12 @@ impl EquationSolver {
             }
         }
     }
-    
 }
 
 fn solve(
     solver: &mut EquationSolver,
     equation: &Equation,
-    mut fields: Vec<RefMut<Field>>,
-    grad_requirements: Vec<&GradRequirements>,
+    mut fields: &mut VariableFields,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
 ) -> usize {
@@ -381,55 +362,60 @@ fn solve(
 
     let eq = lhs - rhs;
 
-    for (i, field) in fields.iter_mut().enumerate() {
-        field.update_grads(
-            grad_requirements[i],
+    for (var, mut field) in &fields.map {
+        field.0.borrow_mut().update_grads(
+            &field.1,
             mesh,
             &config.schemes.gradients,
             config
                 .bc
                 .map
-                .get(&equation.fields_required()[i])
+                .get(var)
                 .expect("Boundary Condition missing for field"),
         );
     }
-    
+
     match equation.unknown().dim {
         Dimension::Scalar => {
-            let dim = Dimension::Scalar;
-            system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1., dim);
+            let component = Component::X;
+            solver.apply_op(&eq, &component, &fields, mesh, config, 1.);
 
-            let index = system
-                .fields_required()
-                .iter()
-                .position(|var_i| system.equation().unknown() == var_i)
-                .expect(&format!(
-                    "Missing variable {:?} in fields for equation {:?}",
-                    system.equation().unknown(),
-                    system.equation()
-                ));
-            
+            // let index = system
+            //     .fields_required()
+            //     .iter()
+            //     .position(|var_i| system.equation().unknown() == var_i)
+            //     .expect(&format!(
+            //         "Missing variable {:?} in fields for equation {:?}",
+            //         system.equation().unknown(),
+            //         system.equation()
+            //     ));
 
-            let field = fields[index].deref_mut();
+            let field_cell = &fields
+                .map
+                .get_mut(equation.unknown())
+                .expect("Missing field for equation")
+                .0;
 
-            let field = match field {
-                Field::Scalar(value) => value,
+            let mut field = field_cell.borrow_mut();
+
+            let field = match &mut *field {
+                Field::Scalar(ref mut scalar_field) => scalar_field,
                 _ => panic!("Unknown should be scalar"),
             };
-            
+
             warn!("Hard-coded tol and max_iter for solve");
             let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
-                system.matrix(),
-                &system.rhs,
+                solver.matrix(),
+                &solver.rhs,
                 field.values_mut(),
                 1000,
                 1e-3,
             );
 
             if !result {
-                panic!("Did not converge when solving {:?}", system.equation())
+                panic!("Did not converge when solving {:?}", equation)
             }
-        },
+        }
         Dimension::Vector2 => todo!(),
         _ => todo!(),
     }

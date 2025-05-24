@@ -108,7 +108,7 @@ impl Case for SimpleCase {
             &self.config,
         )
     }
-    
+
     fn next_step(&mut self) {
         println!("Ok");
         // Check if gradients are correctly updated
@@ -120,17 +120,17 @@ impl Case for SimpleCase {
 
     fn new(config: CaseConfig) -> Self {
         let mesh = mesh(&config.geometry);
-        
+
         let u_x = Variable::new("U_x".to_string(), Dimension::Scalar);
         let u_y = Variable::new("U_y".to_string(), Dimension::Scalar);
         let u_x_temp = Variable::new("U_x_temp".to_string(), Dimension::Scalar);
         let u_y_temp = Variable::new("U_y_temp".to_string(), Dimension::Scalar);
         let p = Variable::new("P".to_string(), Dimension::Scalar);
-        
+
         let mut systems = HashMap::new();
-        
+
         let mut variables_glob = HashMap::new();
-        
+
         let lhs = Op::Discretize(DifferentialOperator::Laplacian(
             p,
             IntegrationCategory::Implicit,
@@ -146,9 +146,9 @@ impl Case for SimpleCase {
                 Err(mut old_value) => old_value.value.update_requirements(&grad),
             }
         }
-        
+
         let fields = VariableFields::new(variables_glob, &mesh);
-        
+
         SimpleCase {
             name: "Simple-2D".to_string(),
 

@@ -166,7 +166,6 @@ pub trait Case {
         writeln!(file, "      <CellData>")?;
         // Does not support vector fields yet
         for var in self.fields_list() {
-            
             let temp = self
                 .field(var)
                 .expect("Incoherence between variable list and fields");
@@ -182,7 +181,7 @@ pub trait Case {
                     for value in field {
                         write!(file, "{} ", value)?;
                     }
-                },
+                }
                 Field::Vector2(fields) => {
                     writeln!(
                         file,
@@ -195,9 +194,9 @@ pub trait Case {
                     for i in 0..field_x.len() {
                         write!(file, "{} {} ", field_x[i], field_y[i])?;
                     }
-                },
+                }
             };
-            
+
             writeln!(file)?;
             writeln!(file, "        </DataArray>")?;
         }
@@ -221,9 +220,13 @@ pub trait Case {
 
     fn equations_list(&self) -> Vec<&String>;
 
-    fn equation(&self, name: &str) -> Option<&System>;
+    fn equation(&self, name: &str) -> Option<&Equation>;
 
-    fn equation_mut(&mut self, name: &str) -> Option<&mut System>;
+    fn equation_mut(&mut self, name: &str) -> Option<&mut Equation>;
+    
+    fn solver(&self) -> &EquationSolver;
+    
+    fn solver_mut(&mut self) -> &mut EquationSolver;
 
     fn schemes(&self) -> &Schemes;
 

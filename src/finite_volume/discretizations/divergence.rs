@@ -1,12 +1,13 @@
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
     base::Field,
-    boundary::FieldsBoundaryConditions,
-    case::GradRequirements,
-    equation::{IntegrationCategory, System, Variable},
+    boundary::BoundaryCondition,
+    case::{GradRequirements, VariableFields},
+    config::CaseConfig,
+    equation::{Component, EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;
@@ -34,17 +35,27 @@ impl DivergenceScheme {
         integration: &IntegrationCategory,
         coeff: f64,
     ) {
-        let var = find_var_in_fields(var, system, fields);
+        let bc = config
+            .bc
+            .map
+            .get(var)
+            .expect("Missing boundary condition for field");
+        let var = find_var_in_fields(var, fields);
 
         match *self {
-            Self::RhieAndChow => rhie_and_chow(var, system, integration, coeff),
+            Self::RhieAndChow => {
+                rhie_and_chow(var, component, solver, mesh, bc, integration, coeff)
+            }
         }
     }
 }
 
 fn rhie_and_chow(
-    var: &RefMut<Field>,
-    system: &mut System,
+    var: &RefCell<Field>,
+    component: &Component,
+    solver: &mut EquationSolver,
+    mesh: &Computational2DMesh,
+    boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
 ) {

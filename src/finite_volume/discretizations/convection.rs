@@ -1,9 +1,13 @@
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
-    base::Field, boundary::FieldsBoundaryConditions, case::{GradRequirements, VariableFields}, config::CaseConfig, equation::{Component, EquationSolver, IntegrationCategory, System, Variable}
+    base::Field,
+    boundary::BoundaryCondition,
+    case::{GradRequirements, VariableFields},
+    config::CaseConfig,
+    equation::{Component, EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;
@@ -24,7 +28,7 @@ impl ConvectionScheme {
         &self,
         var: &Variable,
         component: &Component,
-        speed: &(Variable, Variable),
+        speed: &Variable,
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Computational2DMesh,
@@ -32,27 +36,31 @@ impl ConvectionScheme {
         integration: &IntegrationCategory,
         coeff: f64,
     ) {
-        let speed = (
-            find_var_in_fields(var, system, fields),
-            find_var_in_fields(var, system, fields),
-        );
+        let bc = config
+            .bc
+            .map
+            .get(var)
+            .expect("Missing boundary condition for field");
+        let speed = find_var_in_fields(speed, fields);
 
-        let var = find_var_in_fields(var, system, fields);
+        let var = find_var_in_fields(var, fields);
 
         match *self {
             Self::UpwindSecondOrder => {
-                upwind_second_order(var, speed, system, integration, fields, coeff)
+                upwind_second_order(var, component, speed, solver, mesh, bc, integration, coeff)
             }
         }
     }
 }
 
 fn upwind_second_order(
-    var: &RefMut<Field>,
-    speed: (&RefMut<Field>, &RefMut<Field>),
-    system: &System,
+    var: &RefCell<Field>,
+    component: &Component,
+    speed: &RefCell<Field>,
+    solver: &mut EquationSolver,
+    mesh: &Computational2DMesh,
+    boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
-    fields: &Vec<RefMut<Field>>,
     coeff: f64,
 ) {
     todo!()
