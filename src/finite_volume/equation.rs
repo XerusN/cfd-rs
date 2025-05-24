@@ -123,6 +123,10 @@ impl Variable {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn dim(&self) -> &Dimension {
+        &self.dim
+    }
 }
 
 /// Implicit formulations are allowed on one variable only
@@ -131,7 +135,7 @@ pub struct Equation {
     lhs: Op,
     rhs: Op,
     unknown: Variable,
-    fields_required: Vec<Variable>,
+    variables_requirements: HashMap<Variable, GradRequirements>,
 }
 
 impl Equation {
@@ -147,8 +151,8 @@ impl Equation {
         &self.unknown
     }
 
-    pub fn fields_required(&self) -> &[Variable] {
-        &self.fields_required
+    pub fn fields_required(&self) -> &HashMap<Variable, GradRequirements> {
+        &self.variables_requirements
     }
 
     pub fn collect_differential_operators(&self) -> Vec<DifferentialOperator> {
@@ -205,8 +209,7 @@ impl Equation {
             }
         }
 
-        let mut variable_requirements = HashMap::new();
-        let mut integration = IntegrationCategory::Explicit;
+        let mut variables_requirements = HashMap::new();
 
         let mut collector = vec![];
         (lhs.clone() - rhs.clone()).collect_differential_operators(&mut collector);
@@ -214,15 +217,12 @@ impl Equation {
         for diff_operator in collector {
             let var = diff_operator.variable();
             let (_, required_grad) = diff_operator.required_grads(schemes);
-            variable_requirements
+            variables_requirements
                 .entry(var.clone())
                 .and_modify(|current: &mut GradRequirements| {
                     current.update_requirements(&required_grad)
                 })
                 .or_insert(required_grad);
-            if diff_operator.integration() == Some(&IntegrationCategory::Implicit) {
-                integration = IntegrationCategory::Implicit;
-            }
         }
 
         match unknown_var {
@@ -231,10 +231,7 @@ impl Equation {
                 lhs,
                 rhs,
                 unknown: var,
-                fields_required: variable_requirements
-                    .keys()
-                    .map(|var| var.clone())
-                    .collect(),
+                variables_requirements,
             }),
         }
     }
@@ -338,8 +335,7 @@ impl EquationSolver {
                 d_op.discretize(component, self, fields, mesh, config, coeff);
             }
             Op::Scalar(scalar) => {
-                todo!();
-                //solver.add_scalar(*scalar * coeff);
+                self.add_scalar(*scalar * coeff);
             }
             Op::Field(field) => {
                 todo!();

@@ -1,20 +1,20 @@
 use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{System, Variable};
+use super::super::equation::{EquationSolver, Variable};
 use crate::finite_volume::{
     base::Field,
-    case::{Case, CaseSystems, GradRequirements, VariableFields},
-    config::{CaseConfig, Schemes},
+    case::{Case, CaseEquations, VariableFields},
+    config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, IntegrationCategory, Op},
     mesh::mesh,
 };
 
-use cfd_rs_utils::mesh::computational_mesh::*;
+use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SimpleCase {
+pub struct PoissonCase {
     name: String,
     step: usize,
     time: f64,
@@ -25,10 +25,11 @@ pub struct SimpleCase {
     mesh: Computational2DMesh,
 
     fields: VariableFields,
-    systems: CaseSystems,
+    equations: CaseEquations,
+    solver: EquationSolver,
 }
 
-impl Case for SimpleCase {
+impl Case for PoissonCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -74,15 +75,23 @@ impl Case for SimpleCase {
     }
 
     fn equations_list(&self) -> Vec<&String> {
-        self.systems.map.keys().collect()
+        self.equations.map.keys().collect()
     }
 
-    fn equation(&self, name: &str) -> Option<&System> {
-        self.systems.map.get(name)
+    fn equation(&self, name: &str) -> Option<&Equation> {
+        self.equations.map.get(name)
     }
 
-    fn equation_mut(&mut self, name: &str) -> Option<&mut System> {
-        self.systems.map.get_mut(name)
+    fn equation_mut(&mut self, name: &str) -> Option<&mut Equation> {
+        self.equations.map.get_mut(name)
+    }
+
+    fn solver(&self) -> &EquationSolver {
+        &self.solver
+    }
+
+    fn solver_mut(&mut self) -> &mut EquationSolver {
+        &mut self.solver
     }
 
     fn schemes(&self) -> &Schemes {
@@ -96,23 +105,24 @@ impl Case for SimpleCase {
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut CaseSystems,
+        &mut EquationSolver,
         &mut VariableFields,
+        &CaseEquations,
         &Computational2DMesh,
         &CaseConfig,
     ) {
         (
-            &mut self.systems,
+            &mut self.solver,
             &mut self.fields,
+            &self.equations,
             &self.mesh,
             &self.config,
         )
     }
 
     fn next_step(&mut self) {
-        println!("Ok");
         // Check if gradients are correctly updated
-        System::solve(self, "Poisson");
+        Equation::solve(self, "Poisson");
 
         self.time += self.time_step;
         self.step += 1;
@@ -121,36 +131,25 @@ impl Case for SimpleCase {
     fn new(config: CaseConfig) -> Self {
         let mesh = mesh(&config.geometry);
 
-        let u_x = Variable::new("U_x".to_string(), Dimension::Scalar);
-        let u_y = Variable::new("U_y".to_string(), Dimension::Scalar);
-        let u_x_temp = Variable::new("U_x_temp".to_string(), Dimension::Scalar);
-        let u_y_temp = Variable::new("U_y_temp".to_string(), Dimension::Scalar);
-        let p = Variable::new("P".to_string(), Dimension::Scalar);
+        let mut equations = CaseEquations::new();
 
-        let mut systems = HashMap::new();
-
-        let mut variables_glob = HashMap::new();
+        let t = Variable::new("T".to_string(), Dimension::Scalar);
 
         let lhs = Op::Discretize(DifferentialOperator::Laplacian(
-            p,
+            t,
             IntegrationCategory::Implicit,
         ));
         let rhs = Op::Scalar(0.);
-        let eq = Equation::new(lhs, rhs).expect("Equation not valid");
-        let (system, variables) = eq.into_system(&mesh, &config.schemes);
-        systems.insert("Poisson".to_string(), system);
-        for (variable, grad) in &variables {
-            let old_value = variables_glob.try_insert(variable.clone(), grad.clone());
-            match old_value {
-                Ok(_) => (),
-                Err(mut old_value) => old_value.value.update_requirements(&grad),
-            }
-        }
 
-        let fields = VariableFields::new(variables_glob, &mesh);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Poisson".to_string(), eq);
 
-        SimpleCase {
-            name: "Simple-2D".to_string(),
+        let fields = VariableFields::new(&equations, &mesh);
+
+        let solver = EquationSolver::new(&mesh);
+
+        PoissonCase {
+            name: "Poisson-2D".to_string(),
 
             time: 0.,
             time_step: 1.,
@@ -159,7 +158,8 @@ impl Case for SimpleCase {
             config,
             mesh,
             fields,
-            systems: CaseSystems { map: systems },
+            equations: equations,
+            solver,
         }
     }
 }

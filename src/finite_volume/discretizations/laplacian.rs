@@ -1,4 +1,7 @@
-use std::{cell::{RefCell, RefMut}, ops::Deref};
+use std::{
+    cell::{RefCell, RefMut},
+    ops::Deref,
+};
 
 use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},

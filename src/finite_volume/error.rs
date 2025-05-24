@@ -22,4 +22,6 @@ pub enum CfdError {
         "No Unknown was indentified (you need a least on implicit term or time derivative) for the following equation: {lhs:?} = {rhs:?}"
     )]
     EquationNoUnknown { lhs: Op, rhs: Op },
+    #[error("An equation with the same name was already added ({})", name)]
+    EquationAlreadyAdded { name: String },
 }

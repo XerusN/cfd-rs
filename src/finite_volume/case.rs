@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use nalgebra::Vector2;
 use std::{
     cell::{Ref, RefCell, RefMut},
     fs::File,
@@ -12,8 +13,11 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use super::{
     base::{CellScalarField, Field},
     config::{CaseConfig, Schemes},
-    equation::{Equation, EquationSolver, Variable},
+    equation::{Dimension, Equation, EquationSolver, Variable},
+    error::CfdError,
 };
+
+pub mod poisson;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -47,23 +51,36 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new(
-        mut variables: HashMap<Variable, GradRequirements>,
-        mesh: &Computational2DMesh,
-    ) -> Self {
+    pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh) -> Self {
         let mut fields = HashMap::new();
-        for (var, grad_req) in variables.drain() {
-            fields.insert(
-                var,
-                (
-                    RefCell::new(Field::Scalar(CellScalarField::new(
-                        mesh.num_cells(),
-                        mesh.num_faces(),
-                        &grad_req,
-                    ))),
-                    grad_req,
-                ),
-            );
+        for (var, grad_req) in equations.variables_requirements() {
+            match *var.dim() {
+                Dimension::Scalar => {
+                    fields.insert(
+                        var,
+                        (
+                            RefCell::new(Field::Scalar(CellScalarField::new(
+                                mesh.num_cells(),
+                                mesh.num_faces(),
+                                &grad_req,
+                            ))),
+                            grad_req,
+                        ),
+                    );
+                }
+                Dimension::Vector2 => {
+                    fields.insert(
+                        var,
+                        (
+                            RefCell::new(Field::Vector2(Vector2::new(
+                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
+                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
+                            ))),
+                            grad_req,
+                        ),
+                    );
+                }
+            }
         }
         VariableFields { map: fields }
     }
@@ -72,6 +89,39 @@ impl VariableFields {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CaseEquations {
     pub map: HashMap<String, Equation>,
+}
+
+impl CaseEquations {
+    pub fn new() -> Self {
+        let map = HashMap::new();
+        CaseEquations { map }
+    }
+
+    /// Do not initialize fields before adding all equations here.
+    /// Will throw an error if an equation with the same name is already present.
+    pub fn add_eq(&mut self, name: String, equation: Equation) -> Result<(), CfdError> {
+        if let Err(_) = self.map.try_insert(name.clone(), equation) {
+            Err(CfdError::EquationAlreadyAdded { name: name })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn variables_requirements(&self) -> HashMap<Variable, GradRequirements> {
+        let mut variables_glob = HashMap::new();
+
+        for eq in self.map.values() {
+            for (variable, grad) in eq.fields_required() {
+                let old_value = variables_glob.try_insert(variable.clone(), grad.clone());
+                match old_value {
+                    Ok(_) => (),
+                    Err(mut old_value) => old_value.value.update_requirements(&grad),
+                }
+            }
+        }
+
+        variables_glob
+    }
 }
 
 pub trait Case {
@@ -223,9 +273,9 @@ pub trait Case {
     fn equation(&self, name: &str) -> Option<&Equation>;
 
     fn equation_mut(&mut self, name: &str) -> Option<&mut Equation>;
-    
+
     fn solver(&self) -> &EquationSolver;
-    
+
     fn solver_mut(&mut self) -> &mut EquationSolver;
 
     fn schemes(&self) -> &Schemes;

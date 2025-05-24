@@ -114,8 +114,9 @@ impl DifferentialOperator {
 }
 
 fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
-    &fields.map.get(var)
-        .expect(&format!(
-            "Missing variable {var:?} in fields",
-        )).0
+    &fields
+        .map
+        .get(var)
+        .expect(&format!("Missing variable {var:?} in fields",))
+        .0
 }
