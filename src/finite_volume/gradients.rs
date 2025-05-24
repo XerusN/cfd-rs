@@ -36,10 +36,10 @@ pub fn update_grads(
 ) {
     match field {
         Field::Scalar(field) => update_grad_scalar(field, grad_requirements, mesh, config, bc),
-        // Field::Vector2(field) => {
-        //     update_grad_scalar(&mut field.x, mesh, config);
-        //     update_grad_scalar(&mut field.y, mesh, config);
-        // }
+        Field::Vector2(field) => {
+            update_grad_scalar(&mut field.x, grad_requirements, mesh, config, bc);
+            update_grad_scalar(&mut field.y, grad_requirements, mesh, config, bc);
+        }
     }
 }
 

@@ -1,12 +1,13 @@
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
     base::Field,
-    boundary::FieldsBoundaryConditions,
-    case::GradRequirements,
-    equation::{System, Variable},
+    boundary::BoundaryCondition,
+    case::{GradRequirements, VariableFields},
+    config::CaseConfig,
+    equation::{Component, EquationSolver, Variable},
 };
 
 use super::find_var_in_fields;
@@ -27,20 +28,32 @@ impl TimeIntegration {
     pub fn discretize(
         &self,
         var: &Variable,
-        system: &mut System,
+        component: &Component,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
-        fields: &Vec<RefMut<Field>>,
+        config: &CaseConfig,
         coeff: f64,
     ) {
-        let var = find_var_in_fields(var, system, fields);
+        let bc = config
+            .bc
+            .map
+            .get(var)
+            .expect("Missing boundary condition for field");
+        let var = find_var_in_fields(var, fields);
 
         match *self {
-            Self::ForwardEuler => forward_euler(var, system, coeff),
+            Self::ForwardEuler => forward_euler(var, solver, mesh, bc, coeff),
         }
     }
 }
 
-fn forward_euler(var: &RefMut<Field>, system: &mut System, coeff: f64) {
+fn forward_euler(
+    var: &RefCell<Field>,
+    solver: &mut EquationSolver,
+    mesh: &Computational2DMesh,
+    boundary_condition: &[BoundaryCondition],
+    coeff: f64,
+) {
     todo!()
 }

@@ -3,18 +3,18 @@ use log::warn;
 use std::{
     cell::{RefCell, RefMut},
     clone,
-    ops::{Add, DerefMut, Div, Mul, Sub},
+    ops::{Add, Deref, DerefMut, Div, Mul, Sub},
 };
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
-use nalgebra_sparse::{CooMatrix, CsrMatrix};
+use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
 use nalgebra_sparse_linalg::iteratives;
 
 use super::{
     base::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::{Case, GradRequirements},
+    case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
     discretizations::DifferentialOperator,
     error::CfdError,
@@ -30,6 +30,7 @@ pub enum Op {
     MulScalar(f64, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
+    Field(Variable),
 }
 
 impl Op {
@@ -44,6 +45,7 @@ impl Op {
             }
             Op::Discretize(dop) => collector.push(dop.clone()),
             Op::Scalar(_) => {}
+            Op::Field(_) => {}
         }
     }
 }
@@ -101,11 +103,16 @@ pub struct Variable {
     dim: Dimension,
 }
 
-/// For now only support of 1D fields
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Dimension {
     Scalar,
-    //Vector2,
+    Vector2,
+}
+
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum Component {
+    X,
+    Y,
 }
 
 impl Variable {
@@ -116,6 +123,10 @@ impl Variable {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn dim(&self) -> &Dimension {
+        &self.dim
+    }
 }
 
 /// Implicit formulations are allowed on one variable only
@@ -124,6 +135,7 @@ pub struct Equation {
     lhs: Op,
     rhs: Op,
     unknown: Variable,
+    variables_requirements: HashMap<Variable, GradRequirements>,
 }
 
 impl Equation {
@@ -139,6 +151,10 @@ impl Equation {
         &self.unknown
     }
 
+    pub fn fields_required(&self) -> &HashMap<Variable, GradRequirements> {
+        &self.variables_requirements
+    }
+
     pub fn collect_differential_operators(&self) -> Vec<DifferentialOperator> {
         let mut collector = vec![];
         self.lhs.collect_differential_operators(&mut collector);
@@ -146,7 +162,7 @@ impl Equation {
         collector
     }
 
-    pub fn new(lhs: Op, rhs: Op) -> Result<Equation, CfdError> {
+    pub fn new(lhs: Op, rhs: Op, schemes: &Schemes) -> Result<Equation, CfdError> {
         let mut collector = vec![];
         lhs.collect_differential_operators(&mut collector);
         rhs.collect_differential_operators(&mut collector);
@@ -193,40 +209,53 @@ impl Equation {
             }
         }
 
+        let mut variables_requirements = HashMap::new();
+
+        let mut collector = vec![];
+        (lhs.clone() - rhs.clone()).collect_differential_operators(&mut collector);
+
+        for diff_operator in collector {
+            let var = diff_operator.variable();
+            let (_, required_grad) = diff_operator.required_grads(schemes);
+            variables_requirements
+                .entry(var.clone())
+                .and_modify(|current: &mut GradRequirements| {
+                    current.update_requirements(&required_grad)
+                })
+                .or_insert(required_grad);
+        }
+
         match unknown_var {
-            None => Err(CfdError::EquationNoUnknown { lhs, rhs }),
+            None => Err(CfdError::EquationNoUnknown { lhs: lhs, rhs: rhs }),
             Some(var) => Ok(Equation {
                 lhs,
                 rhs,
                 unknown: var,
+                variables_requirements,
             }),
         }
     }
 
-    pub fn into_system(
-        self,
-        mesh: &Computational2DMesh,
-        schemes: &Schemes,
-    ) -> (System, HashMap<Variable, GradRequirements>) {
-        System::new(self, mesh, schemes)
+    pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
+        let (solver, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
+
+        let equation = equations
+            .map
+            .get(name)
+            .expect(&format!("This equation is not defined: {name:?}"));
+
+        solve(solver, equation, variable_fields, mesh, config)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct System {
-    equation: Equation,
+pub struct EquationSolver {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
-    int_cat: IntegrationCategory,
-    fields_required: Vec<Variable>,
 }
 
-impl System {
-    pub fn new(
-        equation: Equation,
-        mesh: &Computational2DMesh,
-        schemes: &Schemes,
-    ) -> (System, HashMap<Variable, GradRequirements>) {
+impl EquationSolver {
+    pub fn new(mesh: &Computational2DMesh) -> Self {
         let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
 
         for i in 0..mesh.num_cells() {
@@ -240,36 +269,7 @@ impl System {
 
         let rhs = DVector::zeros(mesh.num_cells());
 
-        let mut variable_requirements = HashMap::new();
-        let mut integration = IntegrationCategory::Explicit;
-
-        for diff_operator in equation.collect_differential_operators() {
-            let var = diff_operator.variable();
-            let (_, required_grad) = diff_operator.required_grads(schemes);
-            variable_requirements
-                .entry(var.clone())
-                .and_modify(|current: &mut GradRequirements| {
-                    current.update_requirements(required_grad.clone())
-                })
-                .or_insert(required_grad);
-            if diff_operator.integration() == Some(&IntegrationCategory::Implicit) {
-                integration = IntegrationCategory::Implicit;
-            }
-        }
-
-        (
-            System {
-                equation,
-                matrix,
-                rhs,
-                int_cat: integration,
-                fields_required: variable_requirements
-                    .keys()
-                    .map(|var| var.clone())
-                    .collect(),
-            },
-            variable_requirements,
-        )
+        EquationSolver { matrix, rhs }
     }
 
     pub fn clear(&mut self) {
@@ -279,14 +279,6 @@ impl System {
         for v in self.rhs.iter_mut() {
             *v = 0.;
         }
-    }
-
-    pub fn equation(&self) -> &Equation {
-        &self.equation
-    }
-
-    pub fn equation_mut(&mut self) -> &mut Equation {
-        &mut self.equation
     }
 
     pub fn matrix(&self) -> &CsrMatrix<f64> {
@@ -305,49 +297,8 @@ impl System {
         &mut self.rhs
     }
 
-    pub fn system_update_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
+    pub fn solver_borrow_mut(&mut self) -> (&mut CsrMatrix<f64>, &mut DVector<f64>) {
         (&mut self.matrix, &mut self.rhs)
-    }
-
-    pub fn integration_category(&self) -> &IntegrationCategory {
-        &self.int_cat
-    }
-
-    pub fn fields_required(&self) -> &[Variable] {
-        &self.fields_required
-    }
-
-    pub fn apply_op(
-        &mut self,
-        op: &Op,
-        fields: &Vec<RefMut<Field>>,
-        mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
-        schemes: &Schemes,
-        coeff: f64,
-    ) {
-        match op {
-            Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, coeff);
-            }
-            Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, fields, mesh, bc, schemes, coeff);
-                self.apply_op(&op.as_ref().1, fields, mesh, bc, schemes, -coeff);
-            }
-            Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff * scalar);
-            }
-            Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), fields, mesh, bc, schemes, coeff / scalar);
-            }
-            Op::Discretize(d_op) => {
-                d_op.discretize(self, fields, mesh, bc, schemes, coeff);
-            }
-            Op::Scalar(scalar) => {
-                self.add_scalar(*scalar * coeff);
-            }
-        }
     }
 
     fn add_scalar(&mut self, scalar: f64) {
@@ -356,90 +307,113 @@ impl System {
         }
     }
 
-    pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
-        let (systems, variable_fields, mesh, config) = case.equation_solver_borrow();
-
-        let system = systems
-            .map
-            .get_mut(name)
-            .expect(&format!("This equation is not defined: {name:?}"));
-
-        let fields_grad_required: Vec<&(RefCell<Field>, GradRequirements)> = system
-            .fields_required
-            .iter()
-            .map(|var| {
-                variable_fields.map.get(var).expect(&format!(
-                    "A field ({var:?}) needed for equation {name:?} is missing"
-                ))
-            })
-            .collect();
-
-        let grad_requirements = fields_grad_required.iter().map(|tuple| &tuple.1).collect();
-        let fields_required: Vec<RefMut<Field>> = fields_grad_required
-            .iter()
-            .map(|tuple| tuple.0.borrow_mut())
-            .collect();
-
-        solve(system, fields_required, grad_requirements, mesh, config)
+    pub fn apply_op(
+        &mut self,
+        op: &Op,
+        component: &Component,
+        fields: &VariableFields,
+        mesh: &Computational2DMesh,
+        config: &CaseConfig,
+        coeff: f64,
+    ) {
+        match op {
+            Op::Add(op) => {
+                self.apply_op(&op.as_ref().0, component, fields, mesh, config, coeff);
+                self.apply_op(&op.as_ref().1, component, fields, mesh, config, coeff);
+            }
+            Op::Sub(op) => {
+                self.apply_op(&op.as_ref().0, component, fields, mesh, config, coeff);
+                self.apply_op(&op.as_ref().1, component, fields, mesh, config, -coeff);
+            }
+            Op::MulScalar(scalar, op) => {
+                self.apply_op(op.as_ref(), component, fields, mesh, config, coeff * scalar);
+            }
+            Op::DivScalar(scalar, op) => {
+                self.apply_op(op.as_ref(), component, fields, mesh, config, coeff / scalar);
+            }
+            Op::Discretize(d_op) => {
+                d_op.discretize(component, self, fields, mesh, config, coeff);
+            }
+            Op::Scalar(scalar) => {
+                self.add_scalar(*scalar * coeff);
+            }
+            Op::Field(field) => {
+                todo!();
+            }
+        }
     }
 }
 
 fn solve(
-    system: &mut System,
-    mut fields: Vec<RefMut<Field>>,
-    grad_requirements: Vec<&GradRequirements>,
+    solver: &mut EquationSolver,
+    equation: &Equation,
+    mut fields: &mut VariableFields,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
 ) -> usize {
-    system.clear();
+    solver.clear();
 
-    let lhs = system.equation.lhs.clone();
-    let rhs = system.equation.rhs.clone();
+    let lhs = equation.lhs.clone();
+    let rhs = equation.rhs.clone();
 
     let eq = lhs - rhs;
 
-    for (i, field) in fields.iter_mut().enumerate() {
-        field.update_grads(
-            grad_requirements[i],
+    for (var, mut field) in &fields.map {
+        field.0.borrow_mut().update_grads(
+            &field.1,
             mesh,
             &config.schemes.gradients,
             config
                 .bc
                 .map
-                .get(&system.fields_required()[i])
+                .get(var)
                 .expect("Boundary Condition missing for field"),
         );
     }
 
-    system.apply_op(&eq, &fields, mesh, &config.bc, &config.schemes, 1.);
+    match equation.unknown().dim {
+        Dimension::Scalar => {
+            let component = Component::X;
+            solver.apply_op(&eq, &component, &fields, mesh, config, 1.);
 
-    let index = system
-        .fields_required()
-        .iter()
-        .position(|var_i| system.equation().unknown() == var_i)
-        .expect(&format!(
-            "Missing variable {:?} in fields for equation {:?}",
-            system.equation().unknown(),
-            system.equation()
-        ));
+            // let index = system
+            //     .fields_required()
+            //     .iter()
+            //     .position(|var_i| system.equation().unknown() == var_i)
+            //     .expect(&format!(
+            //         "Missing variable {:?} in fields for equation {:?}",
+            //         system.equation().unknown(),
+            //         system.equation()
+            //     ));
 
-    let field = fields[index].deref_mut();
+            let field_cell = &fields
+                .map
+                .get_mut(equation.unknown())
+                .expect("Missing field for equation")
+                .0;
 
-    let mut field = match field {
-        Field::Scalar(value) => value,
-    };
+            let mut field = field_cell.borrow_mut();
 
-    warn!("Hard-coded tol and maxx iter for solve");
-    let result = iteratives::jacobi::solve_with_initial_guess(
-        system.matrix(),
-        &system.rhs,
-        field.values_mut(),
-        1000,
-        1e-3,
-    );
+            let field = match &mut *field {
+                Field::Scalar(ref mut scalar_field) => scalar_field,
+                _ => panic!("Unknown should be scalar"),
+            };
 
-    if !result {
-        panic!("Did not converge when solving {:?}", system.equation())
+            warn!("Hard-coded tol and max_iter for solve");
+            let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
+                solver.matrix(),
+                &solver.rhs,
+                field.values_mut(),
+                1000,
+                1e-3,
+            );
+
+            if !result {
+                panic!("Did not converge when solving {:?}", equation)
+            }
+        }
+        Dimension::Vector2 => todo!(),
+        _ => todo!(),
     }
 
     0

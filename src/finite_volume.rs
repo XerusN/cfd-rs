@@ -9,4 +9,3 @@ pub mod gradients;
 pub mod interpolations;
 pub mod linalg;
 pub mod mesh;
-pub mod solvers;

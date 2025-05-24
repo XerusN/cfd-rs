@@ -1,49 +1,61 @@
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
 use crate::finite_volume::{
     base::Field,
-    boundary::FieldsBoundaryConditions,
-    case::GradRequirements,
-    equation::{IntegrationCategory, System, Variable},
+    boundary::BoundaryCondition,
+    case::{GradRequirements, VariableFields},
+    config::CaseConfig,
+    equation::{Component, EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DivergenceScheme {
-    Centered,
+    RhieAndChow,
 }
 
 impl DivergenceScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
-            Self::Centered => GradRequirements::new(false, false),
+            Self::RhieAndChow => GradRequirements::new(false, false),
         }
     }
 
     pub fn discretize(
         &self,
         var: &Variable,
-        system: &mut System,
+        component: &Component,
+        solver: &mut EquationSolver,
+        fields: &VariableFields,
         mesh: &Computational2DMesh,
-        bc: &FieldsBoundaryConditions,
+        config: &CaseConfig,
         integration: &IntegrationCategory,
-        fields: &Vec<RefMut<Field>>,
         coeff: f64,
     ) {
-        let var = find_var_in_fields(var, system, fields);
+        let bc = config
+            .bc
+            .map
+            .get(var)
+            .expect("Missing boundary condition for field");
+        let var = find_var_in_fields(var, fields);
 
         match *self {
-            Self::Centered => centered(var, system, integration, coeff),
+            Self::RhieAndChow => {
+                rhie_and_chow(var, component, solver, mesh, bc, integration, coeff)
+            }
         }
     }
 }
 
-fn centered(
-    var: &RefMut<Field>,
-    system: &mut System,
+fn rhie_and_chow(
+    var: &RefCell<Field>,
+    component: &Component,
+    solver: &mut EquationSolver,
+    mesh: &Computational2DMesh,
+    boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
 ) {

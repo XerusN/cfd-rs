@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use nalgebra::Vector2;
 use std::{
     cell::{Ref, RefCell, RefMut},
     fs::File,
@@ -12,8 +13,11 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use super::{
     base::{CellScalarField, Field},
     config::{CaseConfig, Schemes},
-    equation::{System, Variable},
+    equation::{Dimension, Equation, EquationSolver, Variable},
+    error::CfdError,
 };
+
+pub mod poisson;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -35,7 +39,7 @@ impl GradRequirements {
     }
 
     /// Returns the most restrictive requirement (true)
-    pub fn update_requirements(&mut self, other: Self) {
+    pub fn update_requirements(&mut self, other: &Self) {
         self.cell = self.cell | other.cell;
         self.face = self.face | other.face;
     }
@@ -47,31 +51,77 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new(
-        mut variables: HashMap<Variable, GradRequirements>,
-        mesh: &Computational2DMesh,
-    ) -> Self {
+    pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh) -> Self {
         let mut fields = HashMap::new();
-        for (var, grad_req) in variables.drain() {
-            fields.insert(
-                var,
-                (
-                    RefCell::new(Field::Scalar(CellScalarField::new(
-                        mesh.num_cells(),
-                        mesh.num_faces(),
-                        &grad_req,
-                    ))),
-                    grad_req,
-                ),
-            );
+        for (var, grad_req) in equations.variables_requirements() {
+            match *var.dim() {
+                Dimension::Scalar => {
+                    fields.insert(
+                        var,
+                        (
+                            RefCell::new(Field::Scalar(CellScalarField::new(
+                                mesh.num_cells(),
+                                mesh.num_faces(),
+                                &grad_req,
+                            ))),
+                            grad_req,
+                        ),
+                    );
+                }
+                Dimension::Vector2 => {
+                    fields.insert(
+                        var,
+                        (
+                            RefCell::new(Field::Vector2(Vector2::new(
+                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
+                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
+                            ))),
+                            grad_req,
+                        ),
+                    );
+                }
+            }
         }
         VariableFields { map: fields }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CaseSystems {
-    pub map: HashMap<String, System>,
+pub struct CaseEquations {
+    pub map: HashMap<String, Equation>,
+}
+
+impl CaseEquations {
+    pub fn new() -> Self {
+        let map = HashMap::new();
+        CaseEquations { map }
+    }
+
+    /// Do not initialize fields before adding all equations here.
+    /// Will throw an error if an equation with the same name is already present.
+    pub fn add_eq(&mut self, name: String, equation: Equation) -> Result<(), CfdError> {
+        if let Err(_) = self.map.try_insert(name.clone(), equation) {
+            Err(CfdError::EquationAlreadyAdded { name: name })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn variables_requirements(&self) -> HashMap<Variable, GradRequirements> {
+        let mut variables_glob = HashMap::new();
+
+        for eq in self.map.values() {
+            for (variable, grad) in eq.fields_required() {
+                let old_value = variables_glob.try_insert(variable.clone(), grad.clone());
+                match old_value {
+                    Ok(_) => (),
+                    Err(mut old_value) => old_value.value.update_requirements(&grad),
+                }
+            }
+        }
+
+        variables_glob
+    }
 }
 
 pub trait Case {
@@ -166,21 +216,37 @@ pub trait Case {
         writeln!(file, "      <CellData>")?;
         // Does not support vector fields yet
         for var in self.fields_list() {
-            writeln!(
-                file,
-                "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                var.name(),
-            )?;
-            write!(file, "          ")?;
             let temp = self
                 .field(var)
                 .expect("Incoherence between variable list and fields");
-            let field = match temp.deref() {
-                Field::Scalar(scalar_field) => scalar_field.values(),
+            match temp.deref() {
+                Field::Scalar(scalar_field) => {
+                    writeln!(
+                        file,
+                        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                        var.name(),
+                    )?;
+                    write!(file, "          ")?;
+                    let field = scalar_field.values();
+                    for value in field {
+                        write!(file, "{} ", value)?;
+                    }
+                }
+                Field::Vector2(fields) => {
+                    writeln!(
+                        file,
+                        "        <DataArray NumberOfComponents=\"2\" type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                        var.name(),
+                    )?;
+                    write!(file, "          ")?;
+                    let field_x = fields.x.values();
+                    let field_y = fields.y.values();
+                    for i in 0..field_x.len() {
+                        write!(file, "{} {} ", field_x[i], field_y[i])?;
+                    }
+                }
             };
-            for value in field {
-                write!(file, "{} ", value)?;
-            }
+
             writeln!(file)?;
             writeln!(file, "        </DataArray>")?;
         }
@@ -204,9 +270,13 @@ pub trait Case {
 
     fn equations_list(&self) -> Vec<&String>;
 
-    fn equation(&self, name: &str) -> Option<&System>;
+    fn equation(&self, name: &str) -> Option<&Equation>;
 
-    fn equation_mut(&mut self, name: &str) -> Option<&mut System>;
+    fn equation_mut(&mut self, name: &str) -> Option<&mut Equation>;
+
+    fn solver(&self) -> &EquationSolver;
+
+    fn solver_mut(&mut self) -> &mut EquationSolver;
 
     fn schemes(&self) -> &Schemes;
 
@@ -215,8 +285,9 @@ pub trait Case {
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut CaseSystems,
+        &mut EquationSolver,
         &mut VariableFields,
+        &CaseEquations,
         &Computational2DMesh,
         &CaseConfig,
     );

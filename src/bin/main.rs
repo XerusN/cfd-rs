@@ -2,9 +2,10 @@ use cfd_rs::finite_volume::config::OutputConfig;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
-use cfd_rs::finite_volume::solvers::poisson;
+use cfd_rs::finite_volume::case::poisson;
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    case::poisson::PoissonCase,
     case::Case,
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::{
@@ -14,17 +15,14 @@ use cfd_rs::finite_volume::{
     equation::{Dimension, Variable},
     gradients::{GradientConfig, GradientScheme},
     interpolations::GradientInterpConfig,
-    solvers::poisson::PoissonCase,
 };
-use cfd_rs_utils::geometry;
-use serde::Serialize;
 
 fn main() {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
         laplacian: LaplacianScheme::OrthogonalCorrection,
-        divergence: DivergenceScheme::Centered,
+        divergence: DivergenceScheme::RhieAndChow,
         gradients: GradientConfig {
             scheme: GradientScheme::GreenGaussCompact,
             interp: GradientInterpConfig::AveragedCorrected,
@@ -46,7 +44,7 @@ fn main() {
         directory: "./target/exports".to_string(),
     };
     let mut bc_fields = HashMap::new();
-    bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
     let config = CaseConfig {
         schemes,
@@ -59,11 +57,13 @@ fn main() {
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
 
-    #[cfg(debug_assertions)]
-    case.export().unwrap();
+    println!("{}", case.name());
+
+    // #[cfg(debug_assertions)]
+    // case.export().unwrap();
 
     case.next_step();
 
-    #[cfg(debug_assertions)]
+    // #[cfg(debug_assertions)]
     case.export().unwrap();
 }

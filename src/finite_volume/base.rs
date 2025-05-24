@@ -2,16 +2,14 @@ use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
 use super::{
-    boundary::BoundaryCondition,
-    case::GradRequirements,
-    gradients::{update_grads, GradientConfig},
+    boundary::BoundaryCondition, case::{CaseEquations, GradRequirements}, config::CaseConfig, gradients::{update_grads, GradientConfig}
 };
 
 /// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
     Scalar(CellScalarField),
-    //Vector2(Vector2<CellScalarField>),
+    Vector2(Vector2<CellScalarField>),
 }
 
 /// The grads will only be allocated if necessary
@@ -130,10 +128,10 @@ impl Field {
         unsafe {
             match self {
                 Field::Scalar(field) => field.gradients_updated(),
-                // Field::Vector2(fields) => {
-                //     fields.x.gradients_updated();
-                //     fields.y.gradients_updated();
-                // }
+                Field::Vector2(fields) => {
+                    fields.x.gradients_updated();
+                    fields.y.gradients_updated();
+                }
             }
         }
     }
