@@ -7,7 +7,7 @@ use crate::finite_volume::{
     case::{Case, CaseEquations, VariableFields},
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
-    equation::{Dimension, Equation, IntegrationCategory, Op},
+    equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
     mesh::mesh,
 };
 
@@ -135,9 +135,8 @@ impl Case for PoissonCase {
 
         let t = Variable::new("T".to_string(), Dimension::Scalar);
 
-        let lhs = Op::Discretize(DifferentialOperator::Laplacian(
-            t,
-            IntegrationCategory::Implicit,
+        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Laplacian(t, IntegrationCategory::Implicit),
         ));
         let rhs = Op::Scalar(0.);
 

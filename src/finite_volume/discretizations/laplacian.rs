@@ -119,8 +119,6 @@ fn orthogonal_correction(
                                     - e_b;
                                 rhs[cell] += coeff
                                     * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-
-                                f_c += f_b;
                             }
                             BoundaryCondition::Neumann(bc_value) => todo!(),
                         },

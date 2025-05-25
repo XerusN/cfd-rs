@@ -26,26 +26,24 @@ use super::{
 pub enum Op {
     Add(Box<(Op, Op)>),
     Sub(Box<(Op, Op)>),
-    Discretize(DifferentialOperator),
+    FieldOperator(FieldOperator),
     MulScalar(f64, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
-    Field(Variable),
 }
 
 impl Op {
-    pub fn collect_differential_operators(&self, collector: &mut Vec<DifferentialOperator>) {
+    pub fn collect_field_operators(&self, collector: &mut Vec<FieldOperator>) {
         match self {
             Op::Add(pair) | Op::Sub(pair) => {
-                Self::collect_differential_operators(&pair.0, collector);
-                Self::collect_differential_operators(&pair.1, collector);
+                Self::collect_field_operators(&pair.0, collector);
+                Self::collect_field_operators(&pair.1, collector);
             }
             Op::MulScalar(_, inner) | Op::DivScalar(_, inner) => {
-                Self::collect_differential_operators(inner, collector);
+                Self::collect_field_operators(inner, collector);
             }
-            Op::Discretize(dop) => collector.push(dop.clone()),
+            Op::FieldOperator(f_op) => collector.push(f_op.clone()),
             Op::Scalar(_) => {}
-            Op::Field(_) => {}
         }
     }
 }
@@ -129,6 +127,31 @@ impl Variable {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum FieldOperator {
+    DifferentialOperator(DifferentialOperator),
+    Field(Variable, IntegrationCategory),
+    Gradient(Variable),
+}
+
+impl FieldOperator {
+    pub fn variable(&self) -> &Variable {
+        match self {
+            FieldOperator::DifferentialOperator(diff_op) => diff_op.variable(),
+            FieldOperator::Gradient(var) => &var,
+            FieldOperator::Field(var, _) => &var,
+        }
+    }
+
+    pub fn required_grads(&self, schemes: &Schemes) -> (&Variable, GradRequirements) {
+        match self {
+            FieldOperator::DifferentialOperator(diff_op) => diff_op.required_grads(schemes),
+            FieldOperator::Gradient(var) => (&var, GradRequirements::new(true, false)),
+            FieldOperator::Field(var, _) => (&var, GradRequirements::new(false, false)),
+        }
+    }
+}
+
 /// Implicit formulations are allowed on one variable only
 #[derive(Clone, Debug, PartialEq)]
 pub struct Equation {
@@ -155,41 +178,63 @@ impl Equation {
         &self.variables_requirements
     }
 
-    pub fn collect_differential_operators(&self) -> Vec<DifferentialOperator> {
+    pub fn collect_field_operators(&self) -> Vec<FieldOperator> {
         let mut collector = vec![];
-        self.lhs.collect_differential_operators(&mut collector);
-        self.rhs.collect_differential_operators(&mut collector);
+        self.lhs.collect_field_operators(&mut collector);
+        self.rhs.collect_field_operators(&mut collector);
         collector
     }
 
     pub fn new(lhs: Op, rhs: Op, schemes: &Schemes) -> Result<Equation, CfdError> {
-        let mut collector = vec![];
-        lhs.collect_differential_operators(&mut collector);
-        rhs.collect_differential_operators(&mut collector);
-
+        
         let mut unknown_var = None;
 
-        for diff_op in collector {
-            match diff_op {
-                DifferentialOperator::TimeDerivative(var) => match &unknown_var {
-                    None => unknown_var = Some(var),
-                    Some(current) => {
-                        if current != &var {
-                            return Err(CfdError::EquationInconsistentUnknown {
-                                lhs,
-                                rhs,
-                                var1: current.clone(),
-                                var2: var,
-                            });
+        let mut variables_requirements = HashMap::new();
+
+        let mut collector = vec![];
+        (lhs.clone() - rhs.clone()).collect_field_operators(&mut collector);
+        
+        for f_op in &collector {
+            match f_op {
+                FieldOperator::DifferentialOperator(diff_op) => match diff_op {
+                    DifferentialOperator::TimeDerivative(var) => match &unknown_var {
+                        None => unknown_var = Some(var),
+                        Some(current) => {
+                            if current != &var {
+                                return Err(CfdError::EquationInconsistentUnknown {
+                                    lhs,
+                                    rhs,
+                                    var1: current.clone().clone(),
+                                    var2: var.clone(),
+                                });
+                            }
+                        }
+                    },
+
+                    DifferentialOperator::Convection {
+                        var, integration, ..
+                    }
+                    | DifferentialOperator::Divergence(var, integration)
+                    | DifferentialOperator::Laplacian(var, integration) => {
+                        if let IntegrationCategory::Implicit = integration {
+                            match &unknown_var {
+                                None => unknown_var = Some(var),
+                                Some(current) => {
+                                    if current != &var {
+                                        return Err(CfdError::EquationInconsistentUnknown {
+                                            lhs,
+                                            rhs,
+                                            var1: current.clone().clone(),
+                                            var2: var.clone(),
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 },
-
-                DifferentialOperator::Convection {
-                    var, integration, ..
-                }
-                | DifferentialOperator::Divergence(var, integration)
-                | DifferentialOperator::Laplacian(var, integration) => {
+                FieldOperator::Gradient(_) => (),
+                FieldOperator::Field(var, integration) => {
                     if let IntegrationCategory::Implicit = integration {
                         match &unknown_var {
                             None => unknown_var = Some(var),
@@ -198,8 +243,8 @@ impl Equation {
                                     return Err(CfdError::EquationInconsistentUnknown {
                                         lhs,
                                         rhs,
-                                        var1: current.clone(),
-                                        var2: var,
+                                        var1: current.clone().clone(),
+                                        var2: var.clone(),
                                     });
                                 }
                             }
@@ -208,15 +253,10 @@ impl Equation {
                 }
             }
         }
-
-        let mut variables_requirements = HashMap::new();
-
-        let mut collector = vec![];
-        (lhs.clone() - rhs.clone()).collect_differential_operators(&mut collector);
-
-        for diff_operator in collector {
-            let var = diff_operator.variable();
-            let (_, required_grad) = diff_operator.required_grads(schemes);
+        
+        for f_op in &collector {
+            let var = f_op.variable();
+            let (_, required_grad) = f_op.required_grads(schemes);
             variables_requirements
                 .entry(var.clone())
                 .and_modify(|current: &mut GradRequirements| {
@@ -230,7 +270,7 @@ impl Equation {
             Some(var) => Ok(Equation {
                 lhs,
                 rhs,
-                unknown: var,
+                unknown: var.clone(),
                 variables_requirements,
             }),
         }
@@ -331,14 +371,15 @@ impl EquationSolver {
             Op::DivScalar(scalar, op) => {
                 self.apply_op(op.as_ref(), component, fields, mesh, config, coeff / scalar);
             }
-            Op::Discretize(d_op) => {
-                d_op.discretize(component, self, fields, mesh, config, coeff);
-            }
+            Op::FieldOperator(f_op) => match f_op {
+                FieldOperator::DifferentialOperator(diff_op) => {
+                    diff_op.discretize(component, self, fields, mesh, config, coeff)
+                }
+                FieldOperator::Field(var, integration) => todo!(),
+                FieldOperator::Gradient(var) => todo!(),
+            },
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff);
-            }
-            Op::Field(field) => {
-                todo!();
             }
         }
     }
@@ -398,7 +439,13 @@ fn solve(
                 Field::Scalar(ref mut scalar_field) => scalar_field,
                 _ => panic!("Unknown should be scalar"),
             };
-
+            
+            // for cell in 0..solver.rhs.len() {
+            //     if solver.rhs[cell] != 0. {
+            //         println!("{:?} | {:?} | {:?}", solver.matrix.row(cell), solver.rhs[cell], field.grads_cell()[cell])
+            //     }
+            // }
+            
             warn!("Hard-coded tol and max_iter for solve");
             let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
                 solver.matrix(),

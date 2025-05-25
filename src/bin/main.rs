@@ -45,7 +45,7 @@ fn main() {
         directory: "./target/exports".to_string(),
     };
     let mut bc_fields = HashMap::new();
-    bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
     let config = CaseConfig {
         schemes,
@@ -54,7 +54,7 @@ fn main() {
         output,
     };
 
-    let mut case = SimpleCase::new(config);
+    let mut case = PoissonCase::new(config);
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
 
@@ -63,7 +63,12 @@ fn main() {
     // #[cfg(debug_assertions)]
     // case.export().unwrap();
 
+    
     case.next_step();
+    println!("calc1 done");
+    
+    // case.next_step();
+    // println!("calc2 done");
 
     // #[cfg(debug_assertions)]
     case.export().unwrap();
