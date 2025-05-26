@@ -18,6 +18,7 @@ use cfd_rs::finite_volume::{
     gradients::{GradientConfig, GradientScheme},
     interpolations::GradientInterpConfig,
 };
+use nalgebra::Vector2;
 
 fn main() {
     let schemes = Schemes {
@@ -43,12 +44,19 @@ fn main() {
     
     let mut bc_fields = HashMap::new();
     let bc = vec![
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(300.)),
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(200.)),
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(100.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(1., 0.))),
+        BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
     ];
-    bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(Variable::new("U".to_string(), Dimension::Vector2), bc);
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+    ];
+    bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
     
     let config = CaseConfig {
@@ -58,7 +66,7 @@ fn main() {
         output,
     };
 
-    let mut case = PoissonCase::new(config);
+    let mut case = SimpleCase::new(config);
 
     //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
 
