@@ -1,15 +1,12 @@
 use super::{
-    base::{CellScalarField, Field},
-    boundary::BoundaryCondition,
-    case::GradRequirements,
-    interpolations::GradientInterpConfig,
+    base::{CellScalarField, Field}, boundary::BoundaryCondition, case::GradRequirements, equation::Component, interpolations::GradientInterpConfig
 };
 use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},
     indices::{CellIndex, FaceIndex},
 };
 use log::info;
-use nalgebra::Vector2;
+use nalgebra::{Scalar, Vector2};
 
 /// Recommanded value in book: 2
 const GREEN_GAUSS_COMPACT_ITER: usize = 2;
@@ -35,10 +32,10 @@ pub fn update_grads(
     bc: &Vec<BoundaryCondition>,
 ) {
     match field {
-        Field::Scalar(field) => update_grad_scalar(field, grad_requirements, mesh, config, bc),
+        Field::Scalar(field) => update_grad_scalar(field, grad_requirements, mesh, config, bc, &Component::X),
         Field::Vector2(field) => {
-            update_grad_scalar(&mut field.x, grad_requirements, mesh, config, bc);
-            update_grad_scalar(&mut field.y, grad_requirements, mesh, config, bc);
+            update_grad_scalar(&mut field.x, grad_requirements, mesh, config, bc, &Component::X);
+            update_grad_scalar(&mut field.y, grad_requirements, mesh, config, bc, &Component::X);
         }
     }
 }
@@ -49,11 +46,12 @@ fn update_grad_scalar(
     mesh: &Computational2DMesh,
     config: &GradientConfig,
     bc: &Vec<BoundaryCondition>,
+    component: &Component,
 ) {
     if !field.gradients_up_to_date() {
         if grad_requirements.cell() | grad_requirements.face() {
             match config.scheme {
-                GradientScheme::GreenGaussCompact => green_gauss_compact(field, mesh, bc),
+                GradientScheme::GreenGaussCompact => green_gauss_compact(field, mesh, bc, component),
                 _ => todo!("GradientScheme not implemented for {:?}", config.scheme),
             }
         }
@@ -61,7 +59,7 @@ fn update_grad_scalar(
         if grad_requirements.face() {
             match config.interp {
                 GradientInterpConfig::AveragedCorrected => {
-                    averaged_corrected_interp(field, mesh, bc)
+                    averaged_corrected_interp(field, mesh, bc, component)
                 }
                 _ => todo!("GradientInterp not implemented for {:?}", config.interp),
             }
@@ -73,6 +71,7 @@ fn green_gauss_compact(
     field: &mut CellScalarField,
     mesh: &Computational2DMesh,
     bc: &Vec<BoundaryCondition>,
+    component: &Component,
 ) {
     let (values, face_values, grads, _) = field.get_deconstructed_field_mut();
 
@@ -87,8 +86,8 @@ fn green_gauss_compact(
                     Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
                 };
 
-                match bc[id.0] {
-                    BoundaryCondition::Dirichlet(bc_value) => *value = bc_value,
+                match &bc[id.0] {
+                    BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
                     BoundaryCondition::Neumann(bc_value) => todo!(),
                 }
 
@@ -99,8 +98,8 @@ fn green_gauss_compact(
         let id_2 = match *patch_2 {
             Patch::Cell(id) => id,
             Patch::Boundary(id) => {
-                match bc[id.0] {
-                    BoundaryCondition::Dirichlet(bc_value) => *value = bc_value,
+                match &bc[id.0] {
+                    BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
                     BoundaryCondition::Neumann(bc_value) => todo!(),
                 }
                 continue;
@@ -135,8 +134,8 @@ fn green_gauss_compact(
                         Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
                     };
 
-                    match bc[id.0] {
-                        BoundaryCondition::Dirichlet(bc_value) => *value = bc_value,
+                    match &bc[id.0] {
+                        BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
                         BoundaryCondition::Neumann(bc_value) => todo!(),
                     }
                     continue;
@@ -145,8 +144,8 @@ fn green_gauss_compact(
             let id_2 = match *patch_2 {
                 Patch::Cell(id) => id,
                 Patch::Boundary(id) => {
-                    match bc[id.0] {
-                        BoundaryCondition::Dirichlet(bc_value) => *value = bc_value,
+                    match &bc[id.0] {
+                        BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
                         BoundaryCondition::Neumann(bc_value) => todo!(),
                     }
                     continue;
@@ -192,6 +191,7 @@ fn averaged_corrected_interp(
     field: &mut CellScalarField,
     mesh: &Computational2DMesh,
     bc: &Vec<BoundaryCondition>,
+    component: &Component,
 ) {
     let (values, _, grads, face_grads) = field.get_deconstructed_field_mut();
 
@@ -207,13 +207,14 @@ fn averaged_corrected_interp(
                 };
 
                 // Check!!
-                match bc[id.0] {
+                match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => {
                         let d = mesh.middle_point_from_face(FaceIndex(i))
                             - mesh.cells()[id_2.0].centroid();
                         // Assumption on the way geometric weighting factor behaves (same patch order as face)
                         let normal = mesh.faces()[i].normal();
-
+                        
+                        let bc_value = bc_value.get_value(component);
                         *face_grad = (bc_value - values[id_2.0]) / (d.dot(normal)) * normal;
                     }
                     BoundaryCondition::Neumann(bc_value) => todo!(),
@@ -225,8 +226,9 @@ fn averaged_corrected_interp(
         let id_2 = match *patch_2 {
             Patch::Cell(id) => id,
             Patch::Boundary(id) => {
-                match bc[id.0] {
+                match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
                         let d = mesh.middle_point_from_face(FaceIndex(i))
                             - mesh.cells()[id_1.0].centroid();
                         // Assumption on the way geometric weighting factor behaves (same patch order as face)

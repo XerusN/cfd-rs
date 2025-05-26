@@ -105,7 +105,7 @@ fn orthogonal_correction(
                                 - e_f;
                             rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
                         }
-                        Patch::Boundary(id) => match boundary_condition[id.0] {
+                        Patch::Boundary(id) => match &boundary_condition[id.0] {
                             BoundaryCondition::Dirichlet(bc_value) => {
                                 let d_cb = face.middle_point(mesh.vertices())
                                     - mesh.cells()[cell].centroid();
@@ -117,6 +117,7 @@ fn orthogonal_correction(
                                         .normal_from_cell(CellIndex(cell))
                                         .expect("Incoherence in face and cell connection")
                                     - e_b;
+                                let bc_value = bc_value.get_value(component);
                                 rhs[cell] += coeff
                                     * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
                             }

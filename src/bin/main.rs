@@ -1,3 +1,4 @@
+use cfd_rs::finite_volume::boundary::BoundaryValue;
 use cfd_rs::finite_volume::case::simple::SimpleCase;
 use cfd_rs::finite_volume::config::OutputConfig;
 use cfd_rs_utils::control::OutputControl;
@@ -34,19 +35,22 @@ fn main() {
         import_path: Some("./target/exports/mesh.cfd".to_string()),
         element_size: 0.01,
     };
-    let bc = vec![
-        BoundaryCondition::Dirichlet(300.),
-        BoundaryCondition::Dirichlet(200.),
-        BoundaryCondition::Dirichlet(0.),
-        BoundaryCondition::Dirichlet(0.),
-    ];
+    
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
         directory: "./target/exports".to_string(),
     };
+    
     let mut bc_fields = HashMap::new();
+    let bc = vec![
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(300.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(200.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(100.)),
+    ];
     bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
+    
     let config = CaseConfig {
         schemes,
         geometry,
