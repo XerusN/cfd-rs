@@ -5,8 +5,6 @@ use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},
     indices::{CellIndex, FaceIndex},
 };
-use log::info;
-use nalgebra::{Scalar, Vector2};
 
 /// Recommanded value in book: 2
 const GREEN_GAUSS_COMPACT_ITER: usize = 2;
@@ -88,7 +86,11 @@ fn green_gauss_compact(
 
                 match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
-                    BoundaryCondition::Neumann(bc_value) => todo!(),
+                    // Check Neumann implementation
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
+                        *value = values[id_2.0] + bc_value*(mesh.middle_point_from_face(FaceIndex(i)) - mesh.cells()[id_2.0].centroid()).dot(&mesh.faces()[i].normal_from_cell(id_2).expect("Mesh not coherent"))
+                    },
                 }
 
                 continue;
@@ -100,7 +102,10 @@ fn green_gauss_compact(
             Patch::Boundary(id) => {
                 match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
-                    BoundaryCondition::Neumann(bc_value) => todo!(),
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
+                        *value = values[id_1.0] + bc_value*(mesh.middle_point_from_face(FaceIndex(i)) - mesh.cells()[id_1.0].centroid()).dot(&mesh.faces()[i].normal_from_cell(id_1).expect("Mesh not coherent"))
+                    },
                 }
                 continue;
             }
@@ -120,11 +125,11 @@ fn green_gauss_compact(
     }
 
     let mut i = 0;
-    for j in 0..GREEN_GAUSS_COMPACT_ITER {
+    for _ in 0..GREEN_GAUSS_COMPACT_ITER {
         let mut norm = 0.;
         for (i, value) in face_values.iter_mut().enumerate() {
             let old = value.clone();
-            let (patch_1, patch_2, g_c) = mesh.geometric_weighting_factor(FaceIndex(i));
+            let (patch_1, patch_2, _) = mesh.geometric_weighting_factor(FaceIndex(i));
 
             let id_1 = match *patch_1 {
                 Patch::Cell(id) => id,
@@ -136,7 +141,10 @@ fn green_gauss_compact(
 
                     match &bc[id.0] {
                         BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
-                        BoundaryCondition::Neumann(bc_value) => todo!(),
+                        BoundaryCondition::Neumann(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            *value = values[id_2.0] + bc_value*(mesh.middle_point_from_face(FaceIndex(i)) - mesh.cells()[id_2.0].centroid()).dot(&mesh.faces()[i].normal_from_cell(id_2).expect("Mesh not coherent"))
+                        },
                     }
                     continue;
                 }
@@ -146,7 +154,10 @@ fn green_gauss_compact(
                 Patch::Boundary(id) => {
                     match &bc[id.0] {
                         BoundaryCondition::Dirichlet(bc_value) => *value = bc_value.get_value(component),
-                        BoundaryCondition::Neumann(bc_value) => todo!(),
+                        BoundaryCondition::Neumann(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            *value = values[id_1.0] + bc_value*(mesh.middle_point_from_face(FaceIndex(i)) - mesh.cells()[id_1.0].centroid()).dot(&mesh.faces()[i].normal_from_cell(id_1).expect("Mesh not coherent"))
+                        },
                     }
                     continue;
                 }
@@ -211,11 +222,10 @@ fn averaged_corrected_interp(
                     BoundaryCondition::Dirichlet(bc_value) => {
                         let d = mesh.middle_point_from_face(FaceIndex(i))
                             - mesh.cells()[id_2.0].centroid();
-                        // Assumption on the way geometric weighting factor behaves (same patch order as face)
-                        let normal = mesh.faces()[i].normal();
+                        let normal = mesh.faces()[i].normal_from_cell(id_2).expect("Mesh not coherent");
                         
                         let bc_value = bc_value.get_value(component);
-                        *face_grad = (bc_value - values[id_2.0]) / (d.dot(normal)) * normal;
+                        *face_grad = (bc_value - values[id_2.0]) / (d.dot(&normal)) * normal;
                     }
                     BoundaryCondition::Neumann(bc_value) => todo!(),
                 }
@@ -232,15 +242,20 @@ fn averaged_corrected_interp(
                         let d = mesh.middle_point_from_face(FaceIndex(i))
                             - mesh.cells()[id_1.0].centroid();
                         // Assumption on the way geometric weighting factor behaves (same patch order as face)
-                        let normal = mesh.faces()[i].normal();
+                        let normal = mesh.faces()[i].normal_from_cell(id_1).expect("Mesh not coherent");
 
-                        *face_grad = (bc_value - values[id_1.0]) / (d.dot(&(-normal))) * &(-normal);
+                        *face_grad = (bc_value - values[id_1.0]) / (d.dot(&(-normal))) * &normal;
                     }
                     BoundaryCondition::Neumann(bc_value) => todo!(),
                 }
                 continue;
             }
         };
+        let d_cf = mesh.cells()[id_2.0].centroid() - mesh.cells()[id_1.0].centroid();
+        let d_cf_norm = d_cf.norm();
+        let mean_grad = g_c*grads[id_1.0] + (1. - g_c)*grads[id_2.0];
+        // To check
+        *face_grad = mean_grad + ((values[id_2.0] - values[id_1.0]) - mean_grad.dot(&d_cf))*d_cf/d_cf_norm.powi(2);
     }
 
     println!("Gradients interpolated");

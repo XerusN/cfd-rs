@@ -4,7 +4,7 @@ use cfd_rs::finite_volume::config::OutputConfig;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
-use cfd_rs::finite_volume::case::poisson;
+use cfd_rs::finite_volume::case::{self, poisson};
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::poisson::PoissonCase,
@@ -20,7 +20,49 @@ use cfd_rs::finite_volume::{
 };
 use nalgebra::Vector2;
 
-fn main() {
+fn poisson() -> PoissonCase {
+    let schemes = Schemes {
+        transient: TimeIntegration::ForwardEuler,
+        convection: ConvectionScheme::UpwindSecondOrder,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
+        divergence: DivergenceScheme::RhieAndChow,
+        gradients: GradientConfig {
+            scheme: GradientScheme::GreenGaussCompact,
+            interp: GradientInterpConfig::AveragedCorrected,
+        },
+    };
+
+    let geometry = GeometryConfig {
+        import_path: Some("./target/exports/mesh.cfd".to_string()),
+        element_size: 0.01,
+    };
+    
+    let output = OutputConfig {
+        control: OutputControl::Iteration(1),
+        directory: "./target/exports".to_string(),
+    };
+    
+    let mut bc_fields = HashMap::new();
+    let bc = vec![
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(200.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(300.)),
+    ];
+    bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
+    let bc_fields = FieldsBoundaryConditions::new(bc_fields);
+    
+    let config = CaseConfig {
+        schemes,
+        geometry,
+        bc: bc_fields,
+        output,
+    };
+
+    PoissonCase::new(config)
+}
+
+fn simple() -> SimpleCase {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
@@ -66,25 +108,17 @@ fn main() {
         output,
     };
 
-    let mut case = SimpleCase::new(config);
+    SimpleCase::new(config)
+}
 
-    //case.mesh().serialize_file(&"./target/exports/mesh.cfd").unwrap();
-
-    println!("{}", case.name());
-
-    // #[cfg(debug_assertions)]
-    // case.export().unwrap();
+fn main() {
     
-    // for _ in 0..2 {
-    //     case.next_step();
-    //     case.export().unwrap();
-    // }
     
-    case.next_step();
-    case.export().unwrap();
-    case.next_step();
-    case.export().unwrap();
-
-    // #[cfg(debug_assertions)]
+    let mut case = poisson();
+    
+    for _ in 0..2 {
+        case.next_step();
+        case.export().unwrap();
+    }
     
 }
