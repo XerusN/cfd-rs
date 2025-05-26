@@ -227,7 +227,11 @@ fn averaged_corrected_interp(
                         let bc_value = bc_value.get_value(component);
                         *face_grad = (bc_value - values[id_2.0]) / (d.dot(&normal)) * normal;
                     }
-                    BoundaryCondition::Neumann(bc_value) => todo!(),
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let normal = mesh.faces()[i].normal_from_cell(id_2).expect("Mesh not coherent");
+                        let bc_value = bc_value.get_value(component);
+                        *face_grad = grads[id_2.0] + (bc_value - grads[id_2.0].dot(&normal))*normal;
+                    },
                 }
 
                 continue;
@@ -246,7 +250,11 @@ fn averaged_corrected_interp(
 
                         *face_grad = (bc_value - values[id_1.0]) / (d.dot(&(-normal))) * &normal;
                     }
-                    BoundaryCondition::Neumann(bc_value) => todo!(),
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let normal = mesh.faces()[i].normal_from_cell(id_2).expect("Mesh not coherent");
+                        let bc_value = bc_value.get_value(component);
+                        *face_grad = grads[id_1.0] + (bc_value - grads[id_1.0].dot(&normal))*normal;
+                    },
                 }
                 continue;
             }
