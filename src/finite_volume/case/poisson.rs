@@ -121,7 +121,6 @@ impl Case for PoissonCase {
     }
 
     fn next_step(&mut self) {
-        // Check if gradients are correctly updated
         Equation::solve(self, "Poisson");
 
         self.time += self.time_step;

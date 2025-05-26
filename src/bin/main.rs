@@ -62,14 +62,17 @@ fn main() {
 
     // #[cfg(debug_assertions)]
     // case.export().unwrap();
-
+    
+    // for _ in 0..2 {
+    //     case.next_step();
+    //     case.export().unwrap();
+    // }
     
     case.next_step();
-    println!("calc1 done");
-    
-    // case.next_step();
-    // println!("calc2 done");
+    case.export().unwrap();
+    case.next_step();
+    case.export().unwrap();
 
     // #[cfg(debug_assertions)]
-    case.export().unwrap();
+    
 }

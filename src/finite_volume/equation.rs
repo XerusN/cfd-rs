@@ -186,14 +186,13 @@ impl Equation {
     }
 
     pub fn new(lhs: Op, rhs: Op, schemes: &Schemes) -> Result<Equation, CfdError> {
-        
         let mut unknown_var = None;
 
         let mut variables_requirements = HashMap::new();
 
         let mut collector = vec![];
         (lhs.clone() - rhs.clone()).collect_field_operators(&mut collector);
-        
+
         for f_op in &collector {
             match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => match diff_op {
@@ -253,7 +252,7 @@ impl Equation {
                 }
             }
         }
-        
+
         for f_op in &collector {
             let var = f_op.variable();
             let (_, required_grad) = f_op.required_grads(schemes);
@@ -319,6 +318,7 @@ impl EquationSolver {
         for v in self.rhs.iter_mut() {
             *v = 0.;
         }
+        
     }
 
     pub fn matrix(&self) -> &CsrMatrix<f64> {
@@ -388,7 +388,7 @@ impl EquationSolver {
 fn solve(
     solver: &mut EquationSolver,
     equation: &Equation,
-    mut fields: &mut VariableFields,
+    fields: &mut VariableFields,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
 ) -> usize {
@@ -399,7 +399,7 @@ fn solve(
 
     let eq = lhs - rhs;
 
-    for (var, mut field) in &fields.map {
+    for (var, field) in &fields.map {
         field.0.borrow_mut().update_grads(
             &field.1,
             mesh,
@@ -417,16 +417,6 @@ fn solve(
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, 1.);
 
-            // let index = system
-            //     .fields_required()
-            //     .iter()
-            //     .position(|var_i| system.equation().unknown() == var_i)
-            //     .expect(&format!(
-            //         "Missing variable {:?} in fields for equation {:?}",
-            //         system.equation().unknown(),
-            //         system.equation()
-            //     ));
-
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
@@ -440,19 +430,14 @@ fn solve(
                 _ => panic!("Unknown should be scalar"),
             };
             
-            // for cell in 0..solver.rhs.len() {
-            //     if solver.rhs[cell] != 0. {
-            //         println!("{:?} | {:?} | {:?}", solver.matrix.row(cell), solver.rhs[cell], field.grads_cell()[cell])
-            //     }
-            // }
-            
             warn!("Hard-coded tol and max_iter for solve");
-            let result = iteratives::biconjugate_gradient::solve_with_initial_guess(
-                solver.matrix(),
+            let result = iteratives::amg::solve_with_initial_guess(
+                solver.matrix().clone(),
                 &solver.rhs,
                 field.values_mut(),
-                1000,
-                1e-3,
+                10000,
+                1e-4,
+                0.25,
             );
 
             if !result {
@@ -460,7 +445,6 @@ fn solve(
             }
         }
         Dimension::Vector2 => todo!(),
-        _ => todo!(),
     }
 
     0

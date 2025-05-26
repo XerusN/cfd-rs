@@ -135,64 +135,6 @@ fn orthogonal_correction(
             }
         }
         IntegrationCategory::Explicit => {
-            for cell in 0..rhs.len() {
-                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut row = matrix
-                    .get_row_mut(cell)
-                    .expect("Bad Initialization of matrix");
-                let mut f_c = 0.;
-                for (neighbor, face, face_id) in neighbors_and_faces {
-                    match *neighbor {
-                        Patch::Cell(id) => {
-                            let d_cf =
-                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
-                            let e_f = face.area() * d_cf.normalize();
-                            let f_f = -e_f.magnitude() / d_cf.magnitude();
-                            f_c -= f_f;
-                            match row
-                                .get_entry_mut(id.0)
-                                .expect("Bad Initialization of matrix")
-                            {
-                                SparseEntryMut::NonZero(value) => *value += f_f * coeff,
-                                SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
-                            }
-                            let t_f = face.area()
-                                * face
-                                    .normal_from_cell(CellIndex(cell))
-                                    .expect("Incoherence in face and cell connection")
-                                - e_f;
-                            rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
-                        }
-                        Patch::Boundary(id) => match boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                let d_cb = face.middle_point(mesh.vertices())
-                                    - mesh.cells()[cell].centroid();
-                                let e_b = face.area() * d_cb.normalize();
-                                let f_b = e_b.magnitude() / d_cb.magnitude();
-                                f_c += f_b;
-                                let t_b = face.area()
-                                    * face
-                                        .normal_from_cell(CellIndex(cell))
-                                        .expect("Incoherence in face and cell connection")
-                                    - e_b;
-                                rhs[cell] += coeff
-                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-
-                                f_c += f_b;
-                            }
-                            BoundaryCondition::Neumann(bc_value) => todo!(),
-                        },
-                    }
-                }
-
-                match row
-                    .get_entry_mut(cell)
-                    .expect("Bad Initialization of matrix")
-                {
-                    SparseEntryMut::NonZero(value) => *value += f_c * coeff,
-                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
-                }
-            }
             todo!();
         }
     }

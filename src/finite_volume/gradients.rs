@@ -11,8 +11,8 @@ use cfd_rs_utils::mesh::{
 use log::info;
 use nalgebra::Vector2;
 
-/// Arbitrary value, has to be checked
-const GREEN_GAUSS_COMPACT_ITER: usize = 100;
+/// Recommanded value in book: 2
+const GREEN_GAUSS_COMPACT_ITER: usize = 2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GradientScheme {
@@ -77,8 +77,8 @@ fn green_gauss_compact(
     let (values, face_values, grads, _) = field.get_deconstructed_field_mut();
 
     for (i, value) in face_values.iter_mut().enumerate() {
-        let (patch_1, patch_2, g_c) = mesh.geometric_weighting_factor(FaceIndex(i));
-
+        let (patch_1, patch_2, _) = mesh.geometric_weighting_factor(FaceIndex(i));
+        //println!("{g_c}");
         let id_1 = match *patch_1 {
             Patch::Cell(id) => id,
             Patch::Boundary(id) => {
@@ -95,6 +95,7 @@ fn green_gauss_compact(
                 continue;
             }
         };
+
         let id_2 = match *patch_2 {
             Patch::Cell(id) => id,
             Patch::Boundary(id) => {
@@ -105,28 +106,27 @@ fn green_gauss_compact(
                 continue;
             }
         };
-        *value = values[id_1.0] * g_c + values[id_2.0] * (1. - g_c);
+        *value = (values[id_1.0] + values[id_2.0]) * 0.5;
     }
 
     for (cell, grad) in grads.iter_mut().enumerate() {
-        let (faces_id, normals) = mesh.surface_vectors_from_cell_with_faces_id(CellIndex(cell));
+        let (faces_id, normals) = mesh.normals_from_cell_with_faces_id(CellIndex(cell));
 
         grad.x = 0.;
         grad.y = 0.;
         for (i, face_id) in faces_id.iter().enumerate() {
-            *grad += face_values[face_id.0] * normals[i];
+            *grad += face_values[face_id.0] * normals[i] * mesh.faces()[face_id.0].area();
         }
         *grad /= mesh.cells()[cell].volume();
     }
-    
+
     let mut i = 0;
     for j in 0..GREEN_GAUSS_COMPACT_ITER {
         let mut norm = 0.;
         for (i, value) in face_values.iter_mut().enumerate() {
-            
             let old = value.clone();
             let (patch_1, patch_2, g_c) = mesh.geometric_weighting_factor(FaceIndex(i));
-            
+
             let id_1 = match *patch_1 {
                 Patch::Cell(id) => id,
                 Patch::Boundary(id) => {
@@ -152,33 +152,34 @@ fn green_gauss_compact(
                     continue;
                 }
             };
-            *value = values[id_1.0] * g_c + values[id_2.0] * (1. - g_c);
-            *value +=
-                g_c * grads[id_1.0].dot(
-                    &(mesh.middle_point_from_face(FaceIndex(i)) - mesh.cells()[id_1.0].centroid()),
-                ) + (1. - g_c)
-                    * grads[id_2.0].dot(
-                        &(mesh.middle_point_from_face(FaceIndex(i))
-                            - mesh.cells()[id_2.0].centroid()),
-                    );
+            *value = (values[id_1.0] + values[id_2.0]) * 0.5;
+            *value += 0.5
+                * (grads[id_1.0] + grads[id_2.0]).dot(
+                    &(mesh.middle_point_from_face(FaceIndex(i))
+                        - mesh.cells()[id_1.0]
+                            .centroid()
+                            .lerp(mesh.cells()[id_2.0].centroid(), 0.5)),
+                );
             norm += (*value - old).abs();
         }
 
         for (cell, grad) in grads.iter_mut().enumerate() {
-            let (faces_id, normals) = mesh.surface_vectors_from_cell_with_faces_id(CellIndex(cell));
-            
+            let (faces_id, normals) = mesh.normals_from_cell_with_faces_id(CellIndex(cell));
+
             grad.x = 0.;
             grad.y = 0.;
             for (i, face_id) in faces_id.iter().enumerate() {
-                *grad += face_values[face_id.0] * normals[i];
+                *grad += face_values[face_id.0] * normals[i] * mesh.faces()[face_id.0].area();
             }
+
             *grad /= mesh.cells()[cell].volume();
         }
-        
-        i+= 1;
-        
-        println!("norm = {norm:.9e}");
-        
+
+        i += 1;
+
+        norm /= mesh.num_faces() as f64;
+        println!("norm = {:.9e}", norm);
+
         if norm < 1e-3 {
             break;
         }
