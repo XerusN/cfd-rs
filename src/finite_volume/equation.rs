@@ -411,7 +411,7 @@ fn solve(
                 .expect("Boundary Condition missing for field"),
         );
     }
-
+    
     match equation.unknown().dim {
         Dimension::Scalar => {
             let component = Component::X;
@@ -430,6 +430,8 @@ fn solve(
                 _ => panic!("Unknown should be scalar"),
             };
             
+            // To change
+            warn!("Matrix cloned for amg");
             warn!("Hard-coded tol and max_iter for solve");
             let result = iteratives::amg::solve_with_initial_guess(
                 solver.matrix().clone(),
