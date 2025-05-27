@@ -141,7 +141,7 @@ impl Case for SimpleCase {
         let density = 1.;
         let kinematic_viscosity = 1.;
 
-        let time_step = 0.01;
+        let time_step = 0.001;
 
         let mut equations = CaseEquations::new();
 

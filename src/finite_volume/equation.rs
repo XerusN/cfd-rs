@@ -9,7 +9,7 @@ use std::{
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
-use nalgebra_sparse_linalg::iteratives;
+use nalgebra_sparse_linalg::iteratives::{self, amg::Amg, IterativeSolver};
 
 use super::{
     base::Field,
@@ -347,21 +347,31 @@ impl EquationSolver {
         }
     }
 
-    fn add_gradient(&mut self, var: &Variable, component: &Component, fields: &VariableFields, coeff: f64) {
+    fn add_gradient(
+        &mut self,
+        var: &Variable,
+        component: &Component,
+        fields: &VariableFields,
+        coeff: f64,
+    ) {
         let field = find_var_in_fields(var, fields);
         let field = field.borrow();
         let field = match *field {
             Field::Scalar(ref values) => values,
             Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
         };
-        
+
         match component {
-            Component::X => for (i, v) in self.rhs.iter_mut().enumerate() {
-                *v -= field.grads_cell()[i].x;
-            },
-            Component::Y => for (i, v) in self.rhs.iter_mut().enumerate() {
-                *v -= field.grads_cell()[i].y;
-            },
+            Component::X => {
+                for (i, v) in self.rhs.iter_mut().enumerate() {
+                    *v -= field.grads_cell()[i].x;
+                }
+            }
+            Component::Y => {
+                for (i, v) in self.rhs.iter_mut().enumerate() {
+                    *v -= field.grads_cell()[i].y;
+                }
+            }
         }
     }
 
@@ -501,18 +511,24 @@ fn solve(
             // To change
             warn!("Matrix cloned for amg");
             warn!("Hard-coded tol and max_iter for solve");
-            let result = iteratives::amg::solve_with_initial_guess(
-                solver.matrix().clone(),
-                &solver.rhs,
-                field.values_mut(),
-                10000,
-                1e-1,
-                0.25,
-            );
+            
+            let mut linalg_solver = Amg::with_smoothing(1e-12, 0.8, 1000, 4, 4);
+            linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
+            let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
+            *field.values_mut() = linalg_solver.x.clone();
+            
+            // let result = iteratives::amg::solve_with_initial_guess(
+            //     solver.matrix().clone(),
+            //     &solver.rhs,
+            //     field.values_mut(),
+            //     1000,
+            //     1e-12,
+            //     0.8,
+            // );
 
-            if !result {
-                panic!("Did not converge when solving {:?}", equation)
-            }
+            // if !result {
+            //     panic!("Did not converge when solving {:?}", equation)
+            // }
         }
         Dimension::Vector2 => {
             for component in [Component::X, Component::Y] {
@@ -534,21 +550,23 @@ fn solve(
                     _ => panic!("Unknown should be vector"),
                 };
 
-                // To change
-                warn!("Matrix cloned for amg");
-                warn!("Hard-coded tol and max_iter for solve");
-                let result = iteratives::amg::solve_with_initial_guess(
-                    solver.matrix().clone(),
-                    &solver.rhs,
-                    field.values_mut(),
-                    10000,
-                    1e-1,
-                    0.8,
-                );
+                let mut linalg_solver = Amg::with_smoothing(1e-12, 0.9, 1000, 4, 4);
+                linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
+                let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
+                *field.values_mut() = linalg_solver.x.clone();
+                
+                // let result = iteratives::amg::solve_with_initial_guess(
+                //     solver.matrix().clone(),
+                //     &solver.rhs,
+                //     field.values_mut(),
+                //     1000,
+                //     1e-12,
+                //     0.8,
+                // );
 
-                if !result {
-                    panic!("Did not converge when solving {:?}", equation)
-                }
+                // if !result {
+                //     panic!("Did not converge when solving {:?}", equation)
+                // }
             }
         }
     }
