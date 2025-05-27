@@ -1,4 +1,4 @@
-use std::{ops::Index};
+use std::ops::Index;
 
 use cfd_rs_utils::mesh::indices::BoundaryPatchIndex;
 use hashbrown::HashMap;
@@ -22,11 +22,17 @@ pub enum BoundaryValue {
 impl BoundaryValue {
     pub fn get_value(&self, component: &Component) -> f64 {
         match *self {
-            BoundaryValue::Scalar(value) => if let Component::X = component {value} else {panic!("Expecting a vectorized boundary condition")},
+            BoundaryValue::Scalar(value) => {
+                if let Component::X = component {
+                    value
+                } else {
+                    panic!("Expecting a vectorized boundary condition")
+                }
+            }
             BoundaryValue::Vector2(value) => match component {
                 Component::X => value.x,
                 Component::Y => value.y,
-            }
+            },
         }
     }
 }

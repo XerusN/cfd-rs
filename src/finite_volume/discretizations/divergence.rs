@@ -39,9 +39,7 @@ impl DivergenceScheme {
         let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::Basic => {
-                basic(field, solver, mesh, integration, coeff)
-            }
+            Self::Basic => basic(field, solver, mesh, integration, coeff),
         }
     }
 }
@@ -58,20 +56,25 @@ fn basic(
         Field::Scalar(_) => panic!("No implemtation of divergence for a scalar field"),
         Field::Vector2(ref values) => values,
     };
-    
+
     let (_, rhs) = solver.solver_borrow_mut();
-    
+
     match integration {
         IntegrationCategory::Explicit => {
             for (cell_id, _) in mesh.cells().iter().enumerate() {
-                let (faces_id, normals) = mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
+                let (faces_id, normals) =
+                    mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
                 for i in 0..faces_id.len() {
-                    let face_values = Vector2::new(field.x.face_values()[faces_id[i].0], field.y.face_values()[faces_id[i].0]);
-                    let flow_rate = mesh.faces()[faces_id[i].0].area()*normals[i].dot(&face_values);
-                    rhs[cell_id] -= coeff*flow_rate;
+                    let face_values = Vector2::new(
+                        field.x.face_values()[faces_id[i].0],
+                        field.y.face_values()[faces_id[i].0],
+                    );
+                    let flow_rate =
+                        mesh.faces()[faces_id[i].0].area() * normals[i].dot(&face_values);
+                    rhs[cell_id] -= coeff * flow_rate;
                 }
             }
-        },
+        }
         IntegrationCategory::Implicit => todo!(),
     }
 }

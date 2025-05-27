@@ -36,12 +36,12 @@ fn poisson() -> PoissonCase {
         import_path: Some("./target/exports/mesh.cfd".to_string()),
         element_size: 0.01,
     };
-    
+
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
         directory: "./target/exports".to_string(),
     };
-    
+
     let mut bc_fields = HashMap::new();
     let bc = vec![
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
@@ -51,7 +51,7 @@ fn poisson() -> PoissonCase {
     ];
     bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
-    
+
     let config = CaseConfig {
         schemes,
         geometry,
@@ -78,12 +78,12 @@ fn simple() -> SimpleCase {
         import_path: Some("./target/exports/mesh.cfd".to_string()),
         element_size: 0.01,
     };
-    
+
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
         directory: "./target/exports".to_string(),
     };
-    
+
     let mut bc_fields = HashMap::new();
     let bc = vec![
         BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
@@ -100,7 +100,7 @@ fn simple() -> SimpleCase {
     ];
     bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
-    
+
     let config = CaseConfig {
         schemes,
         geometry,
@@ -112,14 +112,11 @@ fn simple() -> SimpleCase {
 }
 
 fn main() {
-    
-    
     //let mut case = poisson();
     let mut case = simple();
-    
+
     for _ in 0..2 {
         case.next_step();
         case.export().unwrap();
     }
-    
 }

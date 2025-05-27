@@ -123,8 +123,8 @@ fn orthogonal_correction(
                             }
                             BoundaryCondition::Neumann(bc_value) => {
                                 let bc_value = bc_value.get_value(component);
-                                rhs[cell] -= coeff* bc_value * face.area();
-                            },
+                                rhs[cell] -= coeff * bc_value * face.area();
+                            }
                         },
                     }
                 }
@@ -153,7 +153,7 @@ fn orthogonal_correction(
                             let e_f = face.area() * d_cf.normalize();
                             let f_f = -e_f.magnitude() / d_cf.magnitude();
                             f_c -= f_f;
-                            rhs[cell] -= f_f*coeff*field.values()[id.0];
+                            rhs[cell] -= f_f * coeff * field.values()[id.0];
                             let t_f = face.area()
                                 * face
                                     .normal_from_cell(CellIndex(cell))
@@ -181,7 +181,7 @@ fn orthogonal_correction(
                         },
                     }
                 }
-                rhs[cell] -= f_c*coeff*field.values()[cell];
+                rhs[cell] -= f_c * coeff * field.values()[cell];
             }
         }
     }

@@ -116,7 +116,10 @@ impl CaseEquations {
             for (variable, grad) in eq.fields_required() {
                 println!("{:?}, {:?}", variable, grad);
                 if variables_glob.contains_key(variable) {
-                    variables_glob.get_mut(variable).expect("?").update_requirements(grad);
+                    variables_glob
+                        .get_mut(variable)
+                        .expect("?")
+                        .update_requirements(grad);
                 } else {
                     variables_glob.insert(variable.clone(), grad.clone());
                 }

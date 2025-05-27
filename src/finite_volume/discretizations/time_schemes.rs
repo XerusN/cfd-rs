@@ -1,6 +1,12 @@
-use std::{cell::{RefCell, RefMut}, ops::Deref};
+use std::{
+    cell::{RefCell, RefMut},
+    ops::Deref,
+};
 
-use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex};
+use cfd_rs_utils::mesh::{
+    computational_mesh::{Computational2DMesh, Patch},
+    indices::CellIndex,
+};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
@@ -59,18 +65,18 @@ fn forward_euler(
             Component::Y => &value.y,
         },
     };
-    
-    let time_step_inv = 1./time_step;
-    
+
+    let time_step_inv = 1. / time_step;
+
     for cell in 0..rhs.len() {
         let mut row = matrix
             .get_row_mut(cell)
             .expect("Bad Initialization of matrix");
-        
+
         let f_c = time_step_inv;
-        
-        rhs[cell] = f_c*coeff*field.values()[cell];
-        
+
+        rhs[cell] = f_c * coeff * field.values()[cell];
+
         match row
             .get_entry_mut(cell)
             .expect("Bad Initialization of matrix")

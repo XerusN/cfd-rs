@@ -16,7 +16,7 @@ use super::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
-    discretizations::DifferentialOperator,
+    discretizations::{find_var_in_fields, DifferentialOperator},
     error::CfdError,
 };
 
@@ -319,7 +319,6 @@ impl EquationSolver {
         for v in self.rhs.iter_mut() {
             *v = 0.;
         }
-        
     }
 
     pub fn matrix(&self) -> &CsrMatrix<f64> {
@@ -348,6 +347,24 @@ impl EquationSolver {
         }
     }
 
+    fn add_gradient(&mut self, var: &Variable, component: &Component, fields: &VariableFields, coeff: f64) {
+        let field = find_var_in_fields(var, fields);
+        let field = field.borrow();
+        let field = match *field {
+            Field::Scalar(ref values) => values,
+            Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
+        };
+        
+        match component {
+            Component::X => for (i, v) in self.rhs.iter_mut().enumerate() {
+                *v -= field.grads_cell()[i].x;
+            },
+            Component::Y => for (i, v) in self.rhs.iter_mut().enumerate() {
+                *v -= field.grads_cell()[i].y;
+            },
+        }
+    }
+
     pub fn apply_op(
         &mut self,
         op: &Op,
@@ -360,25 +377,73 @@ impl EquationSolver {
     ) {
         match op {
             Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, component, fields, mesh, config, time_step, coeff);
-                self.apply_op(&op.as_ref().1, component, fields, mesh, config, time_step, coeff);
+                self.apply_op(
+                    &op.as_ref().0,
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff,
+                );
+                self.apply_op(
+                    &op.as_ref().1,
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff,
+                );
             }
             Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, component, fields, mesh, config, time_step, coeff);
-                self.apply_op(&op.as_ref().1, component, fields, mesh, config, time_step, -coeff);
+                self.apply_op(
+                    &op.as_ref().0,
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff,
+                );
+                self.apply_op(
+                    &op.as_ref().1,
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    -coeff,
+                );
             }
             Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), component, fields, mesh, config, time_step, coeff * scalar);
+                self.apply_op(
+                    op.as_ref(),
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff * scalar,
+                );
             }
             Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), component, fields, mesh, config, time_step, coeff / scalar);
+                self.apply_op(
+                    op.as_ref(),
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff / scalar,
+                );
             }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
                     diff_op.discretize(component, self, fields, mesh, config, time_step, coeff)
                 }
                 FieldOperator::Field(var, integration) => todo!(),
-                FieldOperator::Gradient(var) => todo!(),
+                FieldOperator::Gradient(var) => self.add_gradient(var, component, fields, coeff),
             },
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff);
@@ -414,7 +479,7 @@ fn solve(
                 .expect("Boundary Condition missing for field"),
         );
     }
-    
+
     match equation.unknown().dim {
         Dimension::Scalar => {
             let component = Component::X;
@@ -432,7 +497,7 @@ fn solve(
                 Field::Scalar(ref mut scalar_field) => scalar_field,
                 _ => panic!("Unknown should be scalar"),
             };
-            
+
             // To change
             warn!("Matrix cloned for amg");
             warn!("Hard-coded tol and max_iter for solve");
@@ -441,7 +506,7 @@ fn solve(
                 &solver.rhs,
                 field.values_mut(),
                 10000,
-                1e-4,
+                1e-1,
                 0.25,
             );
 
@@ -468,7 +533,7 @@ fn solve(
                     },
                     _ => panic!("Unknown should be vector"),
                 };
-                
+
                 // To change
                 warn!("Matrix cloned for amg");
                 warn!("Hard-coded tol and max_iter for solve");
@@ -477,15 +542,15 @@ fn solve(
                     &solver.rhs,
                     field.values_mut(),
                     10000,
-                    1e-2,
-                    0.25,
+                    1e-1,
+                    0.8,
                 );
 
                 if !result {
                     panic!("Did not converge when solving {:?}", equation)
                 }
             }
-        },
+        }
     }
 
     0

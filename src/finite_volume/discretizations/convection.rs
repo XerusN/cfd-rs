@@ -69,9 +69,9 @@ fn upwind_second_order(
         Field::Scalar(_) => panic!("Speed has to be a vector"),
         Field::Vector2(ref values) => values,
     };
-    
+
     let (_, rhs) = solver.solver_borrow_mut();
-    
+
     let field = field.borrow();
     let field = match *field {
         Field::Scalar(ref value) => value,
@@ -80,22 +80,28 @@ fn upwind_second_order(
             Component::Y => &value.y,
         },
     };
-    
+
     match integration {
         IntegrationCategory::Explicit => {
             for (cell_id, cell) in mesh.cells().iter().enumerate() {
                 let mut f = 0.;
-                let (faces_id, normals) = mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
+                let (faces_id, normals) =
+                    mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
                 for i in 0..faces_id.len() {
-                    let face_speed = Vector2::new(speed.x.face_values()[faces_id[i].0], speed.y.face_values()[faces_id[i].0]);
-                    let flow_rate = mesh.faces()[faces_id[i].0].area()*normals[i].dot(&face_speed);
+                    let face_speed = Vector2::new(
+                        speed.x.face_values()[faces_id[i].0],
+                        speed.y.face_values()[faces_id[i].0],
+                    );
+                    let flow_rate =
+                        mesh.faces()[faces_id[i].0].area() * normals[i].dot(&face_speed);
                     let d_cf = mesh.middle_point_from_face(faces_id[i]) - cell.centroid();
-                    let face_field = field.values()[cell_id] + (2.*field.grads_cell()[cell_id] - field.grads_face()[faces_id[i].0]).dot(&d_cf);
-                    rhs[cell_id] -= coeff*flow_rate*face_field;
+                    let face_field = field.values()[cell_id]
+                        + (2. * field.grads_cell()[cell_id] - field.grads_face()[faces_id[i].0])
+                            .dot(&d_cf);
+                    rhs[cell_id] -= coeff * flow_rate * face_field;
                 }
             }
-        },
+        }
         IntegrationCategory::Implicit => todo!(),
     }
-    
 }

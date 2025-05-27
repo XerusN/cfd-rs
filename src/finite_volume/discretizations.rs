@@ -113,7 +113,7 @@ impl DifferentialOperator {
     }
 }
 
-fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
+pub fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
     &fields
         .map
         .get(var)
