@@ -477,7 +477,7 @@ fn solve(
                     &solver.rhs,
                     field.values_mut(),
                     10000,
-                    1e-4,
+                    1e-2,
                     0.25,
                 );
 

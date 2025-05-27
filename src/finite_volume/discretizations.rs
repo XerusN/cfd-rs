@@ -97,7 +97,6 @@ impl DifferentialOperator {
             Self::Divergence(var, integration) => {
                 config.schemes.divergence.discretize(
                     &var,
-                    component,
                     solver,
                     fields,
                     mesh,

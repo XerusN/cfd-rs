@@ -29,7 +29,7 @@ impl CellScalarField {
     pub fn new(cells_num: usize, faces_num: usize, grads_required: &GradRequirements) -> Self {
         let mut values = DVector::zeros(cells_num);
         for value in values.iter_mut() {
-            *value = 200.;
+            *value = 0.;
         }
         let face_values = DVector::zeros(faces_num);
 
@@ -46,7 +46,9 @@ impl CellScalarField {
         } else {
             grads_face = DVector::zeros(0);
         }
-
+        
+        println!("cells: {} | faces: {} | grad_cells: {} | grad_faces: {}", values.len(), face_values.len(), grads_cell.len(), grads_face.len());
+        
         CellScalarField {
             values,
             face_values,

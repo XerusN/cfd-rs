@@ -55,6 +55,7 @@ impl VariableFields {
     pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
+            print!("Field init for {}: ", var.name());
             match *var.dim() {
                 Dimension::Scalar => {
                     fields.insert(
@@ -109,14 +110,15 @@ impl CaseEquations {
     }
 
     pub fn variables_requirements(&self) -> HashMap<Variable, GradRequirements> {
-        let mut variables_glob = HashMap::new();
+        let mut variables_glob: HashMap<Variable, GradRequirements> = HashMap::new();
 
         for eq in self.map.values() {
             for (variable, grad) in eq.fields_required() {
-                let old_value = variables_glob.try_insert(variable.clone(), grad.clone());
-                match old_value {
-                    Ok(_) => (),
-                    Err(mut old_value) => old_value.value.update_requirements(&grad),
+                println!("{:?}, {:?}", variable, grad);
+                if variables_glob.contains_key(variable) {
+                    variables_glob.get_mut(variable).expect("?").update_requirements(grad);
+                } else {
+                    variables_glob.insert(variable.clone(), grad.clone());
                 }
             }
         }

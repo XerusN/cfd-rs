@@ -121,7 +121,10 @@ fn orthogonal_correction(
                                 rhs[cell] += coeff
                                     * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
                             }
-                            BoundaryCondition::Neumann(bc_value) => todo!(),
+                            BoundaryCondition::Neumann(bc_value) => {
+                                let bc_value = bc_value.get_value(component);
+                                rhs[cell] -= coeff* bc_value * face.area();
+                            },
                         },
                     }
                 }
@@ -136,7 +139,50 @@ fn orthogonal_correction(
             }
         }
         IntegrationCategory::Explicit => {
-            todo!();
+            for cell in 0..rhs.len() {
+                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
+                let mut row = matrix
+                    .get_row_mut(cell)
+                    .expect("Bad Initialization of matrix");
+                let mut f_c = 0.;
+                for (neighbor, face, face_id) in neighbors_and_faces {
+                    match *neighbor {
+                        Patch::Cell(id) => {
+                            let d_cf =
+                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
+                            let e_f = face.area() * d_cf.normalize();
+                            let f_f = -e_f.magnitude() / d_cf.magnitude();
+                            f_c -= f_f;
+                            rhs[cell] -= f_f*coeff*field.values()[id.0];
+                            let t_f = face.area()
+                                * face
+                                    .normal_from_cell(CellIndex(cell))
+                                    .expect("Incoherence in face and cell connection")
+                                - e_f;
+                            rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
+                        }
+                        Patch::Boundary(id) => match &boundary_condition[id.0] {
+                            BoundaryCondition::Dirichlet(bc_value) => {
+                                let d_cb = face.middle_point(mesh.vertices())
+                                    - mesh.cells()[cell].centroid();
+                                let e_b = face.area() * d_cb.normalize();
+                                let f_b = e_b.magnitude() / d_cb.magnitude();
+                                f_c += f_b;
+                                let t_b = face.area()
+                                    * face
+                                        .normal_from_cell(CellIndex(cell))
+                                        .expect("Incoherence in face and cell connection")
+                                    - e_b;
+                                let bc_value = bc_value.get_value(component);
+                                rhs[cell] += coeff
+                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
+                            }
+                            BoundaryCondition::Neumann(bc_value) => todo!(),
+                        },
+                    }
+                }
+                rhs[cell] -= f_c*coeff*field.values()[cell];
+            }
         }
     }
 }

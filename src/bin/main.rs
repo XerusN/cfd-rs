@@ -25,7 +25,7 @@ fn poisson() -> PoissonCase {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
         laplacian: LaplacianScheme::OrthogonalCorrection,
-        divergence: DivergenceScheme::RhieAndChow,
+        divergence: DivergenceScheme::Basic,
         gradients: GradientConfig {
             scheme: GradientScheme::GreenGaussCompact,
             interp: GradientInterpConfig::AveragedCorrected,
@@ -67,7 +67,7 @@ fn simple() -> SimpleCase {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
         laplacian: LaplacianScheme::OrthogonalCorrection,
-        divergence: DivergenceScheme::RhieAndChow,
+        divergence: DivergenceScheme::Basic,
         gradients: GradientConfig {
             scheme: GradientScheme::GreenGaussCompact,
             interp: GradientInterpConfig::AveragedCorrected,

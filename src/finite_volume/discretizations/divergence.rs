@@ -1,6 +1,7 @@
 use std::cell::{RefCell, RefMut};
 
-use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
+use nalgebra::Vector2;
 
 use crate::finite_volume::{
     base::Field,
@@ -14,20 +15,20 @@ use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DivergenceScheme {
-    RhieAndChow,
+    Basic,
 }
 
 impl DivergenceScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
-            Self::RhieAndChow => GradRequirements::new(false, false),
+            // Indirectly(face values needed)
+            Self::Basic => GradRequirements::new(true, false),
         }
     }
 
     pub fn discretize(
         &self,
         var: &Variable,
-        component: &Component,
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Computational2DMesh,
@@ -35,29 +36,42 @@ impl DivergenceScheme {
         integration: &IntegrationCategory,
         coeff: f64,
     ) {
-        let bc = config
-            .bc
-            .map
-            .get(var)
-            .expect("Missing boundary condition for field");
-        let var = find_var_in_fields(var, fields);
+        let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::RhieAndChow => {
-                rhie_and_chow(var, component, solver, mesh, bc, integration, coeff)
+            Self::Basic => {
+                basic(field, solver, mesh, integration, coeff)
             }
         }
     }
 }
 
-fn rhie_and_chow(
-    var: &RefCell<Field>,
-    component: &Component,
+fn basic(
+    field: &RefCell<Field>,
     solver: &mut EquationSolver,
     mesh: &Computational2DMesh,
-    boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
 ) {
-    todo!()
+    let field = field.borrow();
+    let field = match *field {
+        Field::Scalar(_) => panic!("No implemtation of divergence for a scalar field"),
+        Field::Vector2(ref values) => values,
+    };
+    
+    let (_, rhs) = solver.solver_borrow_mut();
+    
+    match integration {
+        IntegrationCategory::Explicit => {
+            for (cell_id, _) in mesh.cells().iter().enumerate() {
+                let (faces_id, normals) = mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
+                for i in 0..faces_id.len() {
+                    let face_values = Vector2::new(field.x.face_values()[faces_id[i].0], field.y.face_values()[faces_id[i].0]);
+                    let flow_rate = mesh.faces()[faces_id[i].0].area()*normals[i].dot(&face_values);
+                    rhs[cell_id] -= coeff*flow_rate;
+                }
+            }
+        },
+        IntegrationCategory::Implicit => todo!(),
+    }
 }
