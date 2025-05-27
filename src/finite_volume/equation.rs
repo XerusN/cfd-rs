@@ -276,6 +276,7 @@ impl Equation {
     }
 
     pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
+        let time_step = case.time_step();
         let (solver, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
 
         let equation = equations
@@ -283,7 +284,7 @@ impl Equation {
             .get(name)
             .expect(&format!("This equation is not defined: {name:?}"));
 
-        solve(solver, equation, variable_fields, mesh, config)
+        solve(solver, equation, variable_fields, mesh, config, time_step)
     }
 }
 
@@ -354,26 +355,27 @@ impl EquationSolver {
         fields: &VariableFields,
         mesh: &Computational2DMesh,
         config: &CaseConfig,
+        time_step: f64,
         coeff: f64,
     ) {
         match op {
             Op::Add(op) => {
-                self.apply_op(&op.as_ref().0, component, fields, mesh, config, coeff);
-                self.apply_op(&op.as_ref().1, component, fields, mesh, config, coeff);
+                self.apply_op(&op.as_ref().0, component, fields, mesh, config, time_step, coeff);
+                self.apply_op(&op.as_ref().1, component, fields, mesh, config, time_step, coeff);
             }
             Op::Sub(op) => {
-                self.apply_op(&op.as_ref().0, component, fields, mesh, config, coeff);
-                self.apply_op(&op.as_ref().1, component, fields, mesh, config, -coeff);
+                self.apply_op(&op.as_ref().0, component, fields, mesh, config, time_step, coeff);
+                self.apply_op(&op.as_ref().1, component, fields, mesh, config, time_step, -coeff);
             }
             Op::MulScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), component, fields, mesh, config, coeff * scalar);
+                self.apply_op(op.as_ref(), component, fields, mesh, config, time_step, coeff * scalar);
             }
             Op::DivScalar(scalar, op) => {
-                self.apply_op(op.as_ref(), component, fields, mesh, config, coeff / scalar);
+                self.apply_op(op.as_ref(), component, fields, mesh, config, time_step, coeff / scalar);
             }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
-                    diff_op.discretize(component, self, fields, mesh, config, coeff)
+                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff)
                 }
                 FieldOperator::Field(var, integration) => todo!(),
                 FieldOperator::Gradient(var) => todo!(),
@@ -391,6 +393,7 @@ fn solve(
     fields: &mut VariableFields,
     mesh: &Computational2DMesh,
     config: &CaseConfig,
+    time_step: f64,
 ) -> usize {
     solver.clear();
 
@@ -415,7 +418,7 @@ fn solve(
     match equation.unknown().dim {
         Dimension::Scalar => {
             let component = Component::X;
-            solver.apply_op(&eq, &component, &fields, mesh, config, 1.);
+            solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
 
             let field_cell = &fields
                 .map
@@ -446,7 +449,43 @@ fn solve(
                 panic!("Did not converge when solving {:?}", equation)
             }
         }
-        Dimension::Vector2 => todo!(),
+        Dimension::Vector2 => {
+            for component in [Component::X, Component::Y] {
+                solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
+
+                let field_cell = &fields
+                    .map
+                    .get_mut(equation.unknown())
+                    .expect("Missing field for equation")
+                    .0;
+
+                let mut field = field_cell.borrow_mut();
+
+                let field = match &mut *field {
+                    Field::Vector2(ref mut scalar_field) => match component {
+                        Component::X => &mut scalar_field.x,
+                        Component::Y => &mut scalar_field.y,
+                    },
+                    _ => panic!("Unknown should be vector"),
+                };
+                
+                // To change
+                warn!("Matrix cloned for amg");
+                warn!("Hard-coded tol and max_iter for solve");
+                let result = iteratives::amg::solve_with_initial_guess(
+                    solver.matrix().clone(),
+                    &solver.rhs,
+                    field.values_mut(),
+                    10000,
+                    1e-4,
+                    0.25,
+                );
+
+                if !result {
+                    panic!("Did not converge when solving {:?}", equation)
+                }
+            }
+        },
     }
 
     0

@@ -1,6 +1,7 @@
-use std::cell::{RefCell, RefMut};
+use std::{cell::{RefCell, RefMut}, ops::Deref};
 
-use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex};
+use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
     base::Field,
@@ -31,29 +32,51 @@ impl TimeIntegration {
         component: &Component,
         solver: &mut EquationSolver,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
-        config: &CaseConfig,
+        time_step: f64,
         coeff: f64,
     ) {
-        let bc = config
-            .bc
-            .map
-            .get(var)
-            .expect("Missing boundary condition for field");
-        let var = find_var_in_fields(var, fields);
+        let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::ForwardEuler => forward_euler(var, solver, mesh, bc, coeff),
+            Self::ForwardEuler => forward_euler(component, solver, field, time_step, coeff),
         }
     }
 }
 
 fn forward_euler(
-    var: &RefCell<Field>,
+    component: &Component,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
-    boundary_condition: &[BoundaryCondition],
+    field: &RefCell<Field>,
+    time_step: f64,
     coeff: f64,
 ) {
-    todo!()
+    let (matrix, rhs) = solver.solver_borrow_mut();
+    let field = field.borrow();
+    let field = match field.deref() {
+        Field::Scalar(value) => &value,
+        Field::Vector2(value) => match *component {
+            Component::X => &value.x,
+            Component::Y => &value.y,
+        },
+    };
+    
+    let time_step_inv = 1./time_step;
+    
+    for cell in 0..rhs.len() {
+        let mut row = matrix
+            .get_row_mut(cell)
+            .expect("Bad Initialization of matrix");
+        
+        let f_c = time_step_inv;
+        
+        rhs[cell] = f_c*coeff*field.values()[cell];
+        
+        match row
+            .get_entry_mut(cell)
+            .expect("Bad Initialization of matrix")
+        {
+            SparseEntryMut::NonZero(value) => *value += f_c * coeff,
+            SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+        }
+    }
 }

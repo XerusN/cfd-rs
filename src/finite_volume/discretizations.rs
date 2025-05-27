@@ -63,6 +63,7 @@ impl DifferentialOperator {
         fields: &VariableFields,
         mesh: &Computational2DMesh,
         config: &CaseConfig,
+        time_step: f64,
         coeff: f64,
     ) {
         match self {
@@ -108,7 +109,7 @@ impl DifferentialOperator {
             Self::TimeDerivative(var) => config
                 .schemes
                 .transient
-                .discretize(&var, component, solver, fields, mesh, config, coeff),
+                .discretize(&var, component, solver, fields, time_step, coeff),
         }
     }
 }
