@@ -112,8 +112,8 @@ fn simple() -> SimpleCase {
 }
 
 fn main() {
-    //let mut case = poisson();
-    let mut case = simple();
+    let mut case = poisson();
+    //let mut case = simple();
 
     for _ in 0..2 {
         case.next_step();
