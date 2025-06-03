@@ -14,7 +14,7 @@ use crate::finite_volume::{
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase {
+pub struct ConvectionCase {
     name: String,
     step: usize,
     time: f64,
@@ -29,7 +29,7 @@ pub struct PoissonCase {
     solver: EquationSolver,
 }
 
-impl Case for PoissonCase {
+impl Case for ConvectionCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -142,7 +142,7 @@ impl Case for PoissonCase {
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
 
-        let fields = VariableFields::new(&equations, &mesh, &config);
+        let fields = VariableFields::new(&equations, &mesh);
 
         let solver = EquationSolver::new(&mesh);
 

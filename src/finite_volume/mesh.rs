@@ -2,7 +2,7 @@ use cfd_rs_mesh::triangle::advancing_front::advancing_front;
 use cfd_rs_utils::{
     control::OutputControl,
     mesh::{
-        computational_mesh::{BoundaryPatch, Computational2DMesh},
+        computational_mesh::{manual_meshes::straight_line, BoundaryPatch, Computational2DMesh},
         indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
         Modifiable2DMesh, Parent,
     },
@@ -89,4 +89,8 @@ pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
             Ok(mesh) => mesh,
         },
     }
+}
+
+pub fn mesh_1d(geometry: &GeometryConfig) -> Computational2DMesh {
+    straight_line((1. / geometry.element_size) as usize)
 }

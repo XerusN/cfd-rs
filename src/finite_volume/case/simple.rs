@@ -180,7 +180,7 @@ impl Case for SimpleCase {
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Correction".to_string(), eq).unwrap();
 
-        let fields = VariableFields::new(&equations, &mesh);
+        let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);
 

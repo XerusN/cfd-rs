@@ -10,13 +10,16 @@ use std::{
 
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 
+use crate::finite_volume::equation::Component;
+
 use super::{
     base::{CellScalarField, Field},
-    config::{CaseConfig, Schemes},
+    config::{self, CaseConfig, Schemes},
     equation::{Dimension, Equation, EquationSolver, Variable},
     error::CfdError,
 };
 
+//pub mod convection_test;
 pub mod poisson;
 pub mod simple;
 
@@ -52,35 +55,27 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh) -> Self {
+    pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh, config: &CaseConfig) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             print!("Field init for {}: ", var.name());
             match *var.dim() {
                 Dimension::Scalar => {
-                    fields.insert(
-                        var,
-                        (
-                            RefCell::new(Field::Scalar(CellScalarField::new(
-                                mesh.num_cells(),
-                                mesh.num_faces(),
-                                &grad_req,
-                            ))),
-                            grad_req,
-                        ),
-                    );
+                    let values = RefCell::new(Field::Scalar(CellScalarField::new(
+                        mesh,
+                        &grad_req,
+                        &var,
+                        Component::X,
+                        config,
+                    )));
+                    fields.insert(var, (values, grad_req));
                 }
                 Dimension::Vector2 => {
-                    fields.insert(
-                        var,
-                        (
-                            RefCell::new(Field::Vector2(Vector2::new(
-                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
-                                CellScalarField::new(mesh.num_cells(), mesh.num_faces(), &grad_req),
-                            ))),
-                            grad_req,
-                        ),
-                    );
+                    let values = RefCell::new(Field::Vector2(Vector2::new(
+                        CellScalarField::new(mesh, &grad_req, &var, Component::X, config),
+                        CellScalarField::new(mesh, &grad_req, &var, Component::Y, config),
+                    )));
+                    fields.insert(var, (values, grad_req));
                 }
             }
         }

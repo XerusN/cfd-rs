@@ -1,6 +1,6 @@
 use cfd_rs::finite_volume::boundary::BoundaryValue;
 use cfd_rs::finite_volume::case::simple::SimpleCase;
-use cfd_rs::finite_volume::config::OutputConfig;
+use cfd_rs::finite_volume::config::{InitFunc, OutputConfig};
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
@@ -18,9 +18,9 @@ use cfd_rs::finite_volume::{
     gradients::{GradientConfig, GradientScheme},
     interpolations::GradientInterpConfig,
 };
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
 
-fn poisson() -> PoissonCase {
+fn poisson() -> CaseConfig {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
@@ -52,17 +52,22 @@ fn poisson() -> PoissonCase {
     bc_fields.insert(Variable::new("T".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
-    let config = CaseConfig {
+    let mut initial_fields = HashMap::new();
+    initial_fields.insert(
+        Variable::new("T".to_string(), Dimension::Scalar),
+        InitFunc::Scalar(constant),
+    );
+
+    CaseConfig {
         schemes,
         geometry,
         bc: bc_fields,
         output,
-    };
-
-    PoissonCase::new(config)
+        initial_fields,
+    }
 }
 
-fn simple() -> SimpleCase {
+fn simple() -> CaseConfig {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
@@ -101,18 +106,73 @@ fn simple() -> SimpleCase {
     bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
-    let config = CaseConfig {
+    let mut initial_fields = HashMap::new();
+    initial_fields.insert(
+        Variable::new("Phi".to_string(), Dimension::Scalar),
+        InitFunc::Scalar(constant),
+    );
+
+    CaseConfig {
         schemes,
         geometry,
         bc: bc_fields,
         output,
+        initial_fields,
+    }
+}
+
+fn convection_setup() -> CaseConfig {
+    let schemes = Schemes {
+        transient: TimeIntegration::ForwardEuler,
+        convection: ConvectionScheme::UpwindSecondOrder,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
+        divergence: DivergenceScheme::Basic,
+        gradients: GradientConfig {
+            scheme: GradientScheme::GreenGaussCompact,
+            interp: GradientInterpConfig::AveragedCorrected,
+        },
     };
 
-    SimpleCase::new(config)
+    let geometry = GeometryConfig {
+        import_path: None,
+        element_size: 0.01,
+    };
+
+    let output = OutputConfig {
+        control: OutputControl::Iteration(1),
+        directory: "./target/exports".to_string(),
+    };
+
+    let mut bc_fields = HashMap::new();
+    let bc = vec![
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+    ];
+    bc_fields.insert(Variable::new("Phi".to_string(), Dimension::Scalar), bc);
+    let bc_fields = FieldsBoundaryConditions::new(bc_fields);
+
+    let mut initial_fields = HashMap::new();
+    initial_fields.insert(
+        Variable::new("Phi".to_string(), Dimension::Scalar),
+        InitFunc::Scalar(constant),
+    );
+
+    CaseConfig {
+        schemes,
+        geometry,
+        bc: bc_fields,
+        output,
+        initial_fields,
+    }
+}
+
+pub fn constant(_point: &Point2<f64>) -> f64 {
+    0.
 }
 
 fn main() {
-    let mut case = poisson();
+    let mut case = PoissonCase::new(poisson());
     //let mut case = simple();
 
     for _ in 0..2 {

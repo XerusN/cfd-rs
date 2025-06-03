@@ -1,10 +1,13 @@
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
 use nalgebra::{DVector, Vector2};
 
+use crate::finite_volume::config::InitFunc;
+
 use super::{
     boundary::BoundaryCondition,
     case::{CaseEquations, GradRequirements},
-    config::CaseConfig,
+    config::{self, CaseConfig},
+    equation::{Component, Variable},
     gradients::{update_grads, GradientConfig},
 };
 
@@ -14,6 +17,8 @@ pub enum Field {
     Scalar(CellScalarField),
     Vector2(Vector2<CellScalarField>),
 }
+
+impl Field {}
 
 /// The grads will only be allocated if necessary
 #[derive(Debug, PartialEq, Clone)]
@@ -26,23 +31,48 @@ pub struct CellScalarField {
 }
 
 impl CellScalarField {
-    pub fn new(cells_num: usize, faces_num: usize, grads_required: &GradRequirements) -> Self {
-        let mut values = DVector::zeros(cells_num);
+    pub fn new(
+        mesh: &Computational2DMesh,
+        grads_required: &GradRequirements,
+        variable: &Variable,
+        component: Component,
+        config: &CaseConfig,
+    ) -> Self {
+        let init = match *config.initial_fields.get(variable).expect(&format![
+            "No initialization defined for field {:?}",
+            variable
+        ]) {
+            InitFunc::Scalar(func) => {
+                if let Component::X = component {
+                    func
+                } else {
+                    panic!("Trying to initialize scalar with vec function")
+                }
+            }
+            InitFunc::Vector2(func_x, func_y) => match component {
+                Component::X => func_x,
+                Component::Y => func_y,
+            },
+        };
+        let mut values = DVector::zeros(mesh.num_cells());
+        for (i, cell) in mesh.cells().iter().enumerate() {
+            values[i] = init(cell.centroid());
+        }
         for value in values.iter_mut() {
             *value = 0.;
         }
-        let face_values = DVector::zeros(faces_num);
+        let face_values = DVector::zeros(mesh.num_faces());
 
         let grads_cell;
         if grads_required.cell() | grads_required.face() {
-            grads_cell = DVector::zeros(cells_num);
+            grads_cell = DVector::zeros(mesh.num_cells());
         } else {
             grads_cell = DVector::zeros(0);
         }
 
         let grads_face;
         if grads_required.face() {
-            grads_face = DVector::zeros(faces_num);
+            grads_face = DVector::zeros(mesh.num_faces());
         } else {
             grads_face = DVector::zeros(0);
         }

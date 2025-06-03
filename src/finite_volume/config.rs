@@ -1,4 +1,6 @@
 use cfd_rs_utils::control::OutputControl;
+use hashbrown::HashMap;
+use nalgebra::{Point2, Vector2};
 
 use super::{
     boundary::FieldsBoundaryConditions,
@@ -6,6 +8,7 @@ use super::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
     },
+    equation::Variable,
     gradients::GradientConfig,
 };
 
@@ -13,6 +16,7 @@ use super::{
 #[derive(Clone, PartialEq, Debug)]
 pub struct CaseConfig {
     pub schemes: Schemes,
+    pub initial_fields: HashMap<Variable, InitFunc>,
     pub geometry: GeometryConfig,
     pub bc: FieldsBoundaryConditions,
     pub output: OutputConfig,
@@ -37,4 +41,10 @@ pub struct Schemes {
 pub struct OutputConfig {
     pub control: OutputControl,
     pub directory: String,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum InitFunc {
+    Scalar(fn(&Point2<f64>) -> f64),
+    Vector2(fn(&Point2<f64>) -> f64, fn(&Point2<f64>) -> f64),
 }
