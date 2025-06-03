@@ -108,7 +108,8 @@ fn green_gauss_compact(
 
                 match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => {
-                        *value = bc_value.get_value(component)
+                        *value = bc_value.get_value(component);
+                        println!("{:?}", bc_value.get_value(component));
                     }
                     // Check Neumann implementation
                     BoundaryCondition::Neumann(bc_value) => {

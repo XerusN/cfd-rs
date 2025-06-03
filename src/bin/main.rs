@@ -1,4 +1,9 @@
+use std::mem;
+use std::ops::Deref;
+
+use cfd_rs::finite_volume::base::Field;
 use cfd_rs::finite_volume::boundary::BoundaryValue;
+use cfd_rs::finite_volume::case::convection_test::ConvectionCase;
 use cfd_rs::finite_volume::case::simple::SimpleCase;
 use cfd_rs::finite_volume::config::{InitFunc, OutputConfig};
 use cfd_rs_utils::control::OutputControl;
@@ -150,12 +155,22 @@ fn convection_setup() -> CaseConfig {
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(Variable::new("Phi".to_string(), Dimension::Scalar), bc);
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+    ];
+    bc_fields.insert(Variable::new("Speed".to_string(), Dimension::Vector2), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
         Variable::new("Phi".to_string(), Dimension::Scalar),
         InitFunc::Scalar(constant),
+    );
+    initial_fields.insert(
+        Variable::new("Speed".to_string(), Dimension::Vector2),
+        InitFunc::Vector2(constant_2, constant),
     );
 
     CaseConfig {
@@ -171,12 +186,35 @@ pub fn constant(_point: &Point2<f64>) -> f64 {
     0.
 }
 
-fn main() {
-    let mut case = PoissonCase::new(poisson());
-    //let mut case = simple();
+pub fn constant_2(_point: &Point2<f64>) -> f64 {
+    1.
+}
 
+fn main() {
+    let mut case = ConvectionCase::new(convection_setup());
+    //let mut case = simple();
+    
+    //println!("{:?}", case.mesh().cells().iter().map(|cell| cell.volume()).collect::<Vec<f64>>());
+    {
+        let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
+        let field = if let Field::Scalar(values) = temp.deref() {
+            values
+        } else {
+            panic!();
+        };
+        println!("{:?}", field.face_values());
+    }
     for _ in 0..2 {
         case.next_step();
+        {
+            let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
+            let field = if let Field::Scalar(values) = temp.deref() {
+                values
+            } else {
+                panic!();
+            };
+            println!("{:?}", field.face_values());
+        }
         case.export().unwrap();
     }
 }

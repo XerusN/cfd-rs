@@ -8,7 +8,7 @@ use crate::finite_volume::{
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::mesh,
+    mesh::{mesh, mesh_1d},
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
@@ -121,33 +121,41 @@ impl Case for ConvectionCase {
     }
 
     fn next_step(&mut self) {
-        Equation::solve(self, "Poisson");
+        Equation::solve(self, "Convection");
 
         self.time += self.time_step;
         self.step += 1;
     }
 
     fn new(config: CaseConfig) -> Self {
-        let mesh = mesh(&config.geometry);
+        let mesh = mesh_1d(&config.geometry);
 
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar);
+        let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
+        let speed = Variable::new("Speed".to_string(), Dimension::Vector2);
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(t, IntegrationCategory::Implicit),
+            DifferentialOperator::TimeDerivative(phi.clone()),
+        ))
+            + Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Convection{var: phi, speed: speed.clone(), integration: IntegrationCategory::Explicit},
         ));
         let rhs = Op::Scalar(0.);
-
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Poisson".to_string(), eq).unwrap();
+        equations.add_eq("Convection".to_string(), eq).unwrap();
+        
+        let lhs = Op::FieldOperator(FieldOperator::Field(speed, IntegrationCategory::Implicit));
+        let rhs = Op::Scalar(0.);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Speed".to_string(), eq).unwrap();
 
-        let fields = VariableFields::new(&equations, &mesh);
+        let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);
 
         Self {
-            name: "Poisson-2D".to_string(),
+            name: "Convection-1D".to_string(),
 
             time: 0.,
             time_step: 1.,

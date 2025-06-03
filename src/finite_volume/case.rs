@@ -19,7 +19,7 @@ use super::{
     error::CfdError,
 };
 
-//pub mod convection_test;
+pub mod convection_test;
 pub mod poisson;
 pub mod simple;
 
@@ -206,8 +206,8 @@ pub trait Case {
         for cell in self.mesh().cells() {
             if cell.vertices_id().len() == 3 {
                 write!(file, "5 ")?;
-            } else {
-                unimplemented!();
+            } else if cell.vertices_id().len() == 4 {
+                write!(file, "7 ")?;
             }
         }
         writeln!(file)?;
