@@ -1,5 +1,5 @@
 use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
-use nalgebra::{DVector, Vector2};
+use nalgebra::{DVector, Point2, Vector2};
 
 use crate::finite_volume::config::InitFunc;
 
@@ -57,9 +57,6 @@ impl CellScalarField {
         let mut values = DVector::zeros(mesh.num_cells());
         for (i, cell) in mesh.cells().iter().enumerate() {
             values[i] = init(cell.centroid());
-        }
-        for value in values.iter_mut() {
-            *value = 0.;
         }
         let face_values = DVector::zeros(mesh.num_faces());
 

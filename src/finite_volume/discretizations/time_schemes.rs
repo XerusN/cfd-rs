@@ -75,7 +75,7 @@ fn forward_euler(
 
         let f_c = time_step_inv;
 
-        rhs[cell] = f_c * coeff * field.values()[cell];
+        rhs[cell] += f_c * coeff * field.values()[cell];
 
         match row
             .get_entry_mut(cell)

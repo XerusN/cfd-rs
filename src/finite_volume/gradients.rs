@@ -122,7 +122,8 @@ fn green_gauss_compact(
                                     &mesh.faces()[i]
                                         .normal_from_cell(id_2)
                                         .expect("Mesh not coherent"),
-                                )
+                                );
+                        //println!("{:?} {:?}", value, values[id_2.0]);
                     }
                 }
 

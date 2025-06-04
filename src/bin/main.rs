@@ -155,6 +155,7 @@ fn convection_setup() -> CaseConfig {
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(Variable::new("Phi".to_string(), Dimension::Scalar), bc);
+    
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
@@ -204,17 +205,19 @@ fn main() {
         };
         println!("{:?}", field.face_values());
     }
-    for _ in 0..2 {
+    for _ in 0..100000 {
         case.next_step();
-        {
-            let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
-            let field = if let Field::Scalar(values) = temp.deref() {
-                values
-            } else {
-                panic!();
-            };
-            println!("{:?}", field.face_values());
+        // {
+        //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
+        //     let field = if let Field::Scalar(values) = temp.deref() {
+        //         values
+        //     } else {
+        //         panic!();
+        //     };
+        //     println!("{:?}", field.face_values());
+        // }
+        if case.step() % 100 == 0 {
+            case.export().unwrap();
         }
-        case.export().unwrap();
     }
 }

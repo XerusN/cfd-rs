@@ -188,7 +188,7 @@ impl Case for SimpleCase {
             name: "Simple-2D".to_string(),
 
             time: 0.,
-            time_step: 1.,
+            time_step,
             step: 0,
 
             config,

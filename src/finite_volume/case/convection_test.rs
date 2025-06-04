@@ -121,7 +121,12 @@ impl Case for ConvectionCase {
     }
 
     fn next_step(&mut self) {
+        //println!("NEXT {:?}", self.fields);
+        
         Equation::solve(self, "Convection");
+        
+        // println!("{:?}", self.solver.matrix());
+        // println!("{:?}", self.solver.rhs());
 
         self.time += self.time_step;
         self.step += 1;
@@ -145,7 +150,7 @@ impl Case for ConvectionCase {
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Convection".to_string(), eq).unwrap();
         
-        let lhs = Op::FieldOperator(FieldOperator::Field(speed, IntegrationCategory::Implicit));
+        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(DifferentialOperator::Divergence(speed, IntegrationCategory::Implicit)));
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Speed".to_string(), eq).unwrap();
@@ -158,7 +163,7 @@ impl Case for ConvectionCase {
             name: "Convection-1D".to_string(),
 
             time: 0.,
-            time_step: 1.,
+            time_step: 0.01,
             step: 0,
 
             config,
