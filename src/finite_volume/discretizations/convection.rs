@@ -1,6 +1,6 @@
 use std::cell::{RefCell, RefMut};
 
-use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex};
+use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}};
 use nalgebra::{Scalar, Vector2};
 
 use crate::finite_volume::{
@@ -60,6 +60,7 @@ impl ConvectionScheme {
     }
 }
 
+/// Maybe wrong sign on rhs update
 fn upwind_second_order(
     field: &RefCell<Field>,
     component: &Component,
@@ -90,6 +91,12 @@ fn upwind_second_order(
     match integration {
         IntegrationCategory::Explicit => {
             for (face_id, face) in mesh.faces().iter().enumerate() {
+                let face_speed = Vector2::new(
+                    speed.x.face_values()[face_id],
+                    speed.y.face_values()[face_id],
+                );
+                let flow_rate =
+                    face.area() * face.normal().dot(&face_speed);
                 let id_1 = match face.patches().0 {
                     Patch::Cell(id) => id,
                     Patch::Boundary(id) => {
@@ -97,15 +104,28 @@ fn upwind_second_order(
                             Patch::Cell(id) => id,
                             Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
                         };
-
-                        match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                rhs[id_2.0] += 0.;
+                        
+                        let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_2.0].centroid();
+                        
+                        if flow_rate > 0. {
+                            match &boundary_condition[id.0] {
+                                BoundaryCondition::Dirichlet(bc_value) => {
+                                    let face_field = bc_value.get_value(component)
+                                        + field.grads_face()[face_id].dot(&d_cf_2);
+                                    rhs[id_2.0] += coeff * face_field * flow_rate;
+                                }
+                                // Check Neumann implementation
+                                BoundaryCondition::Neumann(bc_value) => {
+                                    let face_field = field.face_values()[face_id]
+                                        + bc_value.get_value(component)*face.normal().dot(&d_cf_2);
+                                    rhs[id_2.0] += coeff * face_field * flow_rate;
+                                }
                             }
-                            // Check Neumann implementation
-                            BoundaryCondition::Neumann(bc_value) => {
-                                rhs[id_2.0] += 0.;
-                            }
+                        } else {
+                            let face_field = field.values()[id_2.0]
+                                + (2. * field.grads_cell()[id_2.0] - field.grads_face()[face_id])
+                                    .dot(&d_cf_2);
+                            rhs[id_2.0] += coeff * face_field * flow_rate;
                         }
                         continue;
                     }
@@ -114,19 +134,45 @@ fn upwind_second_order(
                 let id_2 = match face.patches().1 {
                     Patch::Cell(id) => id,
                     Patch::Boundary(id) => {
-                        match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                rhs[id_1.0] += 0.;
+                        let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_1.0].centroid();
+                        
+                        if flow_rate < 0. {
+                            match &boundary_condition[id.0] {
+                                BoundaryCondition::Dirichlet(bc_value) => {
+                                    let face_field = bc_value.get_value(component)
+                                        + field.grads_face()[face_id].dot(&d_cf_1);
+                                    rhs[id_1.0] -= coeff * face_field * flow_rate;
+                                }
+                                // Check Neumann implementation
+                                BoundaryCondition::Neumann(bc_value) => {
+                                    let face_field = field.face_values()[face_id]
+                                        + bc_value.get_value(component)*face.normal().dot(&d_cf_1);
+                                    rhs[id_1.0] -= coeff * face_field * flow_rate;
+                                }
                             }
-                            BoundaryCondition::Neumann(bc_value) => {
-                                rhs[id_1.0] += 0.;
-                            }
+                        } else {
+                            let face_field = field.values()[id_1.0]
+                                + (2. * field.grads_cell()[id_1.0] - field.grads_face()[face_id])
+                                    .dot(&d_cf_1);
+                            rhs[id_1.0] -= coeff * face_field * flow_rate;
                         }
                         continue;
                     }
                 };
-                rhs[id_1.0] += 0.;
-                rhs[id_2.0] += 0.;
+                let face_field;
+                if flow_rate < 0. {
+                    let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_2.0].centroid();
+                    face_field = field.values()[id_2.0]
+                        + (2. * field.grads_cell()[id_2.0] - field.grads_face()[face_id])
+                            .dot(&d_cf_2);
+                } else {
+                    let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_1.0].centroid();
+                    face_field = field.values()[id_1.0]
+                        + (2. * field.grads_cell()[id_1.0] - field.grads_face()[face_id])
+                            .dot(&d_cf_1);
+                }
+                rhs[id_1.0] -= coeff * face_field * flow_rate;
+                rhs[id_2.0] += coeff * face_field * flow_rate;
             }
         }
         IntegrationCategory::Implicit => todo!(),
