@@ -108,7 +108,7 @@ impl DifferentialOperator {
             Self::TimeDerivative(var) => config
                 .schemes
                 .transient
-                .discretize(&var, component, solver, fields, time_step, coeff),
+                .discretize(&var, component, solver, mesh, fields, time_step, coeff),
         }
     }
 }

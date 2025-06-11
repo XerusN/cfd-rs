@@ -163,7 +163,7 @@ impl Case for ConvectionCase {
             name: "Convection-1D".to_string(),
 
             time: 0.,
-            time_step: 0.01,
+            time_step: 0.001,
             step: 0,
 
             config,

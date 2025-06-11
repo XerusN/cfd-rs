@@ -14,7 +14,7 @@ use crate::finite_volume::{
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, Variable},
+    equation::{Component, EquationSolver, Variable}, mesh::mesh,
 };
 
 use super::find_var_in_fields;
@@ -37,6 +37,7 @@ impl TimeIntegration {
         var: &Variable,
         component: &Component,
         solver: &mut EquationSolver,
+        mesh: &Computational2DMesh,
         fields: &VariableFields,
         time_step: f64,
         coeff: f64,
@@ -44,7 +45,7 @@ impl TimeIntegration {
         let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::ForwardEuler => forward_euler(component, solver, field, time_step, coeff),
+            Self::ForwardEuler => forward_euler(component, solver, mesh, field, time_step, coeff),
         }
     }
 }
@@ -52,6 +53,7 @@ impl TimeIntegration {
 fn forward_euler(
     component: &Component,
     solver: &mut EquationSolver,
+    mesh: &Computational2DMesh,
     field: &RefCell<Field>,
     time_step: f64,
     coeff: f64,
@@ -73,7 +75,7 @@ fn forward_euler(
             .get_row_mut(cell)
             .expect("Bad Initialization of matrix");
 
-        let f_c = time_step_inv;
+        let f_c = time_step_inv * mesh.cells()[cell].volume();
 
         rhs[cell] += f_c * coeff * field.values()[cell];
 
