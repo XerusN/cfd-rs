@@ -206,9 +206,9 @@ pub fn sinusoidal_1d(point: &Point2<f64>) -> f64 {
 }
 
 fn main() {
-    //let mut case = ConvectionCase::new(convection_setup());
+    let mut case = ConvectionCase::new(convection_setup());
     // let mut case = PoissonCase::new(poisson());
-    let mut case = SimpleCase::new(simple());
+    //let mut case = SimpleCase::new(simple());
 
     // //println!("{:?}", case.mesh().cells().iter().map(|cell| cell.volume()).collect::<Vec<f64>>());
     // {
@@ -221,7 +221,7 @@ fn main() {
     //     println!("{:?}", field.face_values());
     // }
 
-    for _ in 0..10 {
+    for _ in 0..900 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -232,9 +232,9 @@ fn main() {
         //     };
         //     println!("{:?}", field.face_values());
         // }
-        // if case.step() % 10 == 0 {
-        //     case.export().unwrap();
-        // }
-        case.export().unwrap();
+        if case.step() % 10 == 0 {
+            case.export().unwrap();
+        }
+        //case.export().unwrap();
     }
 }

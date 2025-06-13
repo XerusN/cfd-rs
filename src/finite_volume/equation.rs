@@ -512,7 +512,7 @@ fn solve(
             warn!("Matrix cloned for amg");
             warn!("Hard-coded tol and max_iter for solve");
 
-            let mut linalg_solver = Amg::with_smoothing(1e-1, 0.8, 1000, 4, 4);
+            let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 1000, 4, 4);
             linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
             let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
             *field.values_mut() = linalg_solver.x.clone();
@@ -528,9 +528,9 @@ fn solve(
             //     0.8,
             // );
 
-            // if !result {
-            //     panic!("Did not converge when solving {:?}", equation)
-            // }
+            if !result {
+                panic!("Did not converge when solving {:?}", equation)
+            }
         }
         Dimension::Vector2 => {
             for component in [Component::X, Component::Y] {
@@ -552,7 +552,7 @@ fn solve(
                     _ => panic!("Unknown should be vector"),
                 };
 
-                let mut linalg_solver = Amg::with_smoothing(1e-1, 0.9, 1000, 4, 4);
+                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.9, 1000, 4, 4);
                 linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
                 let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
                 *field.values_mut() = linalg_solver.x.clone();
@@ -566,9 +566,9 @@ fn solve(
                 //     0.8,
                 // );
 
-                // if !result {
-                //     panic!("Did not converge when solving {:?}", equation)
-                // }
+                if !result {
+                    panic!("Did not converge when solving {:?}", equation)
+                }
             }
         }
     }
