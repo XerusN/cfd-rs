@@ -14,7 +14,8 @@ use crate::finite_volume::{
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, Variable}, mesh::mesh,
+    equation::{Component, EquationSolver, Variable},
+    mesh::mesh,
 };
 
 use super::find_var_in_fields;

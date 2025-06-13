@@ -109,7 +109,7 @@ impl CaseEquations {
 
         for eq in self.map.values() {
             for (variable, grad) in eq.fields_required() {
-                println!("{:?}, {:?}", variable, grad);
+                //println!("{:?}, {:?}", variable, grad);
                 if variables_glob.contains_key(variable) {
                     variables_glob
                         .get_mut(variable)

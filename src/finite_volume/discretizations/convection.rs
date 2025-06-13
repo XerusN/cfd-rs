@@ -1,6 +1,9 @@
 use std::cell::{RefCell, RefMut};
 
-use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}};
+use cfd_rs_utils::mesh::{
+    computational_mesh::{Computational2DMesh, Patch},
+    indices::{CellIndex, FaceIndex},
+};
 use nalgebra::{Scalar, Vector2};
 
 use crate::finite_volume::{
@@ -52,7 +55,7 @@ impl ConvectionScheme {
         match *self {
             Self::UpwindSecondOrder => {
                 upwind_second_order(var, component, speed, solver, mesh, bc, integration, coeff)
-            },
+            }
             Self::CentralDifference => {
                 central_difference(var, component, speed, solver, mesh, bc, integration, coeff)
             }
@@ -95,8 +98,7 @@ fn upwind_second_order(
                     speed.x.face_values()[face_id],
                     speed.y.face_values()[face_id],
                 );
-                let flow_rate =
-                    face.area() * face.normal().dot(&face_speed);
+                let flow_rate = face.area() * face.normal().dot(&face_speed);
                 let id_1 = match face.patches().0 {
                     Patch::Cell(id) => id,
                     Patch::Boundary(id) => {
@@ -104,9 +106,9 @@ fn upwind_second_order(
                             Patch::Cell(id) => id,
                             Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
                         };
-                        
+
                         let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_2.0].centroid();
-                        
+
                         if flow_rate > 0. {
                             match &boundary_condition[id.0] {
                                 BoundaryCondition::Dirichlet(bc_value) => {
@@ -117,7 +119,8 @@ fn upwind_second_order(
                                 // Check Neumann implementation
                                 BoundaryCondition::Neumann(bc_value) => {
                                     let face_field = field.face_values()[face_id]
-                                        + bc_value.get_value(component)*face.normal().dot(&d_cf_2);
+                                        + bc_value.get_value(component)
+                                            * face.normal().dot(&d_cf_2);
                                     rhs[id_2.0] += coeff * face_field * flow_rate;
                                 }
                             }
@@ -135,7 +138,7 @@ fn upwind_second_order(
                     Patch::Cell(id) => id,
                     Patch::Boundary(id) => {
                         let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_1.0].centroid();
-                        
+
                         if flow_rate < 0. {
                             match &boundary_condition[id.0] {
                                 BoundaryCondition::Dirichlet(bc_value) => {
@@ -146,7 +149,8 @@ fn upwind_second_order(
                                 // Check Neumann implementation
                                 BoundaryCondition::Neumann(bc_value) => {
                                     let face_field = field.face_values()[face_id]
-                                        + bc_value.get_value(component)*face.normal().dot(&d_cf_1);
+                                        + bc_value.get_value(component)
+                                            * face.normal().dot(&d_cf_1);
                                     rhs[id_1.0] -= coeff * face_field * flow_rate;
                                 }
                             }
@@ -208,7 +212,6 @@ fn _upwind_second_order(
 
     match integration {
         IntegrationCategory::Explicit => {
-            println!("ok");
             for (cell_id, cell) in mesh.cells().iter().enumerate() {
                 let mut f = 0.;
                 let (faces_id, normals) =
@@ -275,9 +278,8 @@ fn central_difference(
                         mesh.faces()[faces_id[i].0].area() * normals[i].dot(&face_speed);
                     //println!("{:?} {:?}", flow_rate, face_speed);
                     let d_cf = mesh.middle_point_from_face(faces_id[i]) - cell.centroid();
-                    let face_field = field.values()[cell_id]
-                        + field.grads_face()[faces_id[i].0]
-                            .dot(&d_cf);
+                    let face_field =
+                        field.values()[cell_id] + field.grads_face()[faces_id[i].0].dot(&d_cf);
                     rhs[cell_id] -= coeff * flow_rate * face_field;
                 }
             }

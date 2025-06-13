@@ -122,9 +122,9 @@ impl Case for ConvectionCase {
 
     fn next_step(&mut self) {
         //println!("NEXT {:?}", self.fields);
-        
+
         Equation::solve(self, "Convection");
-        
+
         // println!("{:?}", self.solver.matrix());
         // println!("{:?}", self.solver.rhs());
 
@@ -142,15 +142,20 @@ impl Case for ConvectionCase {
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
             DifferentialOperator::TimeDerivative(phi.clone()),
-        ))
-            + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Convection{var: phi, speed: speed.clone(), integration: IntegrationCategory::Explicit},
+        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Convection {
+                var: phi,
+                speed: speed.clone(),
+                integration: IntegrationCategory::Explicit,
+            },
         ));
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Convection".to_string(), eq).unwrap();
-        
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(DifferentialOperator::Divergence(speed, IntegrationCategory::Implicit)));
+
+        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Divergence(speed, IntegrationCategory::Implicit),
+        ));
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Speed".to_string(), eq).unwrap();

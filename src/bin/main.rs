@@ -114,9 +114,14 @@ fn simple() -> CaseConfig {
 
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
-        Variable::new("Phi".to_string(), Dimension::Scalar),
+        Variable::new("U".to_string(), Dimension::Vector2),
+        InitFunc::Vector2(constant, constant),
+    );
+    initial_fields.insert(
+        Variable::new("P".to_string(), Dimension::Scalar),
         InitFunc::Scalar(constant),
     );
+    
 
     CaseConfig {
         schemes,
@@ -151,12 +156,12 @@ fn convection_setup() -> CaseConfig {
 
     let mut bc_fields = HashMap::new();
     let bc = vec![
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(Variable::new("Phi".to_string(), Dimension::Scalar), bc);
-    
+
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
@@ -194,16 +199,17 @@ pub fn constant_1(_point: &Point2<f64>) -> f64 {
 
 pub fn sinusoidal_1d(point: &Point2<f64>) -> f64 {
     if point.x < 0.25 {
-        (point.x*f64::consts::PI*4.).sin()
+        (point.x * f64::consts::PI * 4.).sin()
     } else {
         0.
     }
 }
 
 fn main() {
-    let mut case = ConvectionCase::new(convection_setup());
+    //let mut case = ConvectionCase::new(convection_setup());
     // let mut case = PoissonCase::new(poisson());
-    
+    let mut case = SimpleCase::new(simple());
+
     // //println!("{:?}", case.mesh().cells().iter().map(|cell| cell.volume()).collect::<Vec<f64>>());
     // {
     //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -214,8 +220,8 @@ fn main() {
     //     };
     //     println!("{:?}", field.face_values());
     // }
-    
-    for _ in 0..100 {
+
+    for _ in 0..10 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -226,7 +232,7 @@ fn main() {
         //     };
         //     println!("{:?}", field.face_values());
         // }
-        // if case.step() % 100 == 0 {
+        // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
         case.export().unwrap();
