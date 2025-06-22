@@ -177,7 +177,10 @@ fn orthogonal_correction(
                                 rhs[cell] += coeff
                                     * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
                             }
-                            BoundaryCondition::Neumann(bc_value) => todo!(),
+                            BoundaryCondition::Neumann(bc_value) => {
+                                let bc_value = bc_value.get_value(component);
+                                rhs[cell] -= coeff * bc_value * face.area();
+                            },
                         },
                     }
                 }

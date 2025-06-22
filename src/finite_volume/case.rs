@@ -22,6 +22,7 @@ use super::{
 pub mod convection_test;
 pub mod poisson;
 pub mod simple;
+pub mod diffusion_test;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
