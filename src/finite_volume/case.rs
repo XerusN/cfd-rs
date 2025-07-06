@@ -23,6 +23,8 @@ pub mod convection_test;
 pub mod poisson;
 pub mod simple;
 pub mod diffusion_test;
+pub mod convection_diffusion_test;
+pub mod burger;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -59,7 +61,7 @@ impl VariableFields {
     pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh, config: &CaseConfig) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
-            print!("Field init for {}: ", var.name());
+            // print!("Field init for {}: ", var.name());
             match *var.dim() {
                 Dimension::Scalar => {
                     let values = RefCell::new(Field::Scalar(CellScalarField::new(

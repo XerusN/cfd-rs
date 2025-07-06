@@ -133,7 +133,7 @@ impl Case for ConvectionCase {
     }
 
     fn new(config: CaseConfig) -> Self {
-        let mesh = mesh_1d(&config.geometry);
+        let mesh = mesh(&config.geometry);
 
         let mut equations = CaseEquations::new();
 
@@ -161,11 +161,16 @@ impl Case for ConvectionCase {
         equations.add_eq("Speed".to_string(), eq).unwrap();
 
         let fields = VariableFields::new(&equations, &mesh, &config);
-
+        
+        println!("ok1");
+        
+        
         let solver = EquationSolver::new(&mesh);
-
+        
+        println!("ok2");
+        
         Self {
-            name: "Convection-1D".to_string(),
+            name: "Convection-2D".to_string(),
 
             time: 0.,
             time_step: 0.001,

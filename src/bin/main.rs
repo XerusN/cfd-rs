@@ -4,6 +4,8 @@ use std::ops::Deref;
 
 use cfd_rs::finite_volume::base::Field;
 use cfd_rs::finite_volume::boundary::BoundaryValue;
+use cfd_rs::finite_volume::case::burger::BurgerCase;
+use cfd_rs::finite_volume::case::convection_diffusion_test::ConvectionDiffusionCase;
 use cfd_rs::finite_volume::case::convection_test::ConvectionCase;
 use cfd_rs::finite_volume::case::diffusion_test::DiffusionCase;
 use cfd_rs::finite_volume::case::simple::SimpleCase;
@@ -190,6 +192,113 @@ fn convection_setup() -> CaseConfig {
     }
 }
 
+fn convection_setup_2d() -> CaseConfig {
+    let schemes = Schemes {
+        transient: TimeIntegration::ForwardEuler,
+        convection: ConvectionScheme::UpwindSecondOrder,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
+        divergence: DivergenceScheme::Basic,
+        gradients: GradientConfig {
+            scheme: GradientScheme::GreenGaussCompact,
+            interp: GradientInterpConfig::AveragedCorrected,
+        },
+    };
+
+    let geometry = GeometryConfig {
+        import_path: Some("./target/exports/mesh2.cfd".to_string()),
+        element_size: 0.01,
+    };
+    
+    let output = OutputConfig {
+        control: OutputControl::Iteration(1),
+        directory: "./target/exports".to_string(),
+    };
+
+    let mut bc_fields = HashMap::new();
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+    ];
+    bc_fields.insert(Variable::new("Phi".to_string(), Dimension::Scalar), bc);
+
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+    ];
+    bc_fields.insert(Variable::new("Speed".to_string(), Dimension::Vector2), bc);
+    let bc_fields = FieldsBoundaryConditions::new(bc_fields);
+
+    let mut initial_fields = HashMap::new();
+    initial_fields.insert(
+        Variable::new("Phi".to_string(), Dimension::Scalar),
+        InitFunc::Scalar(sinusoidal_1d),
+    );
+    initial_fields.insert(
+        Variable::new("Speed".to_string(), Dimension::Vector2),
+        InitFunc::Vector2(constant_1, constant),
+    );
+
+    CaseConfig {
+        schemes,
+        geometry,
+        bc: bc_fields,
+        output,
+        initial_fields,
+    }
+}
+
+fn burger_setup_2d() -> CaseConfig {
+    let schemes = Schemes {
+        transient: TimeIntegration::ForwardEuler,
+        convection: ConvectionScheme::UpwindSecondOrder,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
+        divergence: DivergenceScheme::Basic,
+        gradients: GradientConfig {
+            scheme: GradientScheme::GreenGaussCompact,
+            interp: GradientInterpConfig::AveragedCorrected,
+        },
+    };
+
+    let geometry = GeometryConfig {
+        import_path: Some("./target/exports/mesh2.cfd".to_string()),
+        element_size: 0.01,
+    };
+    
+    let output = OutputConfig {
+        control: OutputControl::Iteration(1),
+        directory: "./target/exports".to_string(),
+    };
+
+    let mut bc_fields = HashMap::new();
+
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+    ];
+    bc_fields.insert(Variable::new("Speed".to_string(), Dimension::Vector2), bc);
+    let bc_fields = FieldsBoundaryConditions::new(bc_fields);
+
+    let mut initial_fields = HashMap::new();
+    initial_fields.insert(
+        Variable::new("Speed".to_string(), Dimension::Vector2),
+        InitFunc::Vector2(sinusoidal_1d, constant),
+    );
+
+    CaseConfig {
+        schemes,
+        geometry,
+        bc: bc_fields,
+        output,
+        initial_fields,
+    }
+}
+
 
 fn diffusion_setup() -> CaseConfig {
     let schemes = Schemes {
@@ -202,7 +311,7 @@ fn diffusion_setup() -> CaseConfig {
             interp: GradientInterpConfig::AveragedCorrected,
         },
     };
-
+    
     let geometry = GeometryConfig {
         import_path: None,
         element_size: 0.01,
@@ -304,11 +413,13 @@ pub fn sinusoidal_1d(point: &Point2<f64>) -> f64 {
 }
 
 fn main() {
-    // let mut case = ConvectionCase::new(convection_setup());
+    //let mut case = ConvectionCase::new(convection_setup_2d());
     // let mut case = PoissonCase::new(poisson());
-    //let mut case = SimpleCase::new(simple());
-    // let mut case = DiffusionCase::new(diffusion_setup());
-    let mut case = DiffusionCase::new(diffusion_setup_2d());
+    let mut case = SimpleCase::new(simple());
+    // let mut case = ConvectionDiffusionCase::new(convection_setup_2d());
+    //let mut case = BurgerCase::new(burger_setup_2d());
+    // let mut case = SimpleCase::new(simple());
+    //let mut case = DiffusionCase::new(convection_setup_2d());
 
     // //println!("{:?}", case.mesh().cells().iter().map(|cell| cell.volume()).collect::<Vec<f64>>());
     // {
@@ -320,8 +431,9 @@ fn main() {
     //     };
     //     println!("{:?}", field.face_values());
     // }
-
+    
     for _ in 0..900 {
+        
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");

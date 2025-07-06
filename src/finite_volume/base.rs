@@ -74,13 +74,13 @@ impl CellScalarField {
             grads_face = DVector::zeros(0);
         }
 
-        println!(
-            "cells: {} | faces: {} | grad_cells: {} | grad_faces: {}",
-            values.len(),
-            face_values.len(),
-            grads_cell.len(),
-            grads_face.len()
-        );
+        // println!(
+        //     "cells: {} | faces: {} | grad_cells: {} | grad_faces: {}",
+        //     values.len(),
+        //     face_values.len(),
+        //     grads_cell.len(),
+        //     grads_face.len()
+        // );
 
         CellScalarField {
             values,

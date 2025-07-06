@@ -1,14 +1,13 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::Vector2;
 
 use crate::finite_volume::{
     base::Field,
-    boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, IntegrationCategory, Variable},
+    equation::{EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;

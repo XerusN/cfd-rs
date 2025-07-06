@@ -109,7 +109,7 @@ fn green_gauss_compact(
                 match &bc[id.0] {
                     BoundaryCondition::Dirichlet(bc_value) => {
                         *value = bc_value.get_value(component);
-                        println!("{:?}", bc_value.get_value(component));
+                        // println!("{:?}", bc_value.get_value(component));
                     }
                     // Check Neumann implementation
                     BoundaryCondition::Neumann(bc_value) => {
@@ -252,14 +252,14 @@ fn green_gauss_compact(
         i += 1;
 
         norm /= mesh.num_faces() as f64;
-        println!("norm = {:.9e}", norm);
+        // println!("norm = {:.9e}", norm);
 
         if norm < 1e-3 {
             break;
         }
     }
 
-    println!("Gradients updated {i}");
+    // println!("Gradients updated {i}");
 }
 
 fn averaged_corrected_interp(
@@ -341,5 +341,5 @@ fn averaged_corrected_interp(
             + ((values[id_2.0] - values[id_1.0]) - mean_grad.dot(&d_cf)) * d_cf / d_cf_norm.powi(2);
     }
 
-    println!("Gradients interpolated");
+    // println!("Gradients interpolated");
 }

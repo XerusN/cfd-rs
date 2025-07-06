@@ -1,5 +1,5 @@
 use std::{
-    cell::{RefCell, RefMut},
+    cell::RefCell,
     ops::Deref,
 };
 
@@ -11,9 +11,9 @@ use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
     base::Field,
-    boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
-    config::{self, CaseConfig},
+    config::CaseConfig,
     equation::{Component, EquationSolver, IntegrationCategory, Variable},
 };
 
@@ -28,7 +28,7 @@ impl LaplacianScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
             Self::OrthogonalCorrection => GradRequirements::new(false, true),
-        }
+        } 
     }
 
     pub fn discretize(
@@ -51,7 +51,8 @@ impl LaplacianScheme {
         match *self {
             Self::OrthogonalCorrection => {
                 orthogonal_correction(component, solver, field, mesh, bc, integration, coeff)
-            }
+            },
+            
         }
     }
 }
@@ -141,9 +142,6 @@ fn orthogonal_correction(
         IntegrationCategory::Explicit => {
             for cell in 0..rhs.len() {
                 let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut row = matrix
-                    .get_row_mut(cell)
-                    .expect("Bad Initialization of matrix");
                 let mut f_c = 0.;
                 for (neighbor, face, face_id) in neighbors_and_faces {
                     match *neighbor {

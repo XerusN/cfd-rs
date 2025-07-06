@@ -143,7 +143,7 @@ impl Case for DiffusionCase {
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
             DifferentialOperator::TimeDerivative(phi.clone()),
-        )) + 0.01*Op::FieldOperator(FieldOperator::DifferentialOperator(
+        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
             DifferentialOperator::Laplacian(phi, IntegrationCategory::Explicit)
         ));
         let rhs = Op::Scalar(0.);
@@ -158,7 +158,7 @@ impl Case for DiffusionCase {
             name: "Diffusion-1D".to_string(),
 
             time: 0.,
-            time_step: 0.001,
+            time_step: 0.000001,
             step: 0,
 
             config,

@@ -8,13 +8,13 @@ use crate::finite_volume::{
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::mesh,
+    mesh::{mesh, mesh_1d},
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SimpleCase {
+pub struct BurgerCase {
     name: String,
     step: usize,
     time: f64,
@@ -27,12 +27,9 @@ pub struct SimpleCase {
     fields: VariableFields,
     equations: CaseEquations,
     solver: EquationSolver,
-
-    density: f64,
-    kinematic_viscosity: f64,
 }
 
-impl Case for SimpleCase {
+impl Case for BurgerCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -124,81 +121,49 @@ impl Case for SimpleCase {
     }
 
     fn next_step(&mut self) {
-        // Check if gradients are correctly updated
-        Equation::solve(self, "Prediction");
+        //println!("NEXT {:?}", self.fields);
+        Equation::solve(self, "Burger");
 
-        Equation::solve(self, "Poisson");
-
-        Equation::solve(self, "Correction");
+        // println!("{:?}", self.solver.matrix());
+        // println!("{:?}", self.solver.rhs());
 
         self.time += self.time_step;
         self.step += 1;
     }
 
     fn new(config: CaseConfig) -> Self {
+        //let mesh = mesh_1d(&config.geometry);
         let mesh = mesh(&config.geometry);
-
-        let density = 1.;
-        let kinematic_viscosity = 1.;
-
-        let time_step = 0.00001;
+        
 
         let mut equations = CaseEquations::new();
 
-        let p = Variable::new("P".to_string(), Dimension::Scalar);
-        let u = Variable::new("U".to_string(), Dimension::Vector2);
+        let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
+        let speed = Variable::new("Speed".to_string(), Dimension::Vector2);
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(u.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Convection {
-                var: u.clone(),
-                speed: u.clone(),
-                integration: IntegrationCategory::Explicit,
-            },
-        ));
-        let rhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(u.clone(), IntegrationCategory::Explicit),
-        ));
+            DifferentialOperator::TimeDerivative(speed.clone()),
+        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(DifferentialOperator::Convection { var: speed.clone(), speed: speed.clone(), integration: IntegrationCategory::Explicit }));
+        let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Prediction".to_string(), eq).unwrap();
-
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(p.clone(), IntegrationCategory::Implicit),
-        ));
-        let rhs = density / time_step
-            * Op::FieldOperator(FieldOperator::DifferentialOperator(
-                DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit),
-            ));
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Poisson".to_string(), eq).unwrap();
-
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(u.clone()),
-        ));
-        let rhs = -1. / density * Op::FieldOperator(FieldOperator::Gradient(p.clone()));
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Correction".to_string(), eq).unwrap();
-
+        equations.add_eq("Burger".to_string(), eq).unwrap();
+        
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);
 
         Self {
-            name: "Simple-2D".to_string(),
+            name: "Burger".to_string(),
 
             time: 0.,
-            time_step,
+            time_step: 0.0001,
             step: 0,
 
             config,
             mesh,
             fields,
-            equations: equations,
+            equations,
             solver,
-
-            density,
-            kinematic_viscosity,
         }
     }
 }
