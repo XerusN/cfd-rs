@@ -9,7 +9,7 @@ use std::{
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::DVector;
 use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
-use nalgebra_sparse_linalg::iteratives::{self, amg::Amg, IterativeSolver};
+use nalgebra_sparse_linalg::iteratives::{self, amg::Amg, gauss_seidel::{self, GaussSeidel}, IterativeSolver};
 
 use super::{
     base::Field,
@@ -19,6 +19,8 @@ use super::{
     discretizations::{find_var_in_fields, DifferentialOperator},
     error::CfdError,
 };
+
+pub mod macros;
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
 
@@ -511,11 +513,12 @@ fn solve(
             // To change
             warn!("Matrix cloned for amg");
             warn!("Hard-coded tol and max_iter for solve");
-
-            let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 1000, 4, 4);
-            linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
-            let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
-            *field.values_mut() = linalg_solver.x.clone();
+            
+            let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
+            // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 1000, 4, 4);
+            // linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
+            // let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
+            // *field.values_mut() = linalg_solver.x.clone();
 
             // let result = nalgebra_sparse_linalg::iteratives::jacobi::solve_with_initial_guess(solver.matrix(), solver.rhs(), field.values_mut(), 1000, 1e-6);
 
