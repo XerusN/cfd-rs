@@ -2,14 +2,14 @@ use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
 use super::super::equation::{EquationSolver, Variable};
-use crate::finite_volume::{
+use crate::{convection, finite_volume::{
     base::Field,
     case::{Case, CaseEquations, VariableFields},
     config::{CaseConfig, GeometryConfig, Schemes},
-    discretizations::DifferentialOperator,
+    discretizations::{divergence, laplacian, DifferentialOperator},
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
     mesh::{mesh, mesh_1d},
-};
+}, laplacian, time_derivative, divergence};
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
@@ -141,19 +141,13 @@ impl Case for ConvectionDiffusionCase {
 
         let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
         let speed = Variable::new("Speed".to_string(), Dimension::Vector2);
-
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(phi.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(phi.clone(), IntegrationCategory::Explicit)
-        )) + 100.*Op::FieldOperator(FieldOperator::DifferentialOperator(DifferentialOperator::Convection { var: phi.clone(), speed: speed.clone(), integration: IntegrationCategory::Explicit }));
+        
+        let lhs = time_derivative!(&phi) + laplacian!(&phi, IntegrationCategory::Explicit) + 100.*convection!(&phi, &speed, IntegrationCategory::Explicit);
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Convection-Diffusion".to_string(), eq).unwrap();
         
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Divergence(speed, IntegrationCategory::Implicit),
-        ));
+        let lhs = divergence!(&speed, IntegrationCategory::Implicit);
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Speed".to_string(), eq).unwrap();
