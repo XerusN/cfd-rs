@@ -88,8 +88,12 @@ fn simple() -> CaseConfig {
         },
     };
 
+    // let geometry = GeometryConfig {
+    //     import_path: Some("./target/exports/mesh.cfd".to_string()),
+    //     element_size: 0.01,
+    // };
     let geometry = GeometryConfig {
-        import_path: Some("./target/exports/mesh.cfd".to_string()),
+        import_path: None,
         element_size: 0.01,
     };
 
@@ -431,6 +435,8 @@ fn main() {
     //     };
     //     println!("{:?}", field.face_values());
     // }
+    
+    case.export().unwrap();
     
     for _ in 0..900 {
         

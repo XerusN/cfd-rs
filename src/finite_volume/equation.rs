@@ -491,9 +491,12 @@ fn solve(
                 .expect("Boundary Condition missing for field"),
         );
     }
-
+    
     match equation.unknown().dim {
         Dimension::Scalar => {
+            
+            let mut result = false;
+            
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
 
@@ -501,24 +504,35 @@ fn solve(
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation")
-                .0;
+                ;
 
-            let mut field = field_cell.borrow_mut();
+            let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
+            for i in 0..10 {
+                let scalar_field = match &mut *field.0 {
+                    Field::Scalar(ref mut scalar_field) => scalar_field,
+                    _ => panic!("Unknown should be scalar"),
+                };
 
-            let field = match &mut *field {
-                Field::Scalar(ref mut scalar_field) => scalar_field,
-                _ => panic!("Unknown should be scalar"),
-            };
-
-            // To change
-            warn!("Matrix cloned for amg");
-            warn!("Hard-coded tol and max_iter for solve");
-            
-            let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
-            // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 1000, 4, 4);
-            // linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
-            // let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
-            // *field.values_mut() = linalg_solver.x.clone();
+                // To change
+                warn!("Matrix cloned for amg");
+                warn!("Hard-coded tol and max_iter for solve");
+                // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
+                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
+                linalg_solver.init(solver.matrix(), solver.rhs(), Some(scalar_field.values_mut()));
+                result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
+                *scalar_field.values_mut() = linalg_solver.x.clone();
+                
+                if !result {
+                    println!("Update Grads");
+                    field.0.update_grads(&field.1, mesh, &config.schemes.gradients, config
+                        .bc
+                        .map
+                        .get(equation.unknown())
+                        .expect("Boundary Condition missing for field"));
+                } else {
+                    break
+                }
+            }
 
             // let result = nalgebra_sparse_linalg::iteratives::jacobi::solve_with_initial_guess(solver.matrix(), solver.rhs(), field.values_mut(), 1000, 1e-6);
 
@@ -536,6 +550,13 @@ fn solve(
             }
         }
         Dimension::Vector2 => {
+            
+            let buffer_cell = fields
+                .map
+                .get_mut(equation.unknown())
+                .expect("Missing field for equation")
+                .0.clone();
+            
             for component in [Component::X, Component::Y] {
                 solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
 
@@ -545,9 +566,9 @@ fn solve(
                     .expect("Missing field for equation")
                     .0;
 
-                let mut field = field_cell.borrow_mut();
+                let mut buffer = buffer_cell.borrow_mut();
 
-                let field = match &mut *field {
+                let buffer = match &mut *buffer {
                     Field::Vector2(ref mut scalar_field) => match component {
                         Component::X => &mut scalar_field.x,
                         Component::Y => &mut scalar_field.y,
@@ -556,9 +577,9 @@ fn solve(
                 };
 
                 let mut linalg_solver = Amg::with_smoothing(1e-4, 0.9, 1000, 4, 4);
-                linalg_solver.init(solver.matrix(), solver.rhs(), Some(field.values_mut()));
+                linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
                 let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
-                *field.values_mut() = linalg_solver.x.clone();
+                *buffer.values_mut() = linalg_solver.x.clone();
 
                 // let result = iteratives::amg::solve_with_initial_guess(
                 //     solver.matrix().clone(),
@@ -573,6 +594,12 @@ fn solve(
                     panic!("Did not converge when solving {:?}", equation)
                 }
             }
+            
+            fields
+                .map
+                .get_mut(equation.unknown())
+                .expect("Missing field for equation")
+                .0 = buffer_cell.clone();
         }
     }
 

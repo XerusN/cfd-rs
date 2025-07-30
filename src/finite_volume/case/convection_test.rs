@@ -162,12 +162,7 @@ impl Case for ConvectionCase {
 
         let fields = VariableFields::new(&equations, &mesh, &config);
         
-        println!("ok1");
-        
-        
         let solver = EquationSolver::new(&mesh);
-        
-        println!("ok2");
         
         Self {
             name: "Convection-2D".to_string(),

@@ -25,6 +25,16 @@ macro_rules! divergence {
 }
 
 #[macro_export]
+macro_rules! gradient {
+    ( $variable:expr ) => {
+        {
+            let var: &Variable = $variable;
+            Op::FieldOperator(FieldOperator::Gradient(var.clone()))
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! convection {
     ( $variable:expr, $speed:expr, $integration:expr ) => {
         {
@@ -32,7 +42,7 @@ macro_rules! convection {
             let int: IntegrationCategory = $integration;
             let speed: &Variable = $speed;
             Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Convection(var.clone(), speed.clone(), int)))
+            DifferentialOperator::Convection{var: var.clone(), speed: speed.clone(), integration: int}))
         }
     };
 }

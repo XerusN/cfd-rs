@@ -33,7 +33,7 @@ impl Case for ConvectionDiffusionCase {
     fn name(&self) -> &str {
         &self.name
     }
-
+    
     fn step(&self) -> usize {
         self.step
     }

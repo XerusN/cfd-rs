@@ -2,14 +2,14 @@ use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
 use super::super::equation::{EquationSolver, Variable};
-use crate::finite_volume::{
+use crate::{convection, divergence, finite_volume::{
     base::Field,
     case::{Case, CaseEquations, VariableFields},
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::mesh,
-};
+    mesh::{mesh, quad_mesh},
+}, gradient, laplacian, time_derivative};
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
@@ -136,7 +136,7 @@ impl Case for SimpleCase {
     }
 
     fn new(config: CaseConfig) -> Self {
-        let mesh = mesh(&config.geometry);
+        let mesh = quad_mesh(&config.geometry);
 
         let density = 1.;
         let kinematic_viscosity = 1.;
@@ -148,35 +148,22 @@ impl Case for SimpleCase {
         let p = Variable::new("P".to_string(), Dimension::Scalar);
         let u = Variable::new("U".to_string(), Dimension::Vector2);
 
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(u.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Convection {
-                var: u.clone(),
-                speed: u.clone(),
-                integration: IntegrationCategory::Explicit,
-            },
-        ));
-        let rhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(u.clone(), IntegrationCategory::Explicit),
-        ));
+        let lhs = time_derivative!(&u) + convection!(
+            &u,
+            &u,
+            IntegrationCategory::Explicit
+        );
+        let rhs = laplacian!(&u, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Prediction".to_string(), eq).unwrap();
 
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(p.clone(), IntegrationCategory::Implicit),
-        ));
-        let rhs = density / time_step
-            * Op::FieldOperator(FieldOperator::DifferentialOperator(
-                DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit),
-            ));
+        let lhs = laplacian!(&p, IntegrationCategory::Implicit);
+        let rhs = - density / time_step * divergence!(&u, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
 
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(u.clone()),
-        ));
-        let rhs = -1. / density * Op::FieldOperator(FieldOperator::Gradient(p.clone()));
+        let lhs = time_derivative!(&u);
+        let rhs = -1. / density * gradient!(&p);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Correction".to_string(), eq).unwrap();
 
