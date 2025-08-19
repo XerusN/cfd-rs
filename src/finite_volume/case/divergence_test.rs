@@ -6,15 +6,15 @@ use crate::finite_volume::{
     base::Field,
     case::{Case, CaseEquations, VariableFields},
     config::{CaseConfig, GeometryConfig, Schemes},
-    discretizations::DifferentialOperator,
+    discretizations::{divergence::DivergenceScheme, DifferentialOperator},
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::{mesh, mesh_1d},
+    mesh::{mesh, mesh_1d, quad_mesh},
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DiffusionCase {
+pub struct DivergenceCase {
     name: String,
     step: usize,
     time: f64,
@@ -29,7 +29,7 @@ pub struct DiffusionCase {
     solver: EquationSolver,
 }
 
-impl Case for DiffusionCase {
+impl Case for DivergenceCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -123,7 +123,7 @@ impl Case for DiffusionCase {
     fn next_step(&mut self) {
         //println!("NEXT {:?}", self.fields);
 
-        Equation::solve(self, "Diffusion");
+        Equation::solve(self, "Divergence");
 
         // println!("{:?}", self.solver.matrix());
         // println!("{:?}", self.solver.rhs());
@@ -134,30 +134,31 @@ impl Case for DiffusionCase {
 
     fn new(config: CaseConfig) -> Self {
         //let mesh = mesh_1d(&config.geometry);
-        let mesh = mesh(&config.geometry);
-
+        let mesh = quad_mesh(&config.geometry);
+        
         let mut equations = CaseEquations::new();
 
-        let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
+        let u = Variable::new("U".to_string(), Dimension::Vector2);
+        let f = Variable::new("f".to_string(), Dimension::Vector2);
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(phi.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(phi, IntegrationCategory::Explicit)
-        ));
-        let rhs = Op::Scalar(0.);
+            DifferentialOperator::TimeDerivative(u.clone()),
+        )) + 1.*Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit)
+        )) + Op::FieldOperator(FieldOperator::Field(u.clone(), IntegrationCategory::Explicit));
+        let rhs = Op::FieldOperator(FieldOperator::Field(f, IntegrationCategory::Explicit));
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Diffusion".to_string(), eq).unwrap();
+        equations.add_eq("Divergence".to_string(), eq).unwrap();
 
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);
 
         Self {
-            name: "Diffusion-1D".to_string(),
+            name: "Divergence-test".to_string(),
 
             time: 0.,
-            time_step: 0.000001,
+            time_step: 0.01,
             step: 0,
 
             config,

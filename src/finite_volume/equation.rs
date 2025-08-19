@@ -366,14 +366,36 @@ impl EquationSolver {
         match component {
             Component::X => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].x;
+                    *v -= field.grads_cell()[i].x*coeff;
                 }
             }
             Component::Y => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].y;
+                    *v -= field.grads_cell()[i].y*coeff;
                 }
             }
+        }
+    }
+    
+    fn add_field(
+        &mut self,
+        var: &Variable,
+        component: &Component,
+        fields: &VariableFields,
+        coeff: f64,
+    ) {
+        let field = find_var_in_fields(var, fields);
+        let field = field.borrow();
+        let field = match field.deref() {
+            Field::Scalar(value) => value,
+            Field::Vector2(value) => match *component {
+                Component::X => &value.x,
+                Component::Y => &value.y,
+            },
+        };
+
+        for (i, v) in self.rhs.iter_mut().enumerate() {
+            *v -= field.values()[i]*coeff;
         }
     }
 
@@ -454,7 +476,7 @@ impl EquationSolver {
                 FieldOperator::DifferentialOperator(diff_op) => {
                     diff_op.discretize(component, self, fields, mesh, config, time_step, coeff)
                 }
-                FieldOperator::Field(var, integration) => todo!(),
+                FieldOperator::Field(var, integration) => self.add_field(var, component, fields, coeff),
                 FieldOperator::Gradient(var) => self.add_gradient(var, component, fields, coeff),
             },
             Op::Scalar(scalar) => {

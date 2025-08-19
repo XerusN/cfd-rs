@@ -73,7 +73,7 @@ fn basic(
                     rhs[cell_id] -= coeff * flow_rate;
                 }
             }
-        }
+        },
         IntegrationCategory::Implicit => todo!(),
     }
 }
