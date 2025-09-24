@@ -67,6 +67,7 @@ fn update_grad_scalar(
     component: &Component,
 ) {
     if !field.gradients_up_to_date() {
+        println!("Updating");
         if grad_requirements.cell() | grad_requirements.face() {
             match config.scheme {
                 GradientScheme::GreenGaussCompact => {
@@ -326,6 +327,8 @@ fn averaged_corrected_interp(
                             .normal_from_cell(id_1)
                             .expect("Mesh not coherent");
                         let bc_value = bc_value.get_value(component);
+                        
+                        // SUSPICIOUS
                         *face_grad =
                             grads[id_1.0] + (bc_value - grads[id_1.0].dot(&normal)) * normal;
                     }

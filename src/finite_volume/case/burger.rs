@@ -134,7 +134,6 @@ impl Case for BurgerCase {
     fn new(config: CaseConfig) -> Self {
         //let mesh = mesh_1d(&config.geometry);
         let mesh = mesh(&config.geometry);
-        
 
         let mut equations = CaseEquations::new();
 
@@ -143,11 +142,17 @@ impl Case for BurgerCase {
 
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
             DifferentialOperator::TimeDerivative(speed.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(DifferentialOperator::Convection { var: speed.clone(), speed: speed.clone(), integration: IntegrationCategory::Explicit }));
+        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Convection {
+                var: speed.clone(),
+                speed: speed.clone(),
+                integration: IntegrationCategory::Explicit,
+            },
+        ));
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Burger".to_string(), eq).unwrap();
-        
+
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);

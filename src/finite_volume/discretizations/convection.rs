@@ -107,7 +107,8 @@ fn upwind_second_order(
                             Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
                         };
 
-                        let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_2.0].centroid();
+                        let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id))
+                            - mesh.cells()[id_2.0].centroid();
 
                         if flow_rate > 0. {
                             match &boundary_condition[id.0] {
@@ -137,7 +138,8 @@ fn upwind_second_order(
                 let id_2 = match face.patches().1 {
                     Patch::Cell(id) => id,
                     Patch::Boundary(id) => {
-                        let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_1.0].centroid();
+                        let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id))
+                            - mesh.cells()[id_1.0].centroid();
 
                         if flow_rate < 0. {
                             match &boundary_condition[id.0] {
@@ -165,12 +167,14 @@ fn upwind_second_order(
                 };
                 let face_field;
                 if flow_rate < 0. {
-                    let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_2.0].centroid();
+                    let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id))
+                        - mesh.cells()[id_2.0].centroid();
                     face_field = field.values()[id_2.0]
                         + (2. * field.grads_cell()[id_2.0] - field.grads_face()[face_id])
                             .dot(&d_cf_2);
                 } else {
-                    let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id)) - mesh.cells()[id_1.0].centroid();
+                    let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id))
+                        - mesh.cells()[id_1.0].centroid();
                     face_field = field.values()[id_1.0]
                         + (2. * field.grads_cell()[id_1.0] - field.grads_face()[face_id])
                             .dot(&d_cf_1);

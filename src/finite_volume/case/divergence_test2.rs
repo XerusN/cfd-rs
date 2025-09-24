@@ -1,24 +1,21 @@
 use hashbrown::HashMap;
+use serde::de::value;
 use std::cell::{Ref, RefMut};
 
 use super::super::equation::{EquationSolver, Variable};
-use crate::{
-    convection, divergence,
-    finite_volume::{
-        base::Field,
-        case::{Case, CaseEquations, VariableFields},
-        config::{CaseConfig, GeometryConfig, Schemes},
-        discretizations::{divergence, laplacian, DifferentialOperator},
-        equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-        mesh::{mesh, mesh_1d},
-    },
-    laplacian, time_derivative,
+use crate::finite_volume::{
+    base::Field,
+    case::{Case, CaseEquations, VariableFields},
+    config::{CaseConfig, GeometryConfig, Schemes},
+    discretizations::{divergence::DivergenceScheme, DifferentialOperator},
+    equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
+    mesh::{mesh, mesh_1d, quad_mesh},
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ConvectionDiffusionCase {
+pub struct DivergenceCase2 {
     name: String,
     step: usize,
     time: f64,
@@ -33,7 +30,7 @@ pub struct ConvectionDiffusionCase {
     solver: EquationSolver,
 }
 
-impl Case for ConvectionDiffusionCase {
+impl Case for DivergenceCase2 {
     fn name(&self) -> &str {
         &self.name
     }
@@ -126,9 +123,26 @@ impl Case for ConvectionDiffusionCase {
 
     fn next_step(&mut self) {
         //println!("NEXT {:?}", self.fields);
-        println!("ok");
-        Equation::solve(self, "Convection-Diffusion");
 
+        Equation::solve(self, "Divergence");
+        
+        {
+            let u = Variable::new("U".to_string(), Dimension::Vector2);
+            
+            let (_, fields, _, mesh, _) = self.equation_solver_borrow();
+            let mut field = fields.map.get_mut(&u).unwrap().0.borrow_mut();
+            let field = match *field {
+                Field::Scalar(_) => panic!(),
+                Field::Vector2(ref mut field) => field,
+            };
+            for (i, value) in field.x.values_mut().iter_mut().enumerate() {
+                *value /= mesh.cells()[i].volume();
+            }
+            for (i, value) in field.y.values_mut().iter_mut().enumerate() {
+                *value /= mesh.cells()[i].volume();
+            }
+        }
+        
         // println!("{:?}", self.solver.matrix());
         // println!("{:?}", self.solver.rhs());
 
@@ -138,36 +152,29 @@ impl Case for ConvectionDiffusionCase {
 
     fn new(config: CaseConfig) -> Self {
         //let mesh = mesh_1d(&config.geometry);
-        let mesh = mesh(&config.geometry);
+        let mesh = quad_mesh(&config.geometry);
 
         let mut equations = CaseEquations::new();
 
-        let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
-        let speed = Variable::new("Speed".to_string(), Dimension::Vector2);
+        let u = Variable::new("U".to_string(), Dimension::Vector2);
+        let f = Variable::new("f".to_string(), Dimension::Vector2);
 
-        let lhs = time_derivative!(&phi)
-            + laplacian!(&phi, IntegrationCategory::Explicit)
-            + 100. * convection!(&phi, &speed, IntegrationCategory::Explicit);
-        let rhs = Op::Scalar(0.);
+        let lhs = Op::FieldOperator(FieldOperator::Field(u, IntegrationCategory::Implicit));
+        let rhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Divergence(f, IntegrationCategory::Explicit),
+        ));
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations
-            .add_eq("Convection-Diffusion".to_string(), eq)
-            .unwrap();
-
-        let lhs = divergence!(&speed, IntegrationCategory::Implicit);
-        let rhs = Op::Scalar(0.);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Speed".to_string(), eq).unwrap();
+        equations.add_eq("Divergence".to_string(), eq).unwrap();
 
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solver = EquationSolver::new(&mesh);
 
         Self {
-            name: "Convection-Diffusion-2D".to_string(),
+            name: "Divergence-test2".to_string(),
 
             time: 0.,
-            time_step: 0.000001,
+            time_step: 0.01,
             step: 0,
 
             config,

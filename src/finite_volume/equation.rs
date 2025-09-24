@@ -4,12 +4,18 @@ use std::{
     cell::{RefCell, RefMut},
     clone,
     ops::{Add, Deref, DerefMut, Div, Mul, Sub},
+    vec,
 };
 
 use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
-use nalgebra::DVector;
+use nalgebra::{DVector, Vector2};
 use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
-use nalgebra_sparse_linalg::iteratives::{self, amg::Amg, gauss_seidel::{self, GaussSeidel}, IterativeSolver};
+use nalgebra_sparse_linalg::iteratives::{
+    self,
+    amg::Amg,
+    gauss_seidel::{self, GaussSeidel},
+    IterativeSolver,
+};
 
 use super::{
     base::Field,
@@ -30,8 +36,10 @@ pub enum Op {
     Sub(Box<(Op, Op)>),
     FieldOperator(FieldOperator),
     MulScalar(f64, Box<Op>),
+    MulVector(Vector2<f64>, Box<Op>),
     DivScalar(f64, Box<Op>),
     Scalar(f64),
+    Vector2(Vector2<f64>),
 }
 
 impl Op {
@@ -44,8 +52,11 @@ impl Op {
             Op::MulScalar(_, inner) | Op::DivScalar(_, inner) => {
                 Self::collect_field_operators(inner, collector);
             }
+            Op::MulVector(_, inner) => {
+                Self::collect_field_operators(inner, collector);
+            }
             Op::FieldOperator(f_op) => collector.push(f_op.clone()),
-            Op::Scalar(_) => {}
+            Op::Scalar(_) | Op::Vector2(_) => {}
         }
     }
 }
@@ -79,6 +90,22 @@ impl Mul<Op> for f64 {
 
     fn mul(self, rhs: Op) -> Self::Output {
         Op::MulScalar(self, Box::new(rhs))
+    }
+}
+
+impl Mul<Vector2<f64>> for Op {
+    type Output = Op;
+
+    fn mul(self, rhs: Vector2<f64>) -> Self::Output {
+        Op::MulVector(rhs, Box::new(self))
+    }
+}
+
+impl Mul<Op> for Vector2<f64> {
+    type Output = Op;
+
+    fn mul(self, rhs: Op) -> Self::Output {
+        Op::MulVector(self, Box::new(rhs))
     }
 }
 
@@ -198,14 +225,14 @@ impl Equation {
         for f_op in &collector {
             match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => match diff_op {
-                    DifferentialOperator::TimeDerivative(var) => match &unknown_var {
+                    DifferentialOperator::TimeDerivative(var) => match unknown_var {
                         None => unknown_var = Some(var),
                         Some(current) => {
-                            if current != &var {
+                            if current != var {
                                 return Err(CfdError::EquationInconsistentUnknown {
                                     lhs,
                                     rhs,
-                                    var1: current.clone().clone(),
+                                    var1: current.clone(),
                                     var2: var.clone(),
                                 });
                             }
@@ -218,14 +245,14 @@ impl Equation {
                     | DifferentialOperator::Divergence(var, integration)
                     | DifferentialOperator::Laplacian(var, integration) => {
                         if let IntegrationCategory::Implicit = integration {
-                            match &unknown_var {
+                            match unknown_var {
                                 None => unknown_var = Some(var),
                                 Some(current) => {
-                                    if current != &var {
+                                    if current != var {
                                         return Err(CfdError::EquationInconsistentUnknown {
                                             lhs,
                                             rhs,
-                                            var1: current.clone().clone(),
+                                            var1: current.clone(),
                                             var2: var.clone(),
                                         });
                                     }
@@ -237,14 +264,14 @@ impl Equation {
                 FieldOperator::Gradient(_) => (),
                 FieldOperator::Field(var, integration) => {
                     if let IntegrationCategory::Implicit = integration {
-                        match &unknown_var {
+                        match unknown_var {
                             None => unknown_var = Some(var),
                             Some(current) => {
-                                if current != &var {
+                                if current != var {
                                     return Err(CfdError::EquationInconsistentUnknown {
                                         lhs,
                                         rhs,
-                                        var1: current.clone().clone(),
+                                        var1: current.clone(),
                                         var2: var.clone(),
                                     });
                                 }
@@ -343,9 +370,9 @@ impl EquationSolver {
         (&mut self.matrix, &mut self.rhs)
     }
 
-    fn add_scalar(&mut self, scalar: f64) {
-        for v in self.rhs.iter_mut() {
-            *v -= scalar;
+    fn add_scalar(&mut self, scalar: f64, mesh: &Computational2DMesh) {
+        for (i, v) in self.rhs.iter_mut().enumerate() {
+            *v -= scalar * mesh.cells()[i].volume();
         }
     }
 
@@ -354,6 +381,7 @@ impl EquationSolver {
         var: &Variable,
         component: &Component,
         fields: &VariableFields,
+        mesh: &Computational2DMesh,
         coeff: f64,
     ) {
         let field = find_var_in_fields(var, fields);
@@ -366,36 +394,49 @@ impl EquationSolver {
         match component {
             Component::X => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].x*coeff;
+                    *v -= field.grads_cell()[i].x * coeff * mesh.cells()[i].volume();
                 }
             }
             Component::Y => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].y*coeff;
+                    *v -= field.grads_cell()[i].y * coeff * mesh.cells()[i].volume();
                 }
             }
         }
     }
-    
+
     fn add_field(
         &mut self,
         var: &Variable,
         component: &Component,
         fields: &VariableFields,
+        mesh: &Computational2DMesh,
         coeff: f64,
+        integration: &IntegrationCategory,
     ) {
-        let field = find_var_in_fields(var, fields);
-        let field = field.borrow();
-        let field = match field.deref() {
-            Field::Scalar(value) => value,
-            Field::Vector2(value) => match *component {
-                Component::X => &value.x,
-                Component::Y => &value.y,
-            },
-        };
+        match integration {
+            IntegrationCategory::Explicit => {
+                let field = find_var_in_fields(var, fields);
+                let field = field.borrow();
+                let field = match field.deref() {
+                    Field::Scalar(value) => value,
+                    Field::Vector2(value) => match *component {
+                        Component::X => &value.x,
+                        Component::Y => &value.y,
+                    },
+                };
 
-        for (i, v) in self.rhs.iter_mut().enumerate() {
-            *v -= field.values()[i]*coeff;
+                for (i, v) in self.rhs.iter_mut().enumerate() {
+                    *v -= field.values()[i] * coeff * mesh.cells()[i].volume();
+                }
+            }
+            IntegrationCategory::Implicit => {
+                for (i, j, value) in self.matrix_mut().triplet_iter_mut() {
+                    if i == j {
+                        *value += coeff * mesh.cells()[i].volume();
+                    }
+                }
+            }
         }
     }
 
@@ -472,16 +513,38 @@ impl EquationSolver {
                     coeff / scalar,
                 );
             }
+            Op::MulVector(vector, op) => {
+                let value = match component {
+                    Component::X => vector.x,
+                    Component::Y => vector.y,
+                };
+
+                self.apply_op(
+                    op.as_ref(),
+                    component,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff * value,
+                );
+            }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
                     diff_op.discretize(component, self, fields, mesh, config, time_step, coeff)
                 }
-                FieldOperator::Field(var, integration) => self.add_field(var, component, fields, coeff),
-                FieldOperator::Gradient(var) => self.add_gradient(var, component, fields, coeff),
+                FieldOperator::Field(var, integration) => {
+                    self.add_field(var, component, fields, mesh, coeff, integration)
+                }
+                FieldOperator::Gradient(var) => self.add_gradient(var, component, fields, mesh, coeff),
             },
             Op::Scalar(scalar) => {
-                self.add_scalar(*scalar * coeff);
+                self.add_scalar(*scalar * coeff, mesh);
             }
+            Op::Vector2(vector) => match component {
+                Component::X => self.add_scalar(vector.x * coeff, mesh),
+                Component::Y => self.add_scalar(vector.y * coeff, mesh),
+            },
         }
     }
 }
@@ -502,6 +565,7 @@ fn solve(
     let eq = lhs - rhs;
 
     for (var, field) in &fields.map {
+        println!("Update grads: {:?}", var);
         field.0.borrow_mut().update_grads(
             &field.1,
             mesh,
@@ -513,20 +577,18 @@ fn solve(
                 .expect("Boundary Condition missing for field"),
         );
     }
-    
+
     match equation.unknown().dim {
         Dimension::Scalar => {
-            
             let mut result = false;
-            
+
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
-
+            
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
-                .expect("Missing field for equation")
-                ;
+                .expect("Missing field for equation");
 
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
             for i in 0..10 {
@@ -540,19 +602,28 @@ fn solve(
                 warn!("Hard-coded tol and max_iter for solve");
                 // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
                 let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
-                linalg_solver.init(solver.matrix(), solver.rhs(), Some(scalar_field.values_mut()));
+                linalg_solver.init(
+                    solver.matrix(),
+                    solver.rhs(),
+                    Some(scalar_field.values_mut()),
+                );
                 result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
                 *scalar_field.values_mut() = linalg_solver.x.clone();
-                
+
                 if !result {
                     println!("Update Grads");
-                    field.0.update_grads(&field.1, mesh, &config.schemes.gradients, config
-                        .bc
-                        .map
-                        .get(equation.unknown())
-                        .expect("Boundary Condition missing for field"));
+                    field.0.update_grads(
+                        &field.1,
+                        mesh,
+                        &config.schemes.gradients,
+                        config
+                            .bc
+                            .map
+                            .get(equation.unknown())
+                            .expect("Boundary Condition missing for field"),
+                    );
                 } else {
-                    break
+                    break;
                 }
             }
 
@@ -572,13 +643,13 @@ fn solve(
             }
         }
         Dimension::Vector2 => {
-            
             let buffer_cell = fields
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation")
-                .0.clone();
-            
+                .0
+                .clone();
+
             for component in [Component::X, Component::Y] {
                 solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
 
@@ -598,9 +669,9 @@ fn solve(
                     _ => panic!("Unknown should be vector"),
                 };
 
-                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.9, 1000, 4, 4);
+                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
                 linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
-                let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 1000);
+                let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
                 *buffer.values_mut() = linalg_solver.x.clone();
 
                 // let result = iteratives::amg::solve_with_initial_guess(
@@ -616,7 +687,7 @@ fn solve(
                     panic!("Did not converge when solving {:?}", equation)
                 }
             }
-            
+
             fields
                 .map
                 .get_mut(equation.unknown())

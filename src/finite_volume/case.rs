@@ -19,13 +19,14 @@ use super::{
     error::CfdError,
 };
 
+pub mod burger;
+pub mod convection_diffusion_test;
 pub mod convection_test;
+pub mod diffusion_test;
+pub mod divergence_test;
+pub mod divergence_test2;
 pub mod poisson;
 pub mod simple;
-pub mod diffusion_test;
-pub mod convection_diffusion_test;
-pub mod burger;
-pub mod divergence_test;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -296,6 +297,6 @@ pub trait Case {
         &Computational2DMesh,
         &CaseConfig,
     );
-
+    
     fn new(config: CaseConfig) -> Self;
 }

@@ -143,7 +143,7 @@ impl Case for DiffusionCase {
         let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
             DifferentialOperator::TimeDerivative(phi.clone()),
         )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(phi, IntegrationCategory::Explicit)
+            DifferentialOperator::Laplacian(phi, IntegrationCategory::Explicit),
         ));
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");

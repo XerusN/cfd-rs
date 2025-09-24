@@ -2,14 +2,17 @@ use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
 use super::super::equation::{EquationSolver, Variable};
-use crate::{finite_volume::{
-    base::Field,
-    case::{Case, CaseEquations, VariableFields},
-    config::{CaseConfig, GeometryConfig, Schemes},
-    discretizations::DifferentialOperator,
-    equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::mesh,
-}, laplacian};
+use crate::{
+    finite_volume::{
+        base::Field,
+        case::{Case, CaseEquations, VariableFields},
+        config::{CaseConfig, GeometryConfig, Schemes},
+        discretizations::DifferentialOperator,
+        equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
+        mesh::mesh,
+    },
+    laplacian,
+};
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
 
@@ -135,7 +138,7 @@ impl Case for PoissonCase {
         let t = Variable::new("T".to_string(), Dimension::Scalar);
 
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
-        
+
         let rhs = Op::Scalar(0.);
 
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");

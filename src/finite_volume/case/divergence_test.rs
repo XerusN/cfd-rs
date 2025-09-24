@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use nalgebra::Vector2;
 use std::cell::{Ref, RefMut};
 
 use super::super::equation::{EquationSolver, Variable};
@@ -135,17 +136,24 @@ impl Case for DivergenceCase {
     fn new(config: CaseConfig) -> Self {
         //let mesh = mesh_1d(&config.geometry);
         let mesh = quad_mesh(&config.geometry);
-        
+
         let mut equations = CaseEquations::new();
 
         let u = Variable::new("U".to_string(), Dimension::Vector2);
         let f = Variable::new("f".to_string(), Dimension::Vector2);
 
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(u.clone()),
-        )) + 1.*Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit)
-        )) + Op::FieldOperator(FieldOperator::Field(u.clone(), IntegrationCategory::Explicit));
+        // let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
+        //     DifferentialOperator::TimeDerivative(u.clone()),
+        // )) + 1.*Op::FieldOperator(FieldOperator::DifferentialOperator(
+        //     DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit)
+        // )) + Op::FieldOperator(FieldOperator::Field(u.clone(), IntegrationCategory::Explicit));
+        let b = Vector2::new(1., 0.3);
+        let lhs = b * Op::FieldOperator(FieldOperator::DifferentialOperator(
+            DifferentialOperator::Divergence(u.clone(), IntegrationCategory::Explicit),
+        )) + Op::FieldOperator(FieldOperator::Field(
+            u.clone(),
+            IntegrationCategory::Implicit,
+        ));
         let rhs = Op::FieldOperator(FieldOperator::Field(f, IntegrationCategory::Explicit));
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Divergence".to_string(), eq).unwrap();

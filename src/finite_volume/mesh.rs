@@ -2,7 +2,10 @@ use cfd_rs_mesh::triangle::advancing_front::advancing_front;
 use cfd_rs_utils::{
     control::OutputControl,
     mesh::{
-        computational_mesh::{manual_meshes::{straight_line, quad_square}, BoundaryPatch, Computational2DMesh},
+        computational_mesh::{
+            manual_meshes::{quad_square, straight_line},
+            BoundaryPatch, Computational2DMesh,
+        },
         indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
         Modifiable2DMesh, Parent,
     },

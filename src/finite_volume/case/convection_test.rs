@@ -161,9 +161,9 @@ impl Case for ConvectionCase {
         equations.add_eq("Speed".to_string(), eq).unwrap();
 
         let fields = VariableFields::new(&equations, &mesh, &config);
-        
+
         let solver = EquationSolver::new(&mesh);
-        
+
         Self {
             name: "Convection-2D".to_string(),
 

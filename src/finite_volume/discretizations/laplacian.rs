@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    ops::Deref,
-};
+use std::{cell::RefCell, ops::Deref};
 
 use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},
@@ -28,7 +25,7 @@ impl LaplacianScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
             Self::OrthogonalCorrection => GradRequirements::new(false, true),
-        } 
+        }
     }
 
     pub fn discretize(
@@ -51,8 +48,7 @@ impl LaplacianScheme {
         match *self {
             Self::OrthogonalCorrection => {
                 orthogonal_correction(component, solver, field, mesh, bc, integration, coeff)
-            },
-            
+            }
         }
     }
 }
@@ -137,6 +133,8 @@ fn orthogonal_correction(
                     SparseEntryMut::NonZero(value) => *value += f_c * coeff,
                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                 }
+                
+                // println!("{:?}", row)
             }
         }
         IntegrationCategory::Explicit => {
@@ -178,7 +176,7 @@ fn orthogonal_correction(
                             BoundaryCondition::Neumann(bc_value) => {
                                 let bc_value = bc_value.get_value(component);
                                 rhs[cell] -= coeff * bc_value * face.area();
-                            },
+                            }
                         },
                     }
                 }
