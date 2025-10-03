@@ -57,8 +57,8 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
             bc = vec![
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+                BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 1.))),
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-                BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(1., 0.))),
             ];
         }
     }
@@ -167,7 +167,7 @@ fn main() {
     };
     let geometry = GeometryConfig {
         import_path: None,
-        meshing: MeshingConfig::Cartesian { length: Vector2::new(1., 1.), n_elements: Vector2::new(100, 100) },
+        meshing: MeshingConfig::Cartesian { length: Vector2::new(1., 1.), n_elements: Vector2::new(50, 50) },
     };
     
     let mut case = SimpleCase::new(simple(geometry));

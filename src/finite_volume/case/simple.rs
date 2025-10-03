@@ -132,8 +132,8 @@ impl Case for SimpleCase {
         println!("Prediction");
         Equation::solve(self, "Prediction");
         
-        // println!("Div");
-        // Equation::solve(self, "Div");
+        println!("Div");
+        Equation::solve(self, "Div");
         
         self.step += 1;
         self.export().unwrap();
@@ -149,8 +149,8 @@ impl Case for SimpleCase {
         println!("Correction");
         Equation::solve(self, "Correction");
         
-        // println!("Div");
-        // Equation::solve(self, "Div");
+        println!("Div");
+        Equation::solve(self, "Div");
 
         self.time += self.time_step;
         self.step += 1;
