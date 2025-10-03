@@ -1,17 +1,18 @@
 use cfd_rs_mesh::triangle::advancing_front::advancing_front;
 use cfd_rs_utils::{
-    control::OutputControl,
-    mesh::{
+    control::OutputControl, errors::MeshError, mesh::{
         computational_mesh::{
             manual_meshes::{quad_square, straight_line},
             BoundaryPatch, Computational2DMesh,
         },
         indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
         Modifiable2DMesh, Parent,
-    },
+    }
 };
 use nalgebra::Point2;
 use std::io;
+
+use crate::finite_volume::config::MeshingConfig;
 
 use super::config::GeometryConfig;
 
@@ -68,22 +69,18 @@ fn square_4_bc() -> Modifiable2DMesh {
     mesh
 }
 
-/// Needs a lot of rework
+/// Needs a rework
 pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     match &geometry.import_path {
         None => {
-            let mut mesh = square_4_bc();
-            advancing_front(&mut mesh, geometry.element_size, OutputControl::None)
-                .expect("Error in meshing");
-            Computational2DMesh::new_from_he(mesh.0)
+            meshing_algos(&geometry.meshing)
+                .expect("Error in meshing")
         }
         Some(path) => match Computational2DMesh::deserialize_file(&path) {
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
-                    let mut mesh = square_4_bc();
-                    advancing_front(&mut mesh, geometry.element_size, OutputControl::None)
+                    let mesh = meshing_algos(&geometry.meshing)
                         .expect("Error in meshing");
-                    let mesh = Computational2DMesh::new_from_he(mesh.0);
                     mesh.serialize_file(path).unwrap();
                     mesh
                 }
@@ -94,10 +91,19 @@ pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     }
 }
 
-pub fn quad_mesh(geometry: &GeometryConfig) -> Computational2DMesh {
-    quad_square(100)
-}
-
-pub fn mesh_1d(geometry: &GeometryConfig) -> Computational2DMesh {
-    straight_line((1. / geometry.element_size) as usize)
+fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Computational2DMesh, MeshError> {
+    match meshing_config {
+        MeshingConfig::AdvancingFront { element_size } => {
+            let mut mesh = square_4_bc();
+            advancing_front(&mut mesh, *element_size, OutputControl::None)?;
+            let mesh = Computational2DMesh::new_from_he(mesh.0);
+            Ok(mesh)
+        },
+        MeshingConfig::Cartesian { length, n_elements } => {
+            Ok(quad_square(length, n_elements))
+        },
+        MeshingConfig::Line { length, n_elements } => {
+            Ok(straight_line(*length, *n_elements))
+        }
+    }
 }

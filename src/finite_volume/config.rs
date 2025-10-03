@@ -25,7 +25,14 @@ pub struct CaseConfig {
 #[derive(Clone, PartialEq, Debug)]
 pub struct GeometryConfig {
     pub import_path: Option<String>,
-    pub element_size: f64,
+    pub meshing: MeshingConfig,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum MeshingConfig {
+    Cartesian {length: Vector2<f64>, n_elements: Vector2<usize>,},
+    Line {length: f64, n_elements: usize,},
+    AdvancingFront{element_size: f64,},
 }
 
 #[derive(Clone, PartialEq, Debug)]

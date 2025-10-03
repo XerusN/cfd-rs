@@ -10,7 +10,7 @@ use crate::{
         config::{CaseConfig, GeometryConfig, Schemes},
         discretizations::{divergence, laplacian, DifferentialOperator},
         equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-        mesh::{mesh, mesh_1d},
+        mesh::mesh,
     },
     laplacian, time_derivative,
 };

@@ -132,6 +132,7 @@ impl Case for PoissonCase {
 
     fn new(config: CaseConfig) -> Self {
         let mesh = mesh(&config.geometry);
+        // let mesh = mesh(&config.geometry);
 
         let mut equations = CaseEquations::new();
 

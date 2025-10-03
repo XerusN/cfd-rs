@@ -9,7 +9,7 @@ use crate::finite_volume::{
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::{divergence::DivergenceScheme, DifferentialOperator},
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::{mesh, mesh_1d, quad_mesh},
+    mesh::mesh,
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
@@ -135,7 +135,7 @@ impl Case for DivergenceCase {
 
     fn new(config: CaseConfig) -> Self {
         //let mesh = mesh_1d(&config.geometry);
-        let mesh = quad_mesh(&config.geometry);
+        let mesh = mesh(&config.geometry);
 
         let mut equations = CaseEquations::new();
 

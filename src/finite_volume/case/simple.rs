@@ -10,7 +10,7 @@ use crate::{
         config::{CaseConfig, GeometryConfig, Schemes},
         discretizations::DifferentialOperator,
         equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-        mesh::{mesh, quad_mesh},
+        mesh::mesh,
     },
     gradient, laplacian, time_derivative,
 };
@@ -132,16 +132,16 @@ impl Case for SimpleCase {
         println!("Prediction");
         Equation::solve(self, "Prediction");
         
-        println!("Div");
-        Equation::solve(self, "Div");
+        // println!("Div");
+        // Equation::solve(self, "Div");
         
         self.step += 1;
         self.export().unwrap();
         
         println!("Poisson");
         Equation::solve(self, "Poisson");
-        println!("Grad");
-        Equation::solve(self, "Grad");
+        // println!("Grad");
+        // Equation::solve(self, "Grad");
         
         self.step += 1;
         self.export().unwrap();
@@ -149,16 +149,16 @@ impl Case for SimpleCase {
         println!("Correction");
         Equation::solve(self, "Correction");
         
-        println!("Div");
-        Equation::solve(self, "Div");
+        // println!("Div");
+        // Equation::solve(self, "Div");
 
         self.time += self.time_step;
         self.step += 1;
     }
 
     fn new(config: CaseConfig) -> Self {
-        let mesh = quad_mesh(&config.geometry);
-        // let mesh = mesh(&config.geometry);
+        // let mesh = quad_mesh(&config.geometry);
+        let mesh = mesh(&config.geometry);
 
         let density = 1.;
         let kinematic_viscosity = 1.;
@@ -171,16 +171,6 @@ impl Case for SimpleCase {
         let u = Variable::new("U".to_string(), Dimension::Vector2);
         let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2);
         let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar);
-
-        let lhs = time_derivative!(&u) + convection!(&u, &u, IntegrationCategory::Explicit);
-        let rhs = kinematic_viscosity*laplacian!(&u, IntegrationCategory::Explicit);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Prediction".to_string(), eq).unwrap();
-
-        let lhs = laplacian!(&p, IntegrationCategory::Implicit);
-        let rhs = density / time_step * divergence!(&u, IntegrationCategory::Explicit);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Poisson".to_string(), eq).unwrap();
         
         let lhs = Op::FieldOperator(FieldOperator::Field(div_u.clone(), IntegrationCategory::Implicit));
         let rhs = divergence!(&u, IntegrationCategory::Explicit);
@@ -191,11 +181,25 @@ impl Case for SimpleCase {
         let rhs = gradient!(&p);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Grad".to_string(), eq).unwrap();
-
+        
+        // ------------------------------------
+        
+        let lhs = time_derivative!(&u) + convection!(&u, &u, IntegrationCategory::Explicit);
+        let rhs = kinematic_viscosity*laplacian!(&u, IntegrationCategory::Explicit);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Prediction".to_string(), eq).unwrap();
+        
+        let lhs = laplacian!(&p, IntegrationCategory::Implicit);
+        let rhs = density / time_step * divergence!(&u, IntegrationCategory::Explicit);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Poisson".to_string(), eq).unwrap();
+        
         let lhs = time_derivative!(&u);
         let rhs = -1. / density * gradient!(&p);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Correction".to_string(), eq).unwrap();
+        
+        // ------------------------------------
 
         let fields = VariableFields::new(&equations, &mesh, &config);
 

@@ -8,7 +8,7 @@ use crate::finite_volume::{
     config::{CaseConfig, GeometryConfig, Schemes},
     discretizations::DifferentialOperator,
     equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::{mesh, mesh_1d},
+    mesh::mesh,
 };
 
 use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
