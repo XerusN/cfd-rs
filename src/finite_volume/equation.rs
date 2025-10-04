@@ -17,6 +17,8 @@ use nalgebra_sparse_linalg::iteratives::{
     IterativeSolver,
 };
 
+use crate::finite_volume::linalg::easy_jacobi;
+
 use super::{
     base::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
@@ -589,26 +591,31 @@ fn solve(
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation");
-
+            
+            
+            
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
-            for i in 0..10 {
+            for i in 0..1 {
                 let scalar_field = match &mut *field.0 {
                     Field::Scalar(ref mut scalar_field) => scalar_field,
                     _ => panic!("Unknown should be scalar"),
                 };
-
+                
                 // To change
                 warn!("Matrix cloned for amg");
                 warn!("Hard-coded tol and max_iter for solve");
                 // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
-                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
-                linalg_solver.init(
-                    solver.matrix(),
-                    solver.rhs(),
-                    Some(scalar_field.values_mut()),
-                );
-                result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
-                *scalar_field.values_mut() = linalg_solver.x.clone();
+                // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
+                // linalg_solver.init(
+                //     solver.matrix(),
+                //     solver.rhs(),
+                //     Some(scalar_field.values_mut()),
+                // );
+                // result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
+                
+                // *scalar_field.values_mut() = linalg_solver.x.clone();
+                
+                easy_jacobi(&solver.matrix, &solver.rhs, scalar_field.values_mut());
 
                 if !result {
                     println!("Update Grads");
@@ -638,9 +645,9 @@ fn solve(
             //     0.8,
             // );
 
-            if !result {
-                panic!("Did not converge when solving {:?}", equation)
-            }
+            // if !result {
+            //     panic!("Did not converge when solving {:?}", equation)
+            // }
         }
         Dimension::Vector2 => {
             let buffer_cell = fields
@@ -652,7 +659,11 @@ fn solve(
 
             for component in [Component::X, Component::Y] {
                 solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
-
+                
+                for row in solver.matrix.row_iter() {
+                    println!("{:?}", row);
+                }   
+                
                 let field_cell = &fields
                     .map
                     .get_mut(equation.unknown())
@@ -669,10 +680,12 @@ fn solve(
                     _ => panic!("Unknown should be vector"),
                 };
 
-                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
-                linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
-                let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
-                *buffer.values_mut() = linalg_solver.x.clone();
+                // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
+                // linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
+                // let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
+                // *buffer.values_mut() = linalg_solver.x.clone();
+                
+                easy_jacobi(&solver.matrix, &solver.rhs, buffer.values_mut());
 
                 // let result = iteratives::amg::solve_with_initial_guess(
                 //     solver.matrix().clone(),
@@ -683,9 +696,9 @@ fn solve(
                 //     0.8,
                 // );
 
-                if !result {
-                    panic!("Did not converge when solving {:?}", equation)
-                }
+                // if !result {
+                //     panic!("Did not converge when solving {:?}", equation)
+                // }
             }
 
             fields

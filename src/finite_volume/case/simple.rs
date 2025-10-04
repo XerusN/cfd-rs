@@ -140,8 +140,8 @@ impl Case for SimpleCase {
         
         println!("Poisson");
         Equation::solve(self, "Poisson");
-        // println!("Grad");
-        // Equation::solve(self, "Grad");
+        println!("Grad");
+        Equation::solve(self, "Grad");
         
         self.step += 1;
         self.export().unwrap();

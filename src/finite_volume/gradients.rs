@@ -9,6 +9,7 @@ use cfd_rs_utils::mesh::{
     computational_mesh::{Computational2DMesh, Patch},
     indices::{CellIndex, FaceIndex},
 };
+use nalgebra::Vector2;
 
 /// Recommanded value in book: 2
 const GREEN_GAUSS_COMPACT_ITER: usize = 2;
@@ -298,9 +299,10 @@ fn averaged_corrected_interp(
                         let normal = mesh.faces()[i]
                             .normal_from_cell(id_2)
                             .expect("Mesh not coherent");
+                        let tangent = Vector2::new(- normal.y, normal.x);
                         let bc_value = bc_value.get_value(component);
                         *face_grad =
-                            grads[id_2.0] + (bc_value - grads[id_2.0].dot(&normal)) * normal;
+                            grads[id_2.0].dot(&tangent)*tangent + bc_value * normal;
                     }
                 }
 
@@ -326,22 +328,23 @@ fn averaged_corrected_interp(
                         let normal = mesh.faces()[i]
                             .normal_from_cell(id_1)
                             .expect("Mesh not coherent");
+                        let tangent = Vector2::new(- normal.y, normal.x);
                         let bc_value = bc_value.get_value(component);
                         
                         // SUSPICIOUS
                         *face_grad =
-                            grads[id_1.0] + (bc_value - grads[id_1.0].dot(&normal)) * normal;
+                            grads[id_1.0].dot(&tangent)*tangent + bc_value * normal;
                     }
                 }
                 continue;
             }
         };
         let d_cf = mesh.cells()[id_2.0].centroid() - mesh.cells()[id_1.0].centroid();
-        let d_cf_norm = d_cf.norm();
+        let d_cf_norm_2 = d_cf.norm_squared();
         let mean_grad = g_c * grads[id_1.0] + (1. - g_c) * grads[id_2.0];
         // To check
         *face_grad = mean_grad
-            + ((values[id_2.0] - values[id_1.0]) - mean_grad.dot(&d_cf)) * d_cf / d_cf_norm.powi(2);
+            + ((values[id_2.0] - values[id_1.0]) - mean_grad.dot(&d_cf)) * d_cf / d_cf_norm_2;
     }
 
     // println!("Gradients interpolated");
