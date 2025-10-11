@@ -1,0 +1,20 @@
+[package]
+name = "cfd-rs"
+authors = ["Xavier N."]
+version = "0.1.0"
+edition = "2021"
+description = "A lib for computing fluid dynamics, using finite volume method (WIP)."
+license = "MIT OR Apache-2.0"
+
+[lib]
+
+[dependencies]
+cfd-rs-utils = { path = "../cfd-rs-utils" }
+cfd-rs-mesh = { path = "../cfd-rs-mesh" }
+nalgebra = { version = "0.33.1", features = ["serde-serialize"] }
+nalgebra-sparse = "0.10.0"
+nalgebra-sparse-linalg = { features = ["amg"], git = "https://github.com/DimitriTimoz/nalgebra-sparse-linalg.git"}
+thiserror = "2.0.12"
+hashbrown = "0.15.3"
+log = "0.4.27"
+serde = { version = "1.0.219", features = ["derive"] }
