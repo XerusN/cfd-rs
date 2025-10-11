@@ -88,10 +88,13 @@ fn orthogonal_correction(
                 for (neighbor, face, face_id) in neighbors_and_faces {
                     match *neighbor {
                         Patch::Cell(id) => {
+                            let normal = face
+                                .normal_from_cell(CellIndex(cell))
+                                .expect("Incoherence in face and cell connection");
                             let d_cf =
                                 mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
                             let e_f = face.area() * d_cf.normalize();
-                            let f_f = -e_f.magnitude() / d_cf.magnitude();
+                            let f_f = - face.area() / d_cf.magnitude();
                             f_c -= f_f;
                             match row
                                 .get_entry_mut(id.0)
@@ -100,11 +103,8 @@ fn orthogonal_correction(
                                 SparseEntryMut::NonZero(value) => *value += f_f * coeff,
                                 SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                             }
-                            let t_f = face.area()
-                                * face
-                                    .normal_from_cell(CellIndex(cell))
-                                    .expect("Incoherence in face and cell connection")
-                                + e_f;
+                            let t_f = face.area() * normal
+                                - e_f;
                             println!("{:?} {:?}", e_f, t_f);
                             rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
                         }
@@ -113,7 +113,7 @@ fn orthogonal_correction(
                                 let d_cb = face.middle_point(mesh.vertices())
                                     - mesh.cells()[cell].centroid();
                                 let e_b = face.area() * d_cb.normalize();
-                                let f_b = e_b.magnitude() / d_cb.magnitude();
+                                let f_b = face.area() / d_cb.magnitude();
                                 f_c += f_b;
                                 let t_b = face.area()
                                     * face

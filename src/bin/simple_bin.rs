@@ -29,7 +29,7 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
     let schemes = Schemes {
         transient: TimeIntegration::ForwardEuler,
         convection: ConvectionScheme::UpwindSecondOrder,
-        laplacian: LaplacianScheme::MinimalCorrection,
+        laplacian: LaplacianScheme::OrthogonalCorrection,
         divergence: DivergenceScheme::Basic,
         gradients: GradientConfig {
             scheme: GradientScheme::GreenGaussCompact,
@@ -64,7 +64,7 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
     }
     bc_fields.insert(Variable::new("U".to_string(), Dimension::Vector2), bc);
     let bc = vec![
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),

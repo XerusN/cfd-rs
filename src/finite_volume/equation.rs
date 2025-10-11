@@ -261,7 +261,8 @@ impl Equation {
                                 }
                             }
                         }
-                    }
+                    },
+                    DifferentialOperator::RhieChowGrad{..} => (),
                 },
                 FieldOperator::Gradient(_) => (),
                 FieldOperator::Field(var, integration) => {
@@ -660,9 +661,9 @@ fn solve(
             for component in [Component::X, Component::Y] {
                 solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
                 
-                for row in solver.matrix.row_iter() {
-                    println!("{:?}", row);
-                }   
+                // for row in solver.matrix.row_iter() {
+                //     println!("{:?}", row);
+                // }   
                 
                 let field_cell = &fields
                     .map
