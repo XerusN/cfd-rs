@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "cfd-rs-core",
+    "cfd-rs-mesh",
+    "cfd-rs-utils",
+]

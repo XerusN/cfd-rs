@@ -1,0 +1,6 @@
+*.aux
+main.pdf
+*.log
+*.out
+*.bcf
+*.xml
