@@ -14,11 +14,26 @@ mod pairs;
 #[serde(bound = "T: MeshCore")]
 pub struct Mesh<T: MeshCore> {
     core: T,
-    nodes: Nodes,
-    cells: Cells,
-    pairs: Pairs,
+    pub nodes: Nodes,
+    pub cells: Cells,
+    pub pairs: Pairs,
 }
 
+impl<T: MeshCore> Mesh<T> {
+    
+    
+    
+}
 
-
-
+impl<T: MeshCore> From<T> for Mesh<T> {
+    
+    fn from(value: T) -> Self {
+        
+        
+        
+        
+        
+        
+    }
+    
+}
