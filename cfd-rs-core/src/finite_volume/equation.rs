@@ -262,7 +262,6 @@ impl Equation {
                             }
                         }
                     },
-                    DifferentialOperator::RhieChowGrad{..} => (),
                 },
                 FieldOperator::Gradient(_) => (),
                 FieldOperator::Field(var, integration) => {
