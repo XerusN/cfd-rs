@@ -14,7 +14,7 @@ use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::poisson::PoissonCase,
     case::Case,
-    config::{CaseConfig, GeometryConfig, Schemes, MeshingConfig},
+    config::{CaseConfig, GeometryConfig, MeshingConfig, Schemes},
     discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
@@ -52,7 +52,7 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(1., 0.))),
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
             ];
-        },
+        }
         _ => {
             bc = vec![
                 BoundaryCondition::Dirichlet(BoundaryValue::Vector2(Vector2::new(0., 0.))),
@@ -160,16 +160,18 @@ pub fn divergence_source_x(point: &Point2<f64>) -> f64 {
 // }
 
 fn main() {
-    
     let geometry = GeometryConfig {
         import_path: Some("./target/exports/mesh.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
     let geometry = GeometryConfig {
         import_path: None,
-        meshing: MeshingConfig::Cartesian { length: Vector2::new(1., 1.), n_elements: Vector2::new(50, 50) },
+        meshing: MeshingConfig::Cartesian {
+            length: Vector2::new(1., 1.),
+            n_elements: Vector2::new(50, 50),
+        },
     };
-    
+
     let mut case = SimpleCase::new(simple(geometry));
 
     case.export().unwrap();

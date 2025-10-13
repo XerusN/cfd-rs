@@ -29,28 +29,46 @@ pub fn triangle_centroid(points: &[Point2<f64>]) -> Point2<f64> {
     )
 }
 
-/// Does not need an ordered set of points
+/// Does need an ordered set of points
 pub fn centroid_and_area(points: &[Point2<f64>]) -> (Point2<f64>, f64) {
     if points.len() < 3 {
         panic!("Can't create cell with less than 3 points");
     } else if points.len() == 3 {
         return (triangle_centroid(points), triangle_area(points));
     }
-    
+
     let geometric_center = geometric_center(points);
-    
+
     let mut centroid = Point2::new(0., 0.);
     let mut area = 0.;
     for i in 0..points.len() {
-        let triangle = [points[i], points[(i+1)%points.len()], geometric_center];
+        let triangle = [points[i], points[(i + 1) % points.len()], geometric_center];
         let sub_area = triangle_area(&triangle);
         let sub_centroid = triangle_centroid(&triangle);
         area += sub_area;
-        centroid.x += sub_centroid.x*sub_area;
-        centroid.y += sub_centroid.y*sub_area;
+        centroid.x += sub_centroid.x * sub_area;
+        centroid.y += sub_centroid.y * sub_area;
+    }
+
+    (centroid / area, area)
+}
+
+/// Does need an ordered set of points
+pub fn area(points: &[Point2<f64>], center: &Point2<f64>) -> f64 {
+    if points.len() < 3 {
+        panic!("Can't create cell with less than 3 points");
+    } else if points.len() == 3 {
+        return triangle_area(points);
     }
     
-    (centroid/area, area)
+    let mut area = 0.;
+    for i in 0..points.len() {
+        let triangle = [points[i], points[(i + 1) % points.len()], *center];
+        let sub_area = triangle_area(&triangle);
+        area += sub_area;
+    }
+
+    area
 }
 
 pub fn geometric_center(points: &[Point2<f64>]) -> Point2<f64> {
@@ -69,13 +87,4 @@ pub fn geometric_weighting_factor(
 ) -> f64 {
     line_length(&[cell_centroids[1], *face_center])
         / line_length(&[cell_centroids[0], cell_centroids[1]])
-}
-
-/// Give a set of point in trigonometric order.
-/// Unexpected behaviour if two points are at the same place.
-/// Home-made algorithm
-pub fn order_points(points: &mut Vec<Point2<f64>>) {
-    let geomtric_center = geometric_center(&points);
-    
-    todo!()
 }

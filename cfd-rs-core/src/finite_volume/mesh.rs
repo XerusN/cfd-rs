@@ -1,13 +1,15 @@
 use cfd_rs_mesh::triangle::advancing_front::advancing_front;
 use cfd_rs_utils::{
-    control::OutputControl, errors::MeshError, mesh::{
+    control::OutputControl,
+    errors::MeshError,
+    mesh::{
         computational_mesh::{
             manual_meshes::{quad_square, straight_line},
             BoundaryPatch, Computational2DMesh,
         },
         indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
         Modifiable2DMesh, Parent,
-    }
+    },
 };
 use nalgebra::Point2;
 use std::io;
@@ -72,15 +74,11 @@ fn square_4_bc() -> Modifiable2DMesh {
 /// Needs a rework
 pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     match &geometry.import_path {
-        None => {
-            meshing_algos(&geometry.meshing)
-                .expect("Error in meshing")
-        }
+        None => meshing_algos(&geometry.meshing).expect("Error in meshing"),
         Some(path) => match Computational2DMesh::deserialize_file(&path) {
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
-                    let mesh = meshing_algos(&geometry.meshing)
-                        .expect("Error in meshing");
+                    let mesh = meshing_algos(&geometry.meshing).expect("Error in meshing");
                     mesh.serialize_file(path).unwrap();
                     mesh
                 }
@@ -98,12 +96,8 @@ fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Computational2DMesh, 
             advancing_front(&mut mesh, *element_size, OutputControl::None)?;
             let mesh = Computational2DMesh::new_from_he(mesh.0);
             Ok(mesh)
-        },
-        MeshingConfig::Cartesian { length, n_elements } => {
-            Ok(quad_square(length, n_elements))
-        },
-        MeshingConfig::Line { length, n_elements } => {
-            Ok(straight_line(*length, *n_elements))
         }
+        MeshingConfig::Cartesian { length, n_elements } => Ok(quad_square(length, n_elements)),
+        MeshingConfig::Line { length, n_elements } => Ok(straight_line(*length, *n_elements)),
     }
 }

@@ -30,9 +30,17 @@ pub struct GeometryConfig {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MeshingConfig {
-    Cartesian {length: Vector2<f64>, n_elements: Vector2<usize>,},
-    Line {length: f64, n_elements: usize,},
-    AdvancingFront{element_size: f64,},
+    Cartesian {
+        length: Vector2<f64>,
+        n_elements: Vector2<usize>,
+    },
+    Line {
+        length: f64,
+        n_elements: usize,
+    },
+    AdvancingFront {
+        element_size: f64,
+    },
 }
 
 #[derive(Clone, PartialEq, Debug)]

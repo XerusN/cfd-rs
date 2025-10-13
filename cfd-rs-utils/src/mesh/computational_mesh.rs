@@ -5,7 +5,7 @@ use std::{
     usize,
 };
 
-use nalgebra::{point, Point2, Vector2};
+use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
 use crate::geometry::*;
@@ -124,12 +124,19 @@ pub struct Cell {
 
 impl Cell {
     /// faces needs to be given in trigonometric order
-    pub fn new(faces: Vec<FaceIndex>, vertices_glob: &[Point2<f64>], faces_glob: &[Face], cell_id: CellIndex) -> Self {
+    pub fn new(
+        faces: Vec<FaceIndex>,
+        vertices_glob: &[Point2<f64>],
+        faces_glob: &[Face],
+        cell_id: CellIndex,
+    ) -> Self {
         let mut vertices = vec![];
         for (i, face) in faces
             .iter()
             .map(|f_id| &faces_glob[f_id.0])
-            .collect::<Vec<&Face>>().iter().enumerate()
+            .collect::<Vec<&Face>>()
+            .iter()
+            .enumerate()
         {
             'push_vert: {
                 if i == 0 {
@@ -138,7 +145,7 @@ impl Cell {
                             vertices.push(face.vertices()[0]);
                             vertices.push(face.vertices()[1]);
                             break 'push_vert;
-                        },
+                        }
                         _ => (),
                     }
                     match face.patches().1 {
@@ -146,32 +153,45 @@ impl Cell {
                             vertices.push(face.vertices()[1]);
                             vertices.push(face.vertices()[0]);
                             break 'push_vert;
-                        },
+                        }
                         _ => (),
                     }
                 } else if i == faces.len() - 1 {
-                    assert!(vertices.contains(&face.vertices[0]), "Last face contains vertices not defined in other faces");
-                    assert!(vertices.contains(&face.vertices[1]), "Last face contains vertices not defined in other faces");
+                    assert!(
+                        vertices.contains(&face.vertices[0]),
+                        "Last face contains vertices not defined in other faces"
+                    );
+                    assert!(
+                        vertices.contains(&face.vertices[1]),
+                        "Last face contains vertices not defined in other faces"
+                    );
                 } else {
                     for (j, vert) in face.vertices().iter().enumerate() {
-                        if *vert == vertices[vertices.len()-1] {
-                            vertices.push(face.vertices[(j+1)%2]);
+                        if *vert == vertices[vertices.len() - 1] {
+                            vertices.push(face.vertices[(j + 1) % 2]);
                             break;
                         }
                     }
                 }
             }
-            assert!(vertices.len() > 0, "The first face does not contain the cell as one of the patches (Cell {cell_id})");
+            assert!(
+                vertices.len() > 0,
+                "The first face does not contain the cell as one of the patches (Cell {cell_id})"
+            );
         }
-        assert_eq!(vertices.len(), faces.len(), "Faces not defined in trigonometric order");
-        
-        let mut points = vec!();
+        assert_eq!(
+            vertices.len(),
+            faces.len(),
+            "Faces not defined in trigonometric order"
+        );
+
+        let mut points = vec![];
         for vertex in &vertices {
             points.push(vertices_glob[vertex.0]);
         }
-        
+
         let (centroid, volume) = centroid_and_area(&points);
-        
+
         Cell {
             volume,
             centroid,
@@ -485,7 +505,12 @@ impl Computational2DMesh {
                     if id.0 != cells.len() {
                         panic!("Wrong construction of boundary");
                     }
-                    cells.push(Cell::new(faces_loc, &vertices, &faces, CellIndex(cells.len())));
+                    cells.push(Cell::new(
+                        faces_loc,
+                        &vertices,
+                        &faces,
+                        CellIndex(cells.len()),
+                    ));
                 }
             }
         }

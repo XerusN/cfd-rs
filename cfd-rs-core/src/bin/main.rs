@@ -709,6 +709,4 @@
 //         println!("{:?}", case.time());
 //     }
 // }
-fn main() {
-    
-}
+fn main() {}

@@ -261,7 +261,7 @@ impl Equation {
                                 }
                             }
                         }
-                    },
+                    }
                 },
                 FieldOperator::Gradient(_) => (),
                 FieldOperator::Field(var, integration) => {
@@ -538,7 +538,9 @@ impl EquationSolver {
                 FieldOperator::Field(var, integration) => {
                     self.add_field(var, component, fields, mesh, coeff, integration)
                 }
-                FieldOperator::Gradient(var) => self.add_gradient(var, component, fields, mesh, coeff),
+                FieldOperator::Gradient(var) => {
+                    self.add_gradient(var, component, fields, mesh, coeff)
+                }
             },
             Op::Scalar(scalar) => {
                 self.add_scalar(*scalar * coeff, mesh);
@@ -586,21 +588,19 @@ fn solve(
 
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
-            
+
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation");
-            
-            
-            
+
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
             for i in 0..1 {
                 let scalar_field = match &mut *field.0 {
                     Field::Scalar(ref mut scalar_field) => scalar_field,
                     _ => panic!("Unknown should be scalar"),
                 };
-                
+
                 // To change
                 warn!("Matrix cloned for amg");
                 warn!("Hard-coded tol and max_iter for solve");
@@ -612,9 +612,9 @@ fn solve(
                 //     Some(scalar_field.values_mut()),
                 // );
                 // result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
-                
+
                 // *scalar_field.values_mut() = linalg_solver.x.clone();
-                
+
                 easy_jacobi(&solver.matrix, &solver.rhs, scalar_field.values_mut());
 
                 if !result {
@@ -659,11 +659,11 @@ fn solve(
 
             for component in [Component::X, Component::Y] {
                 solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
-                
+
                 // for row in solver.matrix.row_iter() {
                 //     println!("{:?}", row);
-                // }   
-                
+                // }
+
                 let field_cell = &fields
                     .map
                     .get_mut(equation.unknown())
@@ -684,7 +684,7 @@ fn solve(
                 // linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
                 // let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
                 // *buffer.values_mut() = linalg_solver.x.clone();
-                
+
                 easy_jacobi(&solver.matrix, &solver.rhs, buffer.values_mut());
 
                 // let result = iteratives::amg::solve_with_initial_guess(

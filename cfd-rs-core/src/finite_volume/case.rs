@@ -297,6 +297,6 @@ pub trait Case {
         &Computational2DMesh,
         &CaseConfig,
     );
-    
+
     fn new(config: CaseConfig) -> Self;
 }

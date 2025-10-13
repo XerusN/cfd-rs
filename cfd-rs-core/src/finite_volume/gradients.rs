@@ -299,10 +299,9 @@ fn averaged_corrected_interp(
                         let normal = mesh.faces()[i]
                             .normal_from_cell(id_2)
                             .expect("Mesh not coherent");
-                        let tangent = Vector2::new(- normal.y, normal.x);
+                        let tangent = Vector2::new(-normal.y, normal.x);
                         let bc_value = bc_value.get_value(component);
-                        *face_grad =
-                            grads[id_2.0].dot(&tangent)*tangent + bc_value * normal;
+                        *face_grad = grads[id_2.0].dot(&tangent) * tangent + bc_value * normal;
                     }
                 }
 
@@ -328,12 +327,11 @@ fn averaged_corrected_interp(
                         let normal = mesh.faces()[i]
                             .normal_from_cell(id_1)
                             .expect("Mesh not coherent");
-                        let tangent = Vector2::new(- normal.y, normal.x);
+                        let tangent = Vector2::new(-normal.y, normal.x);
                         let bc_value = bc_value.get_value(component);
-                        
+
                         // SUSPICIOUS
-                        *face_grad =
-                            grads[id_1.0].dot(&tangent)*tangent + bc_value * normal;
+                        *face_grad = grads[id_1.0].dot(&tangent) * tangent + bc_value * normal;
                     }
                 }
                 continue;

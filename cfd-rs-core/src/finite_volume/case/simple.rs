@@ -131,24 +131,24 @@ impl Case for SimpleCase {
         // Check if gradients are correctly updated
         println!("Prediction");
         Equation::solve(self, "Prediction");
-        
+
         println!("Div");
         Equation::solve(self, "Div");
-        
+
         self.step += 1;
         self.export().unwrap();
-        
+
         println!("Poisson");
         Equation::solve(self, "Poisson");
         println!("Grad");
         Equation::solve(self, "Grad");
-        
+
         self.step += 1;
         self.export().unwrap();
-        
+
         println!("Correction");
         Equation::solve(self, "Correction");
-        
+
         println!("Div");
         Equation::solve(self, "Div");
 
@@ -171,34 +171,40 @@ impl Case for SimpleCase {
         let u = Variable::new("U".to_string(), Dimension::Vector2);
         let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2);
         let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar);
-        
-        let lhs = Op::FieldOperator(FieldOperator::Field(div_u.clone(), IntegrationCategory::Implicit));
+
+        let lhs = Op::FieldOperator(FieldOperator::Field(
+            div_u.clone(),
+            IntegrationCategory::Implicit,
+        ));
         let rhs = divergence!(&u, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Div".to_string(), eq).unwrap();
-        
-        let lhs = Op::FieldOperator(FieldOperator::Field(grad_p.clone(), IntegrationCategory::Implicit));
+
+        let lhs = Op::FieldOperator(FieldOperator::Field(
+            grad_p.clone(),
+            IntegrationCategory::Implicit,
+        ));
         let rhs = gradient!(&p);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Grad".to_string(), eq).unwrap();
-        
+
         // ------------------------------------
-        
+
         let lhs = time_derivative!(&u) + convection!(&u, &u, IntegrationCategory::Explicit);
-        let rhs = kinematic_viscosity*laplacian!(&u, IntegrationCategory::Explicit);
+        let rhs = kinematic_viscosity * laplacian!(&u, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Prediction".to_string(), eq).unwrap();
-        
+
         let lhs = laplacian!(&p, IntegrationCategory::Implicit);
         let rhs = density / time_step * divergence!(&u, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
-        
+
         let lhs = time_derivative!(&u);
         let rhs = -1. / density * gradient!(&p);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Correction".to_string(), eq).unwrap();
-        
+
         // ------------------------------------
 
         let fields = VariableFields::new(&equations, &mesh, &config);

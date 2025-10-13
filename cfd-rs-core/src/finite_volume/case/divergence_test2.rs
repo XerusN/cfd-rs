@@ -125,10 +125,10 @@ impl Case for DivergenceCase2 {
         //println!("NEXT {:?}", self.fields);
 
         Equation::solve(self, "Divergence");
-        
+
         {
             let u = Variable::new("U".to_string(), Dimension::Vector2);
-            
+
             let (_, fields, _, mesh, _) = self.equation_solver_borrow();
             let mut field = fields.map.get_mut(&u).unwrap().0.borrow_mut();
             let field = match *field {
@@ -142,7 +142,7 @@ impl Case for DivergenceCase2 {
                 *value /= mesh.cells()[i].volume();
             }
         }
-        
+
         // println!("{:?}", self.solver.matrix());
         // println!("{:?}", self.solver.rhs());
 

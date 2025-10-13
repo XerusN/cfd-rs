@@ -1,6 +1,12 @@
-use std::{cell::{RefCell, RefMut}, ops::Deref};
+use std::{
+    cell::{RefCell, RefMut},
+    ops::Deref,
+};
 
-use cfd_rs_utils::mesh::{computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex};
+use cfd_rs_utils::mesh::{
+    computational_mesh::{Computational2DMesh, Patch},
+    indices::CellIndex,
+};
 
 use super::{
     base::Field,
@@ -37,7 +43,7 @@ impl DifferentialOperator {
             Self::TimeDerivative(var) => (var, schemes.transient.required_grads()),
         }
     }
-    
+
     // Strange for convection and Rhie-Chow
     pub fn variable(&self) -> &Variable {
         match self {
