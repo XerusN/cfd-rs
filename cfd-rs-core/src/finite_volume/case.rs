@@ -143,7 +143,7 @@ pub trait Case {
 
     fn import_from_file(file_name: &str) -> io::Result<()>;
 
-    /// https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html#unstructuredgrid
+    /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
     fn export(&self) -> io::Result<()> {
         let path = PathBuf::from(format!(
             "{}/{}_{:06}.vtu",

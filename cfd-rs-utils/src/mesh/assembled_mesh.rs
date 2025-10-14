@@ -348,11 +348,11 @@ impl<T: MeshCore> Mesh<T> {
 
         writeln!(file, "      </CellData>")?;
 
-        writeln!(file, "      <NodeData>")?;
+        writeln!(file, "      <PointData>")?;
 
         export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
 
-        writeln!(file, "      </NodeData>")?;
+        writeln!(file, "      </PointData>")?;
 
         writeln!(file, "    </Piece>")?;
         writeln!(file, "  </UnstructuredGrid>")?;
