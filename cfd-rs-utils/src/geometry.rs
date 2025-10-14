@@ -60,7 +60,7 @@ pub fn area(points: &[Point2<f64>], center: &Point2<f64>) -> f64 {
     } else if points.len() == 3 {
         return triangle_area(points);
     }
-    
+
     let mut area = 0.;
     for i in 0..points.len() {
         let triangle = [points[i], points[(i + 1) % points.len()], *center];

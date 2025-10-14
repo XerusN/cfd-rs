@@ -100,5 +100,5 @@ fn main() {
     // let (mut mesh, element_size) = circle_mesh();
     advancing_front(&mut mesh, element_size, OutputControl::Final).unwrap();
     println!("{:?}", mesh);
-    let mesh = Computational2DMesh::new_from_he(mesh.0);
+    Computational2DMesh::new_from_he(mesh.0);
 }
