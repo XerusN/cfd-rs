@@ -15,7 +15,7 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
     fn n_faces(&self) -> usize;
 
     fn n_cells(&self) -> usize;
-    
+
     fn n_boundaries(&self) -> usize;
 
     fn node(&self, i_node: usize) -> Point2<f64>;
@@ -25,7 +25,7 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
     fn face_to_neighbors(&self, i_face: usize) -> [Patch; 2];
 
     fn cell_to_faces(&self, i_cell: usize) -> Vec<usize>;
-    
+
     fn boundary(&self, i_bnd: usize) -> String;
 
     fn node_to_faces(&self, i_node: usize) -> Vec<usize> {
@@ -42,17 +42,22 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
         node_to_faces
     }
-    
-    fn node_to_cells(&self, i_node: usize) -> Vec<Patch> {
 
+    fn node_to_cells(&self, i_node: usize) -> Vec<Patch> {
         let node_to_faces = self.node_to_faces(i_node);
 
-        node_to_faces.into_iter()
-            .map(|i_face| if self.face_to_nodes(i_face)[0] == i_node {self.face_to_neighbors(i_face)[0].clone()} else {self.face_to_neighbors(i_face)[1].clone()})
+        node_to_faces
+            .into_iter()
+            .map(|i_face| {
+                if self.face_to_nodes(i_face)[0] == i_node {
+                    self.face_to_neighbors(i_face)[0].clone()
+                } else {
+                    self.face_to_neighbors(i_face)[1].clone()
+                }
+            })
             .collect::<HashSet<_>>()
             .into_iter()
             .collect()
-         
     }
 
     fn node_to_nodes(&self, i_node: usize) -> Vec<usize> {

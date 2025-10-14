@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Boundaries {
     names: Vec<String>,
@@ -10,6 +9,10 @@ pub struct Boundaries {
 
 impl Boundaries {
     pub fn new(names: Vec<String>, faces: Vec<Vec<usize>>, nodes: Vec<Vec<usize>>) -> Self {
-        Self { names, faces, nodes }
+        Self {
+            names,
+            faces,
+            nodes,
+        }
     }
 }

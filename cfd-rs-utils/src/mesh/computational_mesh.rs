@@ -8,7 +8,10 @@ use std::{
 use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
-use crate::geometry::*;
+use crate::{
+    geometry::*,
+    mesh::assembled_mesh::{self, MeshCore},
+};
 
 use super::{
     indices::{BoundaryPatchIndex, CellIndex, FaceIndex, HalfEdgeIndex, ParentIndex, VertexIndex},
@@ -625,5 +628,63 @@ impl Computational2DMesh {
     pub fn deserialize_file(path: &str) -> std::io::Result<Computational2DMesh> {
         let mut file = File::open(path)?;
         Ok(bincode::serde::decode_from_std_read(&mut file, bincode::config::standard()).unwrap())
+    }
+}
+
+impl MeshCore for Computational2DMesh {
+    fn n_nodes(&self) -> usize {
+        self.num_vertices()
+    }
+
+    fn n_faces(&self) -> usize {
+        self.num_faces()
+    }
+
+    fn n_cells(&self) -> usize {
+        self.num_cells()
+    }
+
+    fn n_boundaries(&self) -> usize {
+        self.boundaries.len()
+    }
+
+    fn boundary(&self, i_bnd: usize) -> String {
+        self.boundaries[i_bnd].name.clone()
+    }
+
+    fn node(&self, i_node: usize) -> Point2<f64> {
+        self.vertices[i_node]
+    }
+
+    fn cell_to_faces(&self, i_cell: usize) -> Vec<usize> {
+        self.cells[i_cell]
+            .faces
+            .iter()
+            .map(|face_index| face_index.0)
+            .collect()
+    }
+
+    fn face_to_nodes(&self, i_face: usize) -> [usize; 2] {
+        [
+            self.faces[i_face].vertices[0].0,
+            self.faces[i_face].vertices[1].0,
+        ]
+    }
+
+    fn face_to_neighbors(&self, i_face: usize) -> [assembled_mesh::Patch; 2] {
+        [
+            {
+                match self.faces[i_face].patches.0 {
+                    Patch::Boundary(i_bnd) => assembled_mesh::Patch::Boundary(i_bnd.0),
+                    Patch::Cell(i_cell) => assembled_mesh::Patch::Cell(i_cell.0),
+                }
+            },
+            {
+                match self.faces[i_face].patches.1 {
+                    Patch::Boundary(i_bnd) => assembled_mesh::Patch::Boundary(i_bnd.0),
+                    Patch::Cell(i_cell) => assembled_mesh::Patch::Cell(i_cell.0),
+                }
+            },
+        ]
     }
 }
