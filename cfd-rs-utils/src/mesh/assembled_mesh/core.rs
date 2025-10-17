@@ -106,15 +106,18 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
     fn cell_to_nodes(&self, i_cell: usize) -> Vec<usize> {
         let mut cell_to_nodes = vec![];
-
-        for i_face in self.cell_to_faces(i_cell) {
-            for i_node in self.face_to_nodes(i_face) {
-                if !cell_to_nodes.contains(&i_node) {
-                    cell_to_nodes.push(i_node);
-                }
+        
+        let faces_nodes = self.cell_to_faces(i_cell).iter().map(|i_face| self.face_to_nodes(*i_face)).collect::<Vec<[usize; 2]>>();
+        let faces_neighbors = self.cell_to_faces(i_cell).iter().map(|i_face| self.face_to_neighbors(*i_face)).collect::<Vec<[Patch; 2]>>();
+        
+        for i_face in 0..faces_neighbors.len() {
+            if Patch::Cell(i_cell) == faces_neighbors[i_face][1] {
+                cell_to_nodes.push(faces_nodes[i_face][0]);
+            } else {
+                cell_to_nodes.push(faces_nodes[i_face][1]);
             }
         }
-
+        
         cell_to_nodes
     }
 }

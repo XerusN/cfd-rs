@@ -12,7 +12,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::geometry::area;
+use crate::geometry::{area, centroid_and_area};
 
 mod boundaries;
 mod cells;
@@ -80,8 +80,6 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             // need to check for consistency
             let mut i_pairs = core.node_to_faces(i_node);
             let i_cells = core.node_to_cells(i_node);
-            nodes_neighboring_pairs.push(core.node_to_faces(i_node));
-            nodes_neighboring_cells.push(core.node_to_cells(i_node));
 
             assert_eq!(
                 i_pairs.len(),
@@ -98,9 +96,9 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             loop {
                 let current_cell = {
                     if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {
-                        core.face_to_neighbors(*pairs.last().unwrap())[1].clone()
-                    } else {
                         core.face_to_neighbors(*pairs.last().unwrap())[0].clone()
+                    } else {
+                        core.face_to_neighbors(*pairs.last().unwrap())[1].clone()
                     }
                 };
                 cells.push(current_cell.clone());
@@ -144,9 +142,8 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             nodes_neighboring_cells.push(cells);
         }
         for i_cell in 0..n_cells {
-            cells_centers.push(core.node(i_cell));
+            
             cells_neighboring_nodes.push(core.cell_to_nodes(i_cell));
-            // Need to check for consitency face/neighbor
             cells_neighboring_pairs.push(core.cell_to_faces(i_cell));
             cells_neighboring_cells.push(core.cell_to_neighbors(i_cell));
         }
@@ -171,45 +168,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_lengths.push((nodes[1] - nodes[0]).magnitude());
             pairs_normals.push((nodes[1] - nodes[0]).normalize());
         }
-        for i_node in 0..n_nodes {
-            let mut cv_nodes = vec![];
-            for i in 0..nodes_neighboring_pairs[i_node].len() {
-                cv_nodes.push(pairs_centers[nodes_neighboring_pairs[i_node][i]]);
-                match nodes_neighboring_cells[i_node][i] {
-                    Patch::Cell(i_cell) => cv_nodes.push(cells_centers[i_cell]),
-                    Patch::Boundary(_) => cv_nodes.push(nodes_centers[i_node]),
-                };
-            }
-
-            // For 2D only
-            let mut areas = Vec::with_capacity(cv_nodes.len() / 2);
-            let mut normals = Vec::with_capacity(cv_nodes.len() / 2);
-            for i_node in 0..cv_nodes.len() / 2 {
-                let vector;
-                if i_node == 0 {
-                    vector = cv_nodes[i_node] - *cv_nodes.last().unwrap();
-                } else {
-                    vector = cv_nodes[i_node * 2] - cv_nodes[i_node * 2 - 1];
-                }
-                let area_1 = vector.magnitude();
-                let vector = vector.normalize();
-                let normal_1 = Vector2::new(vector.y, -vector.x).normalize();
-                let vector = cv_nodes[(i_node * 2 + 1) % cv_nodes.len()] - cv_nodes[i_node * 2];
-                let area_2 = vector.magnitude();
-                let vector = vector.normalize();
-                let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
-                areas.push(area_1 + area_2);
-                normals.push(normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)));
-            }
-            nodes_areas.push(areas);
-            nodes_normals.push(normals);
-            nodes_volumes.push(area(&cv_nodes, &nodes_centers[i_node]));
-        }
         for i_cell in 0..n_cells {
             let mut nodes = Vec::with_capacity(cells_neighboring_nodes[i_cell].len());
             for i_node in &cells_neighboring_nodes[i_cell] {
                 nodes.push(nodes_centers[*i_node]);
             }
+            let (center, volume) = centroid_and_area(&nodes);
             // For 2D only
             let mut areas = Vec::with_capacity(nodes.len());
             let mut normals = Vec::with_capacity(nodes.len());
@@ -223,11 +187,59 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 areas.push(vector.magnitude());
                 normals.push(Vector2::new(vector.y, -vector.x).normalize());
             }
-
+            cells_centers.push(center);
             cells_areas.push(areas);
             cells_normals.push(normals);
-            cells_volumes.push(area(&nodes, &cells_centers[i_cell]));
+            cells_volumes.push(volume);
         }
+        for i_node in 0..n_nodes {
+            let mut cv_nodes = vec![];
+            for i in 0..nodes_neighboring_pairs[i_node].len() {
+                cv_nodes.push(pairs_centers[nodes_neighboring_pairs[i_node][i]]);
+                match nodes_neighboring_cells[i_node][i] {
+                    Patch::Cell(i_cell) => cv_nodes.push(cells_centers[i_cell]),
+                    Patch::Boundary(_) => cv_nodes.push(nodes_centers[i_node]),
+                };
+            }
+            // println!("{:?}", cv_nodes);
+
+            // For 2D only
+            let mut areas = Vec::with_capacity(cv_nodes.len() / 2);
+            let mut normals = Vec::with_capacity(cv_nodes.len() / 2);
+            for node in 0..cv_nodes.len() / 2 {
+                let vector;
+                let is_bnd;
+                if node == 0 {
+                    vector = cv_nodes[node] - *cv_nodes.last().unwrap();
+                    is_bnd = *cv_nodes.last().unwrap() == nodes_centers[i_node];
+                } else {
+                    vector = cv_nodes[node * 2] - cv_nodes[node * 2 - 1];
+                    is_bnd = cv_nodes[node * 2 - 1] == nodes_centers[i_node];
+                }
+                let area_1 = if !is_bnd {
+                    vector.magnitude()
+                } else {
+                    0.
+                };
+                let vector = vector.normalize();
+                let normal_1 = Vector2::new(vector.y, -vector.x).normalize();
+                let vector = cv_nodes[(node * 2 + 1) % cv_nodes.len()] - cv_nodes[node * 2];
+                let is_bnd = cv_nodes[(node * 2 + 1) % cv_nodes.len()] == nodes_centers[i_node];
+                let area_2 = if !is_bnd {
+                    vector.magnitude()
+                } else {
+                    0.
+                };
+                let vector = vector.normalize();
+                let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
+                areas.push(area_1 + area_2);
+                normals.push(normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)));
+            }
+            nodes_areas.push(areas);
+            nodes_normals.push(normals);
+            nodes_volumes.push(area(&cv_nodes, &nodes_centers[i_node]));
+        }
+        
 
         // ---------------------------
 
