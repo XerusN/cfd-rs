@@ -12,6 +12,7 @@ pub struct Nodes {
     pub neighboring_nodes: Vec<Vec<usize>>,
     pub neighboring_cells: Vec<Vec<Patch>>,
     pub neighboring_pairs: Vec<Vec<usize>>,
+    pub cv_nodes: Vec<Vec<Point2<f64>>>,
 }
 
 impl Nodes {
@@ -23,6 +24,7 @@ impl Nodes {
         neighboring_nodes: Vec<Vec<usize>>,
         neighboring_cells: Vec<Vec<Patch>>,
         neighboring_pairs: Vec<Vec<usize>>,
+        cv_nodes: Vec<Vec<Point2<f64>>>,
     ) -> Self {
         Nodes {
             centers,
@@ -32,6 +34,7 @@ impl Nodes {
             neighboring_nodes,
             neighboring_cells,
             neighboring_pairs,
+            cv_nodes,
         }
     }
 }

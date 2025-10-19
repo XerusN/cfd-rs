@@ -33,10 +33,8 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
         for i_face in 0..self.n_faces() {
             let face_to_nodes = self.face_to_nodes(i_face);
-            for node in face_to_nodes {
-                if node == i_node {
-                    node_to_faces.push(i_face);
-                }
+            if (face_to_nodes[0] == i_node) | (face_to_nodes[1] == i_node) {
+                node_to_faces.push(i_face);
             }
         }
 
@@ -45,18 +43,13 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
     fn node_to_cells(&self, i_node: usize) -> Vec<Patch> {
         let node_to_faces = self.node_to_faces(i_node);
-
-        node_to_faces
-            .into_iter()
-            .map(|i_face| {
-                if self.face_to_nodes(i_face)[0] == i_node {
-                    self.face_to_neighbors(i_face)[0].clone()
-                } else {
-                    self.face_to_neighbors(i_face)[1].clone()
-                }
-            })
-            .collect::<HashSet<_>>()
-            .into_iter()
+        
+        let mut hashset = HashSet::new();
+        for i_face in node_to_faces {
+            hashset.insert(self.face_to_neighbors(i_face)[0].clone());
+            hashset.insert(self.face_to_neighbors(i_face)[1].clone());
+        }
+        hashset.into_iter()
             .collect()
     }
 

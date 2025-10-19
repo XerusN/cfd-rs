@@ -7,9 +7,7 @@ pub use core::{MeshCore, Patch};
 pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
-    fs::File,
-    io::{self, Write},
-    path::PathBuf,
+    fs::File, io::{self, Write}, ops::Index, path::PathBuf
 };
 
 use crate::geometry::{area, centroid_and_area};
@@ -47,6 +45,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
         let mut nodes_neighboring_nodes = Vec::with_capacity(n_nodes);
         let mut nodes_neighboring_cells = Vec::with_capacity(n_nodes);
         let mut nodes_neighboring_pairs = Vec::with_capacity(n_nodes);
+        let mut nodes_cv_nodes = Vec::with_capacity(n_nodes);
 
         let mut cells_centers = Vec::with_capacity(n_cells);
         let mut cells_volumes = Vec::with_capacity(n_cells);
@@ -81,18 +80,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             let mut i_pairs = core.node_to_faces(i_node);
             let i_cells = core.node_to_cells(i_node);
 
-            assert_eq!(
-                i_pairs.len(),
-                i_cells.len(),
-                "Inconsistency in core connectivity"
-            );
-
             let mut pairs = Vec::with_capacity(i_pairs.len());
             let mut cells = Vec::with_capacity(i_cells.len());
 
             let mut current_pair = i_pairs.swap_remove(0);
             pairs.push(current_pair);
-
+            
             loop {
                 let current_cell = {
                     if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {
@@ -104,6 +97,11 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 cells.push(current_cell.clone());
 
                 if i_pairs.len() == 0 {
+                    for cell in i_cells {
+                        if !cells.contains(&cell) {
+                            cells.push(cell);
+                        }
+                    }
                     break;
                 }
 
@@ -119,13 +117,15 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                         panic!("Wrong connecvity in core mesh")
                     }
                     // Might mess up for very weird nodes connectivities (multiple unliked cells on boundaries for the same node)
-                    // Should not be wrong for cfd usable meshes
-                    Patch::Boundary(i_bnd) => 'pairs: {
-                        boundaries_nodes[i_bnd].push(i_node);
+                    // Should not be wrong for usable cfd meshes
+                    Patch::Boundary(_) => 'pairs: {
                         for (i, &pair) in i_pairs.iter().enumerate() {
                             let face_neighbors = core.face_to_neighbors(pair);
                             for neighbor in face_neighbors {
                                 if let Patch::Boundary(_) = neighbor {
+                                    if !cells.contains(&neighbor) {
+                                        cells.push(neighbor);
+                                    }
                                     current_pair = i_pairs.swap_remove(i);
                                     break 'pairs;
                                 }
@@ -137,7 +137,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
                 pairs.push(current_pair);
             }
-
+            
+            for i_bnd in 0..n_boundaries {
+                if cells.contains(&Patch::Boundary(i_bnd)) {
+                    boundaries_nodes[i_bnd].push(i_node);
+                }
+            }            
             nodes_neighboring_pairs.push(pairs);
             nodes_neighboring_cells.push(cells);
         }
@@ -194,27 +199,44 @@ impl<T: MeshCore> From<T> for Mesh<T> {
         }
         for i_node in 0..n_nodes {
             let mut cv_nodes = vec![];
-            for i in 0..nodes_neighboring_pairs[i_node].len() {
+            let mut i = 0;
+            let mut j = 0;
+            loop {
                 cv_nodes.push(pairs_centers[nodes_neighboring_pairs[i_node][i]]);
-                match nodes_neighboring_cells[i_node][i] {
+                match nodes_neighboring_cells[i_node][j] {
                     Patch::Cell(i_cell) => cv_nodes.push(cells_centers[i_cell]),
-                    Patch::Boundary(_) => cv_nodes.push(nodes_centers[i_node]),
+                    Patch::Boundary(_) => {
+                        cv_nodes.push(nodes_centers[i_node]);
+                        if let Patch::Boundary(_) = nodes_neighboring_cells[i_node][(j + 1) % nodes_neighboring_cells[i_node].len()] {
+                            j += 1;
+                        }
+                    },
                 };
+                j += 1;
+                i += 1;
+                if (i >= nodes_neighboring_pairs[i_node].len()) | (j >= nodes_neighboring_cells[i_node].len()) {
+                    break;
+                }
             }
+            // println!("{:?}", nodes_neighboring_cells[i_node]);
+            // println!("{:?}", nodes_centers[i_node]);
             // println!("{:?}", cv_nodes);
+            // println!("================");
 
             // For 2D only
             let mut areas = Vec::with_capacity(cv_nodes.len() / 2);
             let mut normals = Vec::with_capacity(cv_nodes.len() / 2);
-            for node in 0..cv_nodes.len() / 2 {
+            // for node in 0..cv_nodes.len() / 2 {
+            let mut node = 0;
+            loop {
                 let vector;
                 let is_bnd;
                 if node == 0 {
                     vector = cv_nodes[node] - *cv_nodes.last().unwrap();
                     is_bnd = *cv_nodes.last().unwrap() == nodes_centers[i_node];
                 } else {
-                    vector = cv_nodes[node * 2] - cv_nodes[node * 2 - 1];
-                    is_bnd = cv_nodes[node * 2 - 1] == nodes_centers[i_node];
+                    vector = cv_nodes[node] - cv_nodes[node - 1];
+                    is_bnd = cv_nodes[node - 1] == nodes_centers[i_node];
                 }
                 let area_1 = if !is_bnd {
                     vector.magnitude()
@@ -223,8 +245,8 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 };
                 let vector = vector.normalize();
                 let normal_1 = Vector2::new(vector.y, -vector.x).normalize();
-                let vector = cv_nodes[(node * 2 + 1) % cv_nodes.len()] - cv_nodes[node * 2];
-                let is_bnd = cv_nodes[(node * 2 + 1) % cv_nodes.len()] == nodes_centers[i_node];
+                let vector = cv_nodes[(node + 1) % cv_nodes.len()] - cv_nodes[node];
+                let is_bnd = cv_nodes[(node + 1) % cv_nodes.len()] == nodes_centers[i_node];
                 let area_2 = if !is_bnd {
                     vector.magnitude()
                 } else {
@@ -234,10 +256,20 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
                 areas.push(area_1 + area_2);
                 normals.push(normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)));
+                if (is_bnd) && (cv_nodes[(node + 2) % cv_nodes.len()] == nodes_centers[i_node]) {
+                    node += 3;
+                } else {
+                    node += 2;
+                }
+                
+                if node >= cv_nodes.len() {
+                    break;
+                }
             }
             nodes_areas.push(areas);
             nodes_normals.push(normals);
             nodes_volumes.push(area(&cv_nodes, &nodes_centers[i_node]));
+            nodes_cv_nodes.push(cv_nodes);
         }
         
 
@@ -251,6 +283,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             nodes_neighboring_nodes,
             nodes_neighboring_cells,
             nodes_neighboring_pairs,
+            nodes_cv_nodes,
         );
 
         let cells = Cells::new(
@@ -284,7 +317,8 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 }
 
 impl<T: MeshCore> Mesh<T> {
-    pub fn export(&self, path: String) -> io::Result<()> {
+    /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
+    pub fn export_cell_centered(&self, path: String) -> io::Result<()> {
         let path = PathBuf::from(path);
 
         let mut file = File::create(path)?;
@@ -345,8 +379,10 @@ impl<T: MeshCore> Mesh<T> {
         write!(file, "          ")?;
         for faces in &self.cells.neighboring_pairs {
             if faces.len() == 3 {
+                // Triangle
                 write!(file, "5 ")?;
-            } else if faces.len() == 4 {
+            } else if faces.len() >= 4 {
+                // Polygon
                 write!(file, "7 ")?;
             }
         }
@@ -357,14 +393,133 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(file, "      <CellData>")?;
 
         export_scalar(&mut file, &self.cells.volumes, "Cell volumes")?;
+        
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+            "Cell id",
+        )?;
+        write!(file, "          ")?;
+        for id in 0..self.cells.centers.len() {
+            write!(file, "{} ", id)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
 
         writeln!(file, "      </CellData>")?;
 
         writeln!(file, "      <PointData>")?;
 
         export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
+        
+        
 
         writeln!(file, "      </PointData>")?;
+
+        writeln!(file, "    </Piece>")?;
+        writeln!(file, "  </UnstructuredGrid>")?;
+        writeln!(file, "</VTKFile>")?;
+
+        Ok(())
+    }
+    
+    /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
+    /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
+    pub fn export_node_centered(&self, path: String) -> io::Result<()> {
+        let path = PathBuf::from(path);
+
+        let mut file = File::create(path)?;
+
+        writeln!(
+            file,
+            "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
+        )?;
+        writeln!(file, "  <UnstructuredGrid>")?;
+        let mut cv_points_number = 0;
+        for cv_nodes in &self.nodes.cv_nodes {
+            cv_points_number += cv_nodes.len();
+        }
+        writeln!(
+            file,
+            "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
+            cv_points_number,
+            self.nodes.centers.len()
+        )?;
+        writeln!(file, "      <Points>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        for cv_nodes in &self.nodes.cv_nodes {
+            for node in cv_nodes {
+                write!(file, "{} {} 0 ", node.x, node.y)?;
+            }
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(file, "      </Points>")?;
+
+        writeln!(file, "      <Cells>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        let mut current_cv_node = 0;
+        for cv_nodes in &self.nodes.cv_nodes {
+            for _ in cv_nodes {
+                write!(file, "{} ", current_cv_node)?;
+                current_cv_node += 1;
+            }
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"offsets\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        let mut offset = 0;
+        for cv_nodes in &self.nodes.cv_nodes {
+            offset += cv_nodes.len();
+            write!(file, "{} ", offset)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
+        )?;
+        write!(file, "          ")?;
+        for cv_nodes in &self.nodes.cv_nodes {
+            if cv_nodes.len() == 3 {
+                write!(file, "5 ")?;
+            } else if cv_nodes.len() >= 4 {
+                write!(file, "7 ")?;
+            }
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        writeln!(file, "      </Cells>")?;
+
+        writeln!(file, "      <CellData>")?;
+
+        export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
+        
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+            "Node id",
+        )?;
+        write!(file, "          ")?;
+        for id in 0..self.nodes.centers.len() {
+            write!(file, "{} ", id)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+
+        writeln!(file, "      </CellData>")?;
 
         writeln!(file, "    </Piece>")?;
         writeln!(file, "  </UnstructuredGrid>")?;
@@ -388,3 +543,5 @@ fn export_scalar(file: &mut File, data: &[f64], name: &str) -> io::Result<()> {
     writeln!(file, "        </DataArray>")?;
     Ok(())
 }
+
+
