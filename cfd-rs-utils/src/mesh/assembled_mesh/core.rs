@@ -43,14 +43,13 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
     fn node_to_cells(&self, i_node: usize) -> Vec<Patch> {
         let node_to_faces = self.node_to_faces(i_node);
-        
+
         let mut hashset = HashSet::new();
         for i_face in node_to_faces {
             hashset.insert(self.face_to_neighbors(i_face)[0].clone());
             hashset.insert(self.face_to_neighbors(i_face)[1].clone());
         }
-        hashset.into_iter()
-            .collect()
+        hashset.into_iter().collect()
     }
 
     fn node_to_nodes(&self, i_node: usize) -> Vec<usize> {
@@ -99,10 +98,18 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
 
     fn cell_to_nodes(&self, i_cell: usize) -> Vec<usize> {
         let mut cell_to_nodes = vec![];
-        
-        let faces_nodes = self.cell_to_faces(i_cell).iter().map(|i_face| self.face_to_nodes(*i_face)).collect::<Vec<[usize; 2]>>();
-        let faces_neighbors = self.cell_to_faces(i_cell).iter().map(|i_face| self.face_to_neighbors(*i_face)).collect::<Vec<[Patch; 2]>>();
-        
+
+        let faces_nodes = self
+            .cell_to_faces(i_cell)
+            .iter()
+            .map(|i_face| self.face_to_nodes(*i_face))
+            .collect::<Vec<[usize; 2]>>();
+        let faces_neighbors = self
+            .cell_to_faces(i_cell)
+            .iter()
+            .map(|i_face| self.face_to_neighbors(*i_face))
+            .collect::<Vec<[Patch; 2]>>();
+
         for i_face in 0..faces_neighbors.len() {
             if Patch::Cell(i_cell) == faces_neighbors[i_face][1] {
                 cell_to_nodes.push(faces_nodes[i_face][0]);
@@ -110,7 +117,7 @@ pub trait MeshCore: Debug + Clone + PartialEq + DeserializeOwned + Serialize {
                 cell_to_nodes.push(faces_nodes[i_face][1]);
             }
         }
-        
+
         cell_to_nodes
     }
 }

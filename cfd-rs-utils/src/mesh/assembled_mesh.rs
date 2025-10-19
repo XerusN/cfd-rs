@@ -7,7 +7,9 @@ pub use core::{MeshCore, Patch};
 pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
-    fs::File, io::{self, Write}, ops::Index, path::PathBuf
+    fs::File,
+    io::{self, Write},
+    path::PathBuf,
 };
 
 use crate::geometry::{area, centroid_and_area};
@@ -85,7 +87,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
             let mut current_pair = i_pairs.swap_remove(0);
             pairs.push(current_pair);
-            
+
             loop {
                 let current_cell = {
                     if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {
@@ -137,17 +139,16 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
                 pairs.push(current_pair);
             }
-            
+
             for i_bnd in 0..n_boundaries {
                 if cells.contains(&Patch::Boundary(i_bnd)) {
                     boundaries_nodes[i_bnd].push(i_node);
                 }
-            }            
+            }
             nodes_neighboring_pairs.push(pairs);
             nodes_neighboring_cells.push(cells);
         }
         for i_cell in 0..n_cells {
-            
             cells_neighboring_nodes.push(core.cell_to_nodes(i_cell));
             cells_neighboring_pairs.push(core.cell_to_faces(i_cell));
             cells_neighboring_cells.push(core.cell_to_neighbors(i_cell));
@@ -207,14 +208,18 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                     Patch::Cell(i_cell) => cv_nodes.push(cells_centers[i_cell]),
                     Patch::Boundary(_) => {
                         cv_nodes.push(nodes_centers[i_node]);
-                        if let Patch::Boundary(_) = nodes_neighboring_cells[i_node][(j + 1) % nodes_neighboring_cells[i_node].len()] {
+                        if let Patch::Boundary(_) = nodes_neighboring_cells[i_node]
+                            [(j + 1) % nodes_neighboring_cells[i_node].len()]
+                        {
                             j += 1;
                         }
-                    },
+                    }
                 };
                 j += 1;
                 i += 1;
-                if (i >= nodes_neighboring_pairs[i_node].len()) | (j >= nodes_neighboring_cells[i_node].len()) {
+                if (i >= nodes_neighboring_pairs[i_node].len())
+                    | (j >= nodes_neighboring_cells[i_node].len())
+                {
                     break;
                 }
             }
@@ -238,20 +243,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                     vector = cv_nodes[node] - cv_nodes[node - 1];
                     is_bnd = cv_nodes[node - 1] == nodes_centers[i_node];
                 }
-                let area_1 = if !is_bnd {
-                    vector.magnitude()
-                } else {
-                    0.
-                };
+                let area_1 = if !is_bnd { vector.magnitude() } else { 0. };
                 let vector = vector.normalize();
                 let normal_1 = Vector2::new(vector.y, -vector.x).normalize();
                 let vector = cv_nodes[(node + 1) % cv_nodes.len()] - cv_nodes[node];
                 let is_bnd = cv_nodes[(node + 1) % cv_nodes.len()] == nodes_centers[i_node];
-                let area_2 = if !is_bnd {
-                    vector.magnitude()
-                } else {
-                    0.
-                };
+                let area_2 = if !is_bnd { vector.magnitude() } else { 0. };
                 let vector = vector.normalize();
                 let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
                 areas.push(area_1 + area_2);
@@ -261,7 +258,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 } else {
                     node += 2;
                 }
-                
+
                 if node >= cv_nodes.len() {
                     break;
                 }
@@ -271,7 +268,6 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             nodes_volumes.push(area(&cv_nodes, &nodes_centers[i_node]));
             nodes_cv_nodes.push(cv_nodes);
         }
-        
 
         // ---------------------------
 
@@ -393,7 +389,7 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(file, "      <CellData>")?;
 
         export_scalar(&mut file, &self.cells.volumes, "Cell volumes")?;
-        
+
         writeln!(
             file,
             "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
@@ -411,8 +407,6 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(file, "      <PointData>")?;
 
         export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
-        
-        
 
         writeln!(file, "      </PointData>")?;
 
@@ -422,7 +416,7 @@ impl<T: MeshCore> Mesh<T> {
 
         Ok(())
     }
-    
+
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
     /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
     pub fn export_node_centered(&self, path: String) -> io::Result<()> {
@@ -506,7 +500,7 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(file, "      <CellData>")?;
 
         export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
-        
+
         writeln!(
             file,
             "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
@@ -543,5 +537,3 @@ fn export_scalar(file: &mut File, data: &[f64], name: &str) -> io::Result<()> {
     writeln!(file, "        </DataArray>")?;
     Ok(())
 }
-
-
