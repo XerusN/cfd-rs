@@ -521,6 +521,18 @@ impl<T: MeshCore> Mesh<T> {
 
         Ok(())
     }
+    
+    pub fn serialize_file(&self, path: &str) -> std::io::Result<()> {
+        let mut file = File::create(path)?;
+        bincode::serde::encode_into_std_write(self, &mut file, bincode::config::standard())
+            .unwrap();
+        Ok(())
+    }
+
+    pub fn deserialize_file(path: &str) -> std::io::Result<Self> {
+        let mut file = File::open(path)?;
+        Ok(bincode::serde::decode_from_std_read(&mut file, bincode::config::standard()).unwrap())
+    }
 }
 
 fn export_scalar(file: &mut File, data: &[f64], name: &str) -> io::Result<()> {

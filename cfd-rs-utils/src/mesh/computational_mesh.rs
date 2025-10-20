@@ -625,7 +625,7 @@ impl Computational2DMesh {
         Ok(())
     }
 
-    pub fn deserialize_file(path: &str) -> std::io::Result<Computational2DMesh> {
+    pub fn deserialize_file(path: &str) -> std::io::Result<Self> {
         let mut file = File::open(path)?;
         Ok(bincode::serde::decode_from_std_read(&mut file, bincode::config::standard()).unwrap())
     }
