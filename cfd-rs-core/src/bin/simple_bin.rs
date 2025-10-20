@@ -161,7 +161,7 @@ pub fn divergence_source_x(point: &Point2<f64>) -> f64 {
 
 fn main() {
     let geometry = GeometryConfig {
-        import_path: Some("./target/exports/mesh.cfd".to_string()),
+        import_path: Some("../meshes/mesh3.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
     let geometry = GeometryConfig {
@@ -174,7 +174,7 @@ fn main() {
 
     let mut case = SimpleCase::new(simple(geometry));
 
-    case.export().unwrap();
+    case.export_cell_centered().unwrap();
 
     for _ in 0..10 {
         case.next_step();

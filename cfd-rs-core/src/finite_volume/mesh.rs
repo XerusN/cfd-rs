@@ -3,12 +3,10 @@ use cfd_rs_utils::{
     control::OutputControl,
     errors::MeshError,
     mesh::{
-        computational_mesh::{
+        assembled_mesh::{Mesh, MeshCore}, computational_mesh::{
             manual_meshes::{quad_square, straight_line},
             BoundaryPatch, Computational2DMesh,
-        },
-        indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
-        Modifiable2DMesh, Parent,
+        }, indices::{BoundaryPatchIndex, ParentIndex, VertexIndex}, Modifiable2DMesh, Parent
     },
 };
 use nalgebra::Point2;
@@ -72,10 +70,10 @@ fn square_4_bc() -> Modifiable2DMesh {
 }
 
 /// Needs a rework
-pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
+pub fn mesh(geometry: &GeometryConfig) -> Mesh<Computational2DMesh> {
     match &geometry.import_path {
         None => meshing_algos(&geometry.meshing).expect("Error in meshing"),
-        Some(path) => match Computational2DMesh::deserialize_file(&path) {
+        Some(path) => match Mesh::deserialize_file(&path) {
             Err(err) => match err.kind() {
                 io::ErrorKind::NotFound => {
                     let mesh = meshing_algos(&geometry.meshing).expect("Error in meshing");
@@ -89,15 +87,15 @@ pub fn mesh(geometry: &GeometryConfig) -> Computational2DMesh {
     }
 }
 
-fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Computational2DMesh, MeshError> {
+fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Mesh<Computational2DMesh>, MeshError> {
     match meshing_config {
         MeshingConfig::AdvancingFront { element_size } => {
             let mut mesh = square_4_bc();
             advancing_front(&mut mesh, *element_size, OutputControl::None)?;
             let mesh = Computational2DMesh::new_from_he(mesh.0);
-            Ok(mesh)
+            Ok(Mesh::from(mesh))
         }
-        MeshingConfig::Cartesian { length, n_elements } => Ok(quad_square(length, n_elements)),
-        MeshingConfig::Line { length, n_elements } => Ok(straight_line(*length, *n_elements)),
+        MeshingConfig::Cartesian { length, n_elements } => Ok(Mesh::from(quad_square(length, n_elements))),
+        MeshingConfig::Line { length, n_elements } => Ok(Mesh::from(straight_line(*length, *n_elements))),
     }
 }

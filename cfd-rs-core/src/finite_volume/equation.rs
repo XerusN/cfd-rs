@@ -7,7 +7,7 @@ use std::{
     vec,
 };
 
-use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
+use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, indices::CellIndex};
 use nalgebra::{DVector, Vector2};
 use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
 use nalgebra_sparse_linalg::iteratives::{
@@ -130,6 +130,7 @@ pub enum IntegrationCategory {
 pub struct Variable {
     name: String,
     dim: Dimension,
+    cv: ControlVolume,
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
@@ -144,9 +145,15 @@ pub enum Component {
     Y,
 }
 
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum ControlVolume {
+    Nodes,
+    Cells,
+}
+
 impl Variable {
-    pub fn new(name: String, dim: Dimension) -> Self {
-        Variable { name, dim }
+    pub fn new(name: String, dim: Dimension, cv: ControlVolume) -> Self {
+        Variable { name, dim, cv }
     }
 
     pub fn name(&self) -> &str {
@@ -155,6 +162,10 @@ impl Variable {
 
     pub fn dim(&self) -> &Dimension {
         &self.dim
+    }
+    
+    pub fn cv(&self) -> &ControlVolume {
+        &self.cv
     }
 }
 
@@ -306,7 +317,7 @@ impl Equation {
         }
     }
 
-    pub fn solve<T: Case>(case: &mut T, name: &str) -> usize {
+    pub fn solve<M: MeshCore, T: Case<M>>(case: &mut T, name: &str) -> usize {
         let time_step = case.time_step();
         let (solver, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
 
@@ -326,7 +337,7 @@ pub struct EquationSolver {
 }
 
 impl EquationSolver {
-    pub fn new(mesh: &Computational2DMesh) -> Self {
+    pub fn new<M: MeshCore>(mesh: &Mesh<M>) -> Self {
         let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
 
         for i in 0..mesh.num_cells() {
@@ -372,18 +383,18 @@ impl EquationSolver {
         (&mut self.matrix, &mut self.rhs)
     }
 
-    fn add_scalar(&mut self, scalar: f64, mesh: &Computational2DMesh) {
+    fn add_scalar<M: MeshCore>(&mut self, scalar: f64, mesh: &Mesh<M>) {
         for (i, v) in self.rhs.iter_mut().enumerate() {
             *v -= scalar * mesh.cells()[i].volume();
         }
     }
 
-    fn add_gradient(
+    fn add_gradient<M: MeshCore>(
         &mut self,
         var: &Variable,
         component: &Component,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         coeff: f64,
     ) {
         let field = find_var_in_fields(var, fields);
@@ -407,12 +418,12 @@ impl EquationSolver {
         }
     }
 
-    fn add_field(
+    fn add_field<M: MeshCore>(
         &mut self,
         var: &Variable,
         component: &Component,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         coeff: f64,
         integration: &IntegrationCategory,
     ) {
@@ -442,12 +453,12 @@ impl EquationSolver {
         }
     }
 
-    pub fn apply_op(
+    pub fn apply_op<M: MeshCore>(
         &mut self,
         op: &Op,
         component: &Component,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         config: &CaseConfig,
         time_step: f64,
         coeff: f64,
@@ -553,11 +564,11 @@ impl EquationSolver {
     }
 }
 
-fn solve(
+fn solve<M: MeshCore>(
     solver: &mut EquationSolver,
     equation: &Equation,
     fields: &mut VariableFields,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     config: &CaseConfig,
     time_step: f64,
 ) -> usize {

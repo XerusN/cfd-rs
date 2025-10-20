@@ -8,9 +8,9 @@ use std::{
     path::PathBuf,
 };
 
-use cfd_rs_utils::mesh::computational_mesh::Computational2DMesh;
+use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh};
 
-use crate::finite_volume::equation::Component;
+use crate::finite_volume::equation::{Component, ControlVolume};
 
 use super::{
     base::{CellScalarField, Field},
@@ -130,7 +130,7 @@ impl CaseEquations {
     }
 }
 
-pub trait Case {
+pub trait Case<T: MeshCore> {
     fn name(&self) -> &str;
 
     fn step(&self) -> usize;
@@ -142,120 +142,97 @@ pub trait Case {
     fn next_step(&mut self);
 
     fn import_from_file(file_name: &str) -> io::Result<()>;
-
+    
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
-    fn export(&self) -> io::Result<()> {
+    fn export_cell_centered(&self, path: String) -> io::Result<()> {
         let path = PathBuf::from(format!(
-            "{}/{}_{:06}.vtu",
+            "{}/{}_cells_nodes_{:06}.vtu",
             &self.config().output.directory,
             &self.name(),
             &self.step()
         ));
+        let mesh = self.mesh();
 
-        let mut file = File::create(&path)?;
+        let mut file = File::create(path)?;
 
         writeln!(
             file,
             "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
         )?;
-        writeln!(file, "  <UnstructuredGrid>")?;
-        writeln!(
-            file,
-            "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-            self.mesh().num_vertices(),
-            self.mesh().num_cells()
-        )?;
-        writeln!(file, "      <Points>")?;
-        writeln!(
-            file,
-            "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
-        )?;
-        write!(file, "          ")?;
-        for vertex in self.mesh().vertices() {
-            write!(file, "{} {} 0 ", vertex.x, vertex.y)?;
-        }
-        writeln!(file)?;
-        writeln!(file, "        </DataArray>")?;
-        writeln!(file, "      </Points>")?;
-
-        writeln!(file, "      <Cells>")?;
-        writeln!(
-            file,
-            "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
-        )?;
-        write!(file, "          ")?;
-        for cell in self.mesh().cells() {
-            for vertex_id in cell.vertices_id() {
-                write!(file, "{} ", vertex_id.0)?;
-            }
-        }
-        writeln!(file)?;
-        writeln!(file, "        </DataArray>")?;
-        writeln!(
-            file,
-            "        <DataArray type=\"UInt64\" Name=\"offsets\" format=\"ascii\">"
-        )?;
-        write!(file, "          ")?;
-        let mut offset = 0;
-        for cell in self.mesh().cells() {
-            offset += cell.vertices_id().len();
-            write!(file, "{} ", offset)?;
-        }
-        writeln!(file)?;
-        writeln!(file, "        </DataArray>")?;
-        writeln!(
-            file,
-            "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
-        )?;
-        write!(file, "          ")?;
-        for cell in self.mesh().cells() {
-            if cell.vertices_id().len() == 3 {
-                write!(file, "5 ")?;
-            } else if cell.vertices_id().len() == 4 {
-                write!(file, "7 ")?;
-            }
-        }
-        writeln!(file)?;
-        writeln!(file, "        </DataArray>")?;
-        writeln!(file, "      </Cells>")?;
+        
+        export_mesh(&mut file, mesh, &ControlVolume::Cells)?;
 
         writeln!(file, "      <CellData>")?;
-        // Does not support vector fields yet
-        for var in self.fields_list() {
-            let temp = self
-                .field(var)
-                .expect("Incoherence between variable list and fields");
-            match temp.deref() {
-                Field::Scalar(scalar_field) => {
-                    writeln!(
-                        file,
-                        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                        var.name(),
-                    )?;
-                    write!(file, "          ")?;
-                    let field = scalar_field.values();
-                    for value in field {
-                        write!(file, "{} ", value)?;
-                    }
-                }
-                Field::Vector2(fields) => {
-                    writeln!(
-                        file,
-                        "        <DataArray NumberOfComponents=\"2\" type=\"Float64\" Name=\"{}\" format=\"ascii\">",
-                        var.name(),
-                    )?;
-                    write!(file, "          ")?;
-                    let field_x = fields.x.values();
-                    let field_y = fields.y.values();
-                    for i in 0..field_x.len() {
-                        write!(file, "{} {} ", field_x[i], field_y[i])?;
-                    }
-                }
-            };
+        
+        export_scalar(&mut file, &mesh.cells.volumes, "Cell volumes")?;
 
-            writeln!(file)?;
-            writeln!(file, "        </DataArray>")?;
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+            "Cell id",
+        )?;
+        write!(file, "          ")?;
+        for id in 0..mesh.cells.centers.len() {
+            write!(file, "{} ", id)?;
         }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        
+        export_variables(&mut file, self, &ControlVolume::Cells)?;
+
+        writeln!(file, "      </CellData>")?;
+
+        writeln!(file, "      <PointData>")?;
+
+        export_scalar(&mut file, &mesh.nodes.volumes, "Node volumes")?;
+        
+        export_variables(&mut file, self, &ControlVolume::Nodes)?;
+
+        writeln!(file, "      </PointData>")?;
+
+        writeln!(file, "    </Piece>")?;
+        writeln!(file, "  </UnstructuredGrid>")?;
+        writeln!(file, "</VTKFile>")?;
+
+        Ok(())
+    }
+
+    /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
+    /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
+    fn export_node_centered(&self, path: String) -> io::Result<()> {
+        let path = PathBuf::from(format!(
+            "{}/{}_nodes_{:06}.vtu",
+            &self.config().output.directory,
+            &self.name(),
+            &self.step()
+        ));
+        let mesh = self.mesh();
+
+        let mut file = File::create(path)?;
+
+        writeln!(
+            file,
+            "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
+        )?;
+        
+
+        writeln!(file, "      <CellData>")?;
+
+        export_scalar(&mut file, &mesh.nodes.volumes, "Node volumes")?;
+
+        writeln!(
+            file,
+            "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+            "Node id",
+        )?;
+        write!(file, "          ")?;
+        for id in 0..mesh.nodes.centers.len() {
+            write!(file, "{} ", id)?;
+        }
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+        
+        export_variables(&mut file, self, &ControlVolume::Nodes)?;
 
         writeln!(file, "      </CellData>")?;
 
@@ -286,7 +263,7 @@ pub trait Case {
 
     fn schemes(&self) -> &Schemes;
 
-    fn mesh(&self) -> &Computational2DMesh;
+    fn mesh(&self) -> &Mesh<T>;
 
     fn equation_solver_borrow(
         &mut self,
@@ -294,9 +271,224 @@ pub trait Case {
         &mut EquationSolver,
         &mut VariableFields,
         &CaseEquations,
-        &Computational2DMesh,
+        &Mesh<T>,
         &CaseConfig,
     );
 
     fn new(config: CaseConfig) -> Self;
+}
+
+fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume) -> io::Result<()> {
+    
+    match *cv {
+        ControlVolume::Cells => {
+            writeln!(file, "  <UnstructuredGrid>")?;
+            writeln!(
+                file,
+                "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
+                mesh.nodes.centers.len(),
+                mesh.cells.centers.len()
+            )?;
+            writeln!(file, "      <Points>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            for node in &mesh.nodes.centers {
+                write!(file, "{} {} 0 ", node.x, node.y)?;
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(file, "      </Points>")?;
+
+            writeln!(file, "      <Cells>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            for nodes in &mesh.cells.neighboring_nodes {
+                for i_node in nodes {
+                    write!(file, "{} ", i_node)?;
+                }
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"offsets\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            let mut offset = 0;
+            for faces in &mesh.cells.neighboring_pairs {
+                offset += faces.len();
+                write!(file, "{} ", offset)?;
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            for faces in &mesh.cells.neighboring_pairs {
+                if faces.len() == 3 {
+                    // Triangle
+                    write!(file, "5 ")?;
+                } else if faces.len() >= 4 {
+                    // Polygon
+                    write!(file, "7 ")?;
+                }
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(file, "      </Cells>")?;
+        }
+        ControlVolume::Nodes => {
+            writeln!(file, "  <UnstructuredGrid>")?;
+            let mut cv_points_number = 0;
+            for cv_nodes in &mesh.nodes.cv_nodes {
+                cv_points_number += cv_nodes.len();
+            }
+            writeln!(
+                file,
+                "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
+                cv_points_number,
+                mesh.nodes.centers.len()
+            )?;
+            writeln!(file, "      <Points>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            for cv_nodes in &mesh.nodes.cv_nodes {
+                for node in cv_nodes {
+                    write!(file, "{} {} 0 ", node.x, node.y)?;
+                }
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(file, "      </Points>")?;
+
+            writeln!(file, "      <Cells>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            let mut current_cv_node = 0;
+            for cv_nodes in &mesh.nodes.cv_nodes {
+                for _ in cv_nodes {
+                    write!(file, "{} ", current_cv_node)?;
+                    current_cv_node += 1;
+                }
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"offsets\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            let mut offset = 0;
+            for cv_nodes in &mesh.nodes.cv_nodes {
+                offset += cv_nodes.len();
+                write!(file, "{} ", offset)?;
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(
+                file,
+                "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
+            )?;
+            write!(file, "          ")?;
+            for cv_nodes in &mesh.nodes.cv_nodes {
+                if cv_nodes.len() == 3 {
+                    write!(file, "5 ")?;
+                } else if cv_nodes.len() >= 4 {
+                    write!(file, "7 ")?;
+                }
+            }
+            writeln!(file)?;
+            writeln!(file, "        </DataArray>")?;
+            writeln!(file, "      </Cells>")?;
+        }
+    }
+    
+    
+    Ok(())
+}
+
+fn export_scalar(file: &mut File, data: &[f64], name: &str) -> io::Result<()> {
+    writeln!(
+        file,
+        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+        name,
+    )?;
+    write!(file, "          ")?;
+    for value in data {
+        write!(file, "{} ", value)?;
+    }
+    writeln!(file)?;
+    writeln!(file, "        </DataArray>")?;
+    Ok(())
+}
+
+fn export_vector(file: &mut File, data: &[Vector2<f64>], name: &str) -> io::Result<()> {
+    writeln!(
+        file,
+        "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+        name,
+    )?;
+    write!(file, "          ")?;
+    for value in data {
+        write!(file, "{} ", value)?;
+    }
+    writeln!(file)?;
+    writeln!(file, "        </DataArray>")?;
+    Ok(())
+}
+
+fn export_variables<M: MeshCore, T: Case<M>>(file: &mut File, case: &T, cv: &ControlVolume) -> io::Result<()> {
+    for var in case.fields_list() {
+        if var.cv() != cv {
+            continue;
+        }
+        let temp = case
+            .field(var)
+            .expect("Incoherence between variable list and fields");
+        match temp.deref() {
+            Field::Scalar(scalar_field) => {
+                writeln!(
+                    file,
+                    "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                    var.name(),
+                )?;
+                write!(file, "          ")?;
+                let field = scalar_field.values();
+                for value in field {
+                    write!(file, "{} ", value)?;
+                }
+            }
+            Field::Vector2(fields) => {
+                writeln!(
+                    file,
+                    "        <DataArray NumberOfComponents=\"2\" type=\"Float64\" Name=\"{}\" format=\"ascii\">",
+                    var.name(),
+                )?;
+                write!(file, "          ")?;
+                let field_x = fields.x.values();
+                let field_y = fields.y.values();
+                for i in 0..field_x.len() {
+                    write!(file, "{} {} ", field_x[i], field_y[i])?;
+                }
+            }
+        };
+
+        writeln!(file)?;
+        writeln!(file, "        </DataArray>")?;
+    }
+    Ok(())
 }

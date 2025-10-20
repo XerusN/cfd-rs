@@ -6,8 +6,7 @@ use super::{
     interpolations::GradientInterpConfig,
 };
 use cfd_rs_utils::mesh::{
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::{CellIndex, FaceIndex},
+    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}
 };
 use nalgebra::Vector2;
 
@@ -27,10 +26,10 @@ pub struct GradientConfig {
     pub interp: GradientInterpConfig,
 }
 
-pub fn update_grads(
+pub fn update_grads<M: MeshCore>(
     field: &mut Field,
     grad_requirements: &GradRequirements,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     config: &GradientConfig,
     bc: &Vec<BoundaryCondition>,
 ) {
@@ -59,10 +58,10 @@ pub fn update_grads(
     }
 }
 
-fn update_grad_scalar(
+fn update_grad_scalar<M: MeshCore>(
     field: &mut CellScalarField,
     grad_requirements: &GradRequirements,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     config: &GradientConfig,
     bc: &Vec<BoundaryCondition>,
     component: &Component,

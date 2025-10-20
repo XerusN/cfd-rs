@@ -15,10 +15,10 @@ use crate::{
     gradient, laplacian, time_derivative,
 };
 
-use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
+use cfd_rs_utils::{control::OutputControl, mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::*}};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SimpleCase {
+pub struct SimpleCase<T: MeshCore> {
     name: String,
     step: usize,
     time: f64,
@@ -26,7 +26,7 @@ pub struct SimpleCase {
 
     config: CaseConfig,
 
-    mesh: Computational2DMesh,
+    mesh: Mesh<T>,
 
     fields: VariableFields,
     equations: CaseEquations,
@@ -36,7 +36,7 @@ pub struct SimpleCase {
     kinematic_viscosity: f64,
 }
 
-impl Case for SimpleCase {
+impl<T: MeshCore> Case<T> for SimpleCase<T> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -105,7 +105,7 @@ impl Case for SimpleCase {
         &self.config.schemes
     }
 
-    fn mesh(&self) -> &Computational2DMesh {
+    fn mesh(&self) -> &Mesh<T> {
         &self.mesh
     }
 
@@ -115,7 +115,7 @@ impl Case for SimpleCase {
         &mut EquationSolver,
         &mut VariableFields,
         &CaseEquations,
-        &Computational2DMesh,
+        &Mesh<T>,
         &CaseConfig,
     ) {
         (
