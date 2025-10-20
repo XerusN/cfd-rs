@@ -1,7 +1,7 @@
 use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh};
 use nalgebra::{DVector, Point2, Vector2};
 
-use crate::finite_volume::config::InitFunc;
+use crate::finite_volume::{config::InitFunc, equation::ControlVolume};
 
 use super::{
     boundary::BoundaryCondition,
@@ -14,15 +14,15 @@ use super::{
 /// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
-    Scalar(CellScalarField),
-    Vector2(Vector2<CellScalarField>),
+    Scalar(ScalarField, ControlVolume),
+    Vector2(Vector2<ScalarField>, ControlVolume),
 }
 
 impl Field {}
 
 /// The grads will only be allocated if necessary
 #[derive(Debug, PartialEq, Clone)]
-pub struct CellScalarField {
+pub struct ScalarField {
     values: DVector<f64>,
     face_values: DVector<f64>,
     grads_cell: DVector<Vector2<f64>>,
@@ -30,12 +30,13 @@ pub struct CellScalarField {
     gradients_up_to_date: bool,
 }
 
-impl CellScalarField {
-    pub fn new(
-        mesh: &Computational2DMesh,
+impl ScalarField {
+    pub fn new<M: MeshCore>(
+        mesh: &Mesh<M>,
         grads_required: &GradRequirements,
         variable: &Variable,
         component: Component,
+        cv: &ControlVolume,
         config: &CaseConfig,
     ) -> Self {
         let init = match *config.initial_fields.get(variable).expect(&format![
@@ -54,9 +55,9 @@ impl CellScalarField {
                 Component::Y => func_y,
             },
         };
-        let mut values = DVector::zeros(mesh.num_cells());
-        for (i, cell) in mesh.cells().iter().enumerate() {
-            values[i] = init(cell.centroid());
+        let mut values = DVector::zeros(mesh.cells.centers.len());
+        for (i, centers) in mesh.cells.centers.iter().enumerate() {
+            values[i] = init(centers);
         }
         let face_values = DVector::zeros(mesh.num_faces());
 

@@ -327,8 +327,8 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(
             file,
             "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-            self.nodes.centers.len(),
-            self.cells.centers.len()
+            self.nodes.n,
+            self.cells.n
         )?;
         writeln!(file, "      <Points>")?;
         writeln!(
@@ -336,7 +336,7 @@ impl<T: MeshCore> Mesh<T> {
             "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
         )?;
         write!(file, "          ")?;
-        for node in &self.nodes.centers {
+        for node in self.nodes.centers() {
             write!(file, "{} {} 0 ", node.x, node.y)?;
         }
         writeln!(file)?;
@@ -349,7 +349,7 @@ impl<T: MeshCore> Mesh<T> {
             "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
         )?;
         write!(file, "          ")?;
-        for nodes in &self.cells.neighboring_nodes {
+        for nodes in self.cells.neighboring_nodes() {
             for i_node in nodes {
                 write!(file, "{} ", i_node)?;
             }
@@ -362,7 +362,7 @@ impl<T: MeshCore> Mesh<T> {
         )?;
         write!(file, "          ")?;
         let mut offset = 0;
-        for faces in &self.cells.neighboring_pairs {
+        for faces in self.cells.neighboring_pairs() {
             offset += faces.len();
             write!(file, "{} ", offset)?;
         }
@@ -373,7 +373,7 @@ impl<T: MeshCore> Mesh<T> {
             "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
         )?;
         write!(file, "          ")?;
-        for faces in &self.cells.neighboring_pairs {
+        for faces in self.cells.neighboring_pairs() {
             if faces.len() == 3 {
                 // Triangle
                 write!(file, "5 ")?;
@@ -388,7 +388,7 @@ impl<T: MeshCore> Mesh<T> {
 
         writeln!(file, "      <CellData>")?;
 
-        export_scalar(&mut file, &self.cells.volumes, "Cell volumes")?;
+        export_scalar(&mut file, &self.cells.volumes(), "Cell volumes")?;
 
         writeln!(
             file,
@@ -396,7 +396,7 @@ impl<T: MeshCore> Mesh<T> {
             "Cell id",
         )?;
         write!(file, "          ")?;
-        for id in 0..self.cells.centers.len() {
+        for id in 0..self.cells.n {
             write!(file, "{} ", id)?;
         }
         writeln!(file)?;
@@ -406,7 +406,7 @@ impl<T: MeshCore> Mesh<T> {
 
         writeln!(file, "      <PointData>")?;
 
-        export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
+        export_scalar(&mut file, self.nodes.volumes(), "Node volumes")?;
 
         writeln!(file, "      </PointData>")?;
 
@@ -430,14 +430,14 @@ impl<T: MeshCore> Mesh<T> {
         )?;
         writeln!(file, "  <UnstructuredGrid>")?;
         let mut cv_points_number = 0;
-        for cv_nodes in &self.nodes.cv_nodes {
+        for cv_nodes in self.nodes.cv_nodes() {
             cv_points_number += cv_nodes.len();
         }
         writeln!(
             file,
             "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
             cv_points_number,
-            self.nodes.centers.len()
+            self.nodes.n
         )?;
         writeln!(file, "      <Points>")?;
         writeln!(
@@ -445,7 +445,7 @@ impl<T: MeshCore> Mesh<T> {
             "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
         )?;
         write!(file, "          ")?;
-        for cv_nodes in &self.nodes.cv_nodes {
+        for cv_nodes in self.nodes.cv_nodes() {
             for node in cv_nodes {
                 write!(file, "{} {} 0 ", node.x, node.y)?;
             }
@@ -461,7 +461,7 @@ impl<T: MeshCore> Mesh<T> {
         )?;
         write!(file, "          ")?;
         let mut current_cv_node = 0;
-        for cv_nodes in &self.nodes.cv_nodes {
+        for cv_nodes in self.nodes.cv_nodes() {
             for _ in cv_nodes {
                 write!(file, "{} ", current_cv_node)?;
                 current_cv_node += 1;
@@ -475,7 +475,7 @@ impl<T: MeshCore> Mesh<T> {
         )?;
         write!(file, "          ")?;
         let mut offset = 0;
-        for cv_nodes in &self.nodes.cv_nodes {
+        for cv_nodes in self.nodes.cv_nodes() {
             offset += cv_nodes.len();
             write!(file, "{} ", offset)?;
         }
@@ -486,7 +486,7 @@ impl<T: MeshCore> Mesh<T> {
             "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
         )?;
         write!(file, "          ")?;
-        for cv_nodes in &self.nodes.cv_nodes {
+        for cv_nodes in self.nodes.cv_nodes() {
             if cv_nodes.len() == 3 {
                 write!(file, "5 ")?;
             } else if cv_nodes.len() >= 4 {
@@ -499,7 +499,7 @@ impl<T: MeshCore> Mesh<T> {
 
         writeln!(file, "      <CellData>")?;
 
-        export_scalar(&mut file, &self.nodes.volumes, "Node volumes")?;
+        export_scalar(&mut file, self.nodes.volumes(), "Node volumes")?;
 
         writeln!(
             file,
@@ -507,7 +507,7 @@ impl<T: MeshCore> Mesh<T> {
             "Node id",
         )?;
         write!(file, "          ")?;
-        for id in 0..self.nodes.centers.len() {
+        for id in 0..self.nodes.n {
             write!(file, "{} ", id)?;
         }
         writeln!(file)?;
