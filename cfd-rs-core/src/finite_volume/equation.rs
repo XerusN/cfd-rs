@@ -28,7 +28,10 @@ use super::{
     error::CfdError,
 };
 
+use variable::{Variable, ControlVolume, Dimension};
+
 pub mod macros;
+pub mod variable;
 
 /// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
 
@@ -125,48 +128,10 @@ pub enum IntegrationCategory {
     Explicit,
 }
 
-/// Will help to implement unit checking
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub struct Variable {
-    name: String,
-    dim: Dimension,
-    cv: ControlVolume,
-}
-
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum Dimension {
-    Scalar,
-    Vector2,
-}
-
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Component {
     X,
     Y,
-}
-
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum ControlVolume {
-    Nodes,
-    Cells,
-}
-
-impl Variable {
-    pub fn new(name: String, dim: Dimension, cv: ControlVolume) -> Self {
-        Variable { name, dim, cv }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn dim(&self) -> &Dimension {
-        &self.dim
-    }
-    
-    pub fn cv(&self) -> &ControlVolume {
-        &self.cv
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -334,7 +299,7 @@ impl Equation {
 pub struct EquationSolver {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
-    cv: &ControlVolume,
+    cv: ControlVolume,
 }
 
 impl EquationSolver {
@@ -353,14 +318,14 @@ impl EquationSolver {
 
         for i in 0..n {
             matrix.push(i, i, 0.);
-            for neighbor in mesh.neighboring_cells_id(CellIndex(i)) {
-                matrix.push(i, neighbor.0, 0.)
+            for neighbor in &neighbors[i] {
+                matrix.push(i, *neighbor, 0.)
             }
         }
 
         let matrix = CsrMatrix::from(&matrix);
 
-        let rhs = DVector::zeros(mesh.num_cells());
+        let rhs = DVector::zeros(n);
 
         EquationSolver { matrix, rhs, cv }
     }
@@ -383,7 +348,7 @@ impl EquationSolver {
     }
     
     pub fn cv(&self) -> &ControlVolume {
-        self.cv
+        &self.cv
     }
 
     pub fn rhs(&self) -> &DVector<f64> {
@@ -399,8 +364,12 @@ impl EquationSolver {
     }
 
     fn add_scalar<M: MeshCore>(&mut self, scalar: f64, mesh: &Mesh<M>) {
+        let volumes = match self.cv {
+            ControlVolume::Cells => mesh.cells.volumes(),
+            ControlVolume::Nodes => mesh.nodes.volumes(),
+        };
         for (i, v) in self.rhs.iter_mut().enumerate() {
-            *v -= scalar * mesh.cells()[i].volume();
+            *v -= scalar * volumes[i];
         }
     }
 
