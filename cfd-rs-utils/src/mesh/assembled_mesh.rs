@@ -7,9 +7,7 @@ pub use core::{MeshCore, Patch};
 pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
-    fs::File,
-    io::{self, Write},
-    path::PathBuf,
+    cell::Cell, fs::File, io::{self, Write}, path::PathBuf
 };
 
 use crate::geometry::{area, centroid_and_area};
@@ -154,7 +152,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             cells_neighboring_pairs.push(core.cell_to_faces(i_cell));
             let neighboring_patches = core.cell_to_neighbors(i_cell);
             cells_neighboring_patches.push(neighboring_patches.clone());
-            cells_neighboring_cells.push(neighboring_patches.iter().filter(|patch| if let Patch::Cell(_) = patch { true } else { false }).collect());
+            cells_neighboring_cells.push(neighboring_patches.iter().filter(|patch| if let Patch::Cell(_) = patch { true } else { false }).map(|cell_patch| if let Patch::Cell(i_cell) = cell_patch {*i_cell} else {panic!()}).collect());
         }
         for i_pair in 0..n_pairs {
             pairs_nodes.push(core.face_to_nodes(i_pair));
