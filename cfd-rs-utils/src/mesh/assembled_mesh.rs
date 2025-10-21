@@ -54,6 +54,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
         let mut cells_areas = Vec::with_capacity(n_cells);
         let mut cells_normals = Vec::with_capacity(n_cells);
         let mut cells_neighboring_nodes = Vec::with_capacity(n_cells);
+        let mut cells_neighboring_patches = Vec::with_capacity(n_cells);
         let mut cells_neighboring_cells = Vec::with_capacity(n_cells);
         let mut cells_neighboring_pairs = Vec::with_capacity(n_cells);
 
@@ -151,7 +152,9 @@ impl<T: MeshCore> From<T> for Mesh<T> {
         for i_cell in 0..n_cells {
             cells_neighboring_nodes.push(core.cell_to_nodes(i_cell));
             cells_neighboring_pairs.push(core.cell_to_faces(i_cell));
-            cells_neighboring_cells.push(core.cell_to_neighbors(i_cell));
+            let neighboring_patches = core.cell_to_neighbors(i_cell);
+            cells_neighboring_patches.push(neighboring_patches.clone());
+            cells_neighboring_cells.push(neighboring_patches.iter().filter(|patch| if let Patch::Cell(_) = patch { true } else { false }).collect());
         }
         for i_pair in 0..n_pairs {
             pairs_nodes.push(core.face_to_nodes(i_pair));
@@ -289,6 +292,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             cells_normals,
             cells_neighboring_nodes,
             cells_neighboring_cells,
+            cells_neighboring_patches,
             cells_neighboring_pairs,
         );
 

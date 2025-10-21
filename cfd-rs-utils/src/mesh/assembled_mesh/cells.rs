@@ -11,7 +11,8 @@ pub struct Cells {
     areas: Vec<Vec<f64>>,
     normals: Vec<Vec<Vector2<f64>>>,
     neighboring_nodes: Vec<Vec<usize>>,
-    neighboring_cells: Vec<Vec<Patch>>,
+    neighboring_cells: Vec<Vec<usize>>,
+    neighboring_patches: Vec<Vec<Patch>>,
     neighboring_pairs: Vec<Vec<usize>>,
 }
 
@@ -40,7 +41,11 @@ impl Cells {
         &self.neighboring_pairs
     }
     
-    pub fn neighboring_cells(&self) -> &[Vec<Patch>] {
+    pub fn neighboring_patches(&self) -> &[Vec<Patch>] {
+        &self.neighboring_patches
+    }
+    
+    pub fn neighboring_cells(&self) -> &[Vec<usize>] {
         &self.neighboring_cells
     }
 }
@@ -52,7 +57,8 @@ impl Cells {
         areas: Vec<Vec<f64>>,
         normals: Vec<Vec<Vector2<f64>>>,
         neighboring_nodes: Vec<Vec<usize>>,
-        neighboring_cells: Vec<Vec<Patch>>,
+        neighboring_cells: Vec<Vec<usize>>,
+        neighboring_patches: Vec<Vec<Patch>>,
         neighboring_pairs: Vec<Vec<usize>>,
     ) -> Self {
         let n = centers.len();
@@ -60,7 +66,7 @@ impl Cells {
         assert_eq!(n, areas.len());
         assert_eq!(n, normals.len());
         assert_eq!(n, neighboring_nodes.len());
-        assert_eq!(n, neighboring_cells.len());
+        assert_eq!(n, neighboring_patches.len());
         assert_eq!(n, neighboring_pairs.len());
         Cells {
             n,
@@ -69,8 +75,9 @@ impl Cells {
             areas,
             normals,
             neighboring_nodes,
-            neighboring_cells,
+            neighboring_patches,
             neighboring_pairs,
+            neighboring_cells,
         }
     }
 }

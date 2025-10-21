@@ -1,5 +1,5 @@
 use super::{
-    base::{CellScalarField, Field},
+    fields::{ScalarField, Field},
     boundary::BoundaryCondition,
     case::GradRequirements,
     equation::Component,
@@ -59,7 +59,7 @@ pub fn update_grads<M: MeshCore>(
 }
 
 fn update_grad_scalar<M: MeshCore>(
-    field: &mut CellScalarField,
+    field: &mut ScalarField,
     grad_requirements: &GradRequirements,
     mesh: &Mesh<M>,
     config: &GradientConfig,
@@ -88,9 +88,9 @@ fn update_grad_scalar<M: MeshCore>(
     }
 }
 
-fn green_gauss_compact(
-    field: &mut CellScalarField,
-    mesh: &Computational2DMesh,
+fn green_gauss_compact<M: MeshCore>(
+    field: &mut ScalarField,
+    mesh: &Mesh<M>,
     bc: &Vec<BoundaryCondition>,
     component: &Component,
 ) {
@@ -263,9 +263,9 @@ fn green_gauss_compact(
     // println!("Gradients updated {i}");
 }
 
-fn averaged_corrected_interp(
-    field: &mut CellScalarField,
-    mesh: &Computational2DMesh,
+fn averaged_corrected_interp<M: MeshCore>(
+    field: &mut ScalarField,
+    mesh: &Mesh<M>,
     bc: &Vec<BoundaryCondition>,
     component: &Component,
 ) {

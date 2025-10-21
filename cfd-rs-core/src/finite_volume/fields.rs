@@ -14,8 +14,8 @@ use super::{
 /// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
-    Scalar(ScalarField, ControlVolume),
-    Vector2(Vector2<ScalarField>, ControlVolume),
+    Scalar(ScalarField),
+    Vector2(Vector2<ScalarField>),
 }
 
 impl Field {}
@@ -28,6 +28,7 @@ pub struct ScalarField {
     grads_cell: DVector<Vector2<f64>>,
     grads_face: DVector<Vector2<f64>>,
     gradients_up_to_date: bool,
+    cv: ControlVolume,
 }
 
 impl ScalarField {
@@ -36,7 +37,6 @@ impl ScalarField {
         grads_required: &GradRequirements,
         variable: &Variable,
         component: Component,
-        cv: &ControlVolume,
         config: &CaseConfig,
     ) -> Self {
         let init = match *config.initial_fields.get(variable).expect(&format![
@@ -55,22 +55,38 @@ impl ScalarField {
                 Component::Y => func_y,
             },
         };
-        let mut values = DVector::zeros(mesh.cells.centers.len());
-        for (i, centers) in mesh.cells.centers.iter().enumerate() {
-            values[i] = init(centers);
+        
+        let cv = variable.cv();
+        let n_values = match cv {
+            ControlVolume::Cells => mesh.cells.n,
+            ControlVolume::Nodes => mesh.nodes.n,
+        };
+        let mut values = DVector::zeros(n_values);
+        match cv {
+            ControlVolume::Cells => {
+                for (i, centers) in mesh.cells.centers().iter().enumerate() {
+                    values[i] = init(centers);
+                }
+            },
+            ControlVolume::Nodes => {
+                for (i, centers) in mesh.nodes.centers().iter().enumerate() {
+                    values[i] = init(centers);
+                }
+            },
         }
-        let face_values = DVector::zeros(mesh.num_faces());
+        
+        let face_values = DVector::zeros(mesh.pairs.n);
 
         let grads_cell;
         if grads_required.cell() | grads_required.face() {
-            grads_cell = DVector::zeros(mesh.num_cells());
+            grads_cell = DVector::zeros(n_values);
         } else {
             grads_cell = DVector::zeros(0);
         }
 
         let grads_face;
         if grads_required.face() {
-            grads_face = DVector::zeros(mesh.num_faces());
+            grads_face = DVector::zeros(mesh.pairs.n);
         } else {
             grads_face = DVector::zeros(0);
         }
@@ -83,12 +99,13 @@ impl ScalarField {
         //     grads_face.len()
         // );
 
-        CellScalarField {
+        ScalarField {
             values,
             face_values,
             grads_cell,
             grads_face,
             gradients_up_to_date: false,
+            cv: cv.clone(),
         }
     }
 

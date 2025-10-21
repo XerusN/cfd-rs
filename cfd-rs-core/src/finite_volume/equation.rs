@@ -334,13 +334,24 @@ impl Equation {
 pub struct EquationSolver {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
+    cv: &ControlVolume,
 }
 
 impl EquationSolver {
-    pub fn new<M: MeshCore>(mesh: &Mesh<M>) -> Self {
-        let mut matrix = CooMatrix::new(mesh.num_cells(), mesh.num_cells());
+    pub fn new<M: MeshCore>(mesh: &Mesh<M>, cv: ControlVolume) -> Self {
+        
+        let n = match cv {
+            ControlVolume::Cells => mesh.cells.n,
+            ControlVolume::Nodes => mesh.nodes.n,
+        };
+        let neighbors = match cv {
+            ControlVolume::Cells => mesh.cells.neighboring_cells(),
+            ControlVolume::Nodes => mesh.nodes.neighboring_pairs(),
+        };
+        
+        let mut matrix = CooMatrix::new(n, n);
 
-        for i in 0..mesh.num_cells() {
+        for i in 0..n {
             matrix.push(i, i, 0.);
             for neighbor in mesh.neighboring_cells_id(CellIndex(i)) {
                 matrix.push(i, neighbor.0, 0.)
@@ -351,7 +362,7 @@ impl EquationSolver {
 
         let rhs = DVector::zeros(mesh.num_cells());
 
-        EquationSolver { matrix, rhs }
+        EquationSolver { matrix, rhs, cv }
     }
 
     pub fn clear(&mut self) {
@@ -369,6 +380,10 @@ impl EquationSolver {
 
     pub fn matrix_mut(&mut self) -> &mut CsrMatrix<f64> {
         &mut self.matrix
+    }
+    
+    pub fn cv(&self) -> &ControlVolume {
+        self.cv
     }
 
     pub fn rhs(&self) -> &DVector<f64> {
