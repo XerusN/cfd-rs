@@ -22,7 +22,7 @@ use nalgebra_sparse_linalg::iteratives::{
 use crate::finite_volume::{equation::operations::Op, linalg::easy_jacobi};
 
 use super::{
-    base::Field,
+    fields::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
@@ -302,9 +302,9 @@ impl EquationSolver {
         };
         let grads = match self.cv {
             ControlVolume::Cells => {
-                match field.cv() {
+                match var.cv() {
                     ControlVolume::Cells => {
-                        field.grads_cell()
+                        field.grads_centers()
                     },
                     ControlVolume::Nodes => {
                         todo!()
@@ -312,12 +312,12 @@ impl EquationSolver {
                 }
             },
             ControlVolume::Nodes => {
-                match field.cv() {
+                match var.cv() {
                     ControlVolume::Cells => {
-                        field.grads_cell()
+                        todo!()
                     },
                     ControlVolume::Nodes => {
-                        field.grads_cell()
+                        field.grads_centers()
                     },
                 }
             },
@@ -326,12 +326,12 @@ impl EquationSolver {
         match component {
             Component::X => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= grads[i].x * coeff * mesh.cells()[i].volume();
+                    *v -= grads[i].x * coeff * volumes[i];
                 }
             }
             Component::Y => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].y * coeff * mesh.cells()[i].volume();
+                    *v -= grads[i].y * coeff * volumes[i];
                 }
             }
         }
@@ -346,6 +346,8 @@ impl EquationSolver {
         coeff: f64,
         integration: &IntegrationCategory,
     ) {
+        let volumes = self.cv.volumes(mesh);
+        
         match integration {
             IntegrationCategory::Explicit => {
                 let field = find_var_in_fields(var, fields);
@@ -357,15 +359,40 @@ impl EquationSolver {
                         Component::Y => &value.y,
                     },
                 };
-
+                let values = match self.cv {
+                    ControlVolume::Cells => {
+                        match var.cv() {
+                            ControlVolume::Cells => {
+                                field.values()
+                            },
+                            ControlVolume::Nodes => {
+                                todo!()
+                            },
+                        }
+                    },
+                    ControlVolume::Nodes => {
+                        match var.cv() {
+                            ControlVolume::Cells => {
+                                todo!()
+                            },
+                            ControlVolume::Nodes => {
+                                field.faces_values()
+                            },
+                        }
+                    },
+                };
+                
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.values()[i] * coeff * mesh.cells()[i].volume();
+                    *v -= values[i] * coeff * volumes[i];
                 }
             }
             IntegrationCategory::Implicit => {
+                if self.cv != *var.cv() {
+                    panic!();
+                }
                 for (i, j, value) in self.matrix_mut().triplet_iter_mut() {
                     if i == j {
-                        *value += coeff * mesh.cells()[i].volume();
+                        *value += coeff * volumes[i];
                     }
                 }
             }
@@ -463,7 +490,7 @@ impl EquationSolver {
             }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
-                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff)
+                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, self.cv())
                 }
                 FieldOperator::Field(var, integration) => {
                     self.add_field(var, component, fields, mesh, coeff, integration)

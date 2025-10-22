@@ -4,8 +4,7 @@ use std::{
 };
 
 use cfd_rs_utils::mesh::{
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::CellIndex,
+    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex
 };
 use nalgebra_sparse::SparseEntryMut;
 
@@ -33,12 +32,12 @@ impl TimeIntegration {
         }
     }
 
-    pub fn discretize(
+    pub fn discretize<M: MeshCore>(
         &self,
         var: &Variable,
         component: &Component,
         solver: &mut EquationSolver,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         fields: &VariableFields,
         time_step: f64,
         coeff: f64,
@@ -60,10 +59,10 @@ impl TimeIntegration {
     }
 }
 
-fn forward_euler(
+fn forward_euler<M: MeshCore>(
     component: &Component,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     field: &RefCell<Field>,
     time_step: f64,
     coeff: f64,
@@ -80,18 +79,19 @@ fn forward_euler(
     };
 
     let time_step_inv = 1. / time_step;
+    let volume = equation_cv.volumes(mesh);
 
-    for cell in 0..rhs.len() {
+    for i in 0..rhs.len() {
         let mut row = matrix
-            .get_row_mut(cell)
+            .get_row_mut(i)
             .expect("Bad Initialization of matrix");
 
-        let f_c = time_step_inv * mesh.cells()[cell].volume();
+        let f_c = time_step_inv * volume[i];
 
-        rhs[cell] += f_c * coeff * field.values()[cell];
+        rhs[i] += f_c * coeff * field.values()[i];
 
         match row
-            .get_entry_mut(cell)
+            .get_entry_mut(i)
             .expect("Bad Initialization of matrix")
         {
             SparseEntryMut::NonZero(value) => *value += f_c * coeff,

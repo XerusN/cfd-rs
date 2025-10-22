@@ -1,8 +1,7 @@
 use std::cell::{RefCell, RefMut};
 
 use cfd_rs_utils::mesh::{
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::{CellIndex, FaceIndex},
+    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}
 };
 use nalgebra::{Scalar, Vector2};
 
@@ -33,14 +32,14 @@ impl ConvectionScheme {
         }
     }
 
-    pub fn discretize(
+    pub fn discretize<M: MeshCore>(
         &self,
         var: &Variable,
         component: &Component,
         speed: &Variable,
         solver: &mut EquationSolver,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
@@ -83,12 +82,12 @@ impl ConvectionScheme {
 }
 
 /// Maybe wrong sign on rhs update
-fn upwind_second_order(
+fn upwind_second_order<M: MeshCore>(
     field: &RefCell<Field>,
     component: &Component,
     speed: &RefCell<Field>,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
@@ -207,12 +206,12 @@ fn upwind_second_order(
     }
 }
 
-fn _upwind_second_order(
+fn _upwind_second_order<M: MeshCore>(
     field: &RefCell<Field>,
     component: &Component,
     speed: &RefCell<Field>,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
@@ -260,12 +259,12 @@ fn _upwind_second_order(
     }
 }
 
-fn central_difference(
+fn central_difference<M: MeshCore>(
     field: &RefCell<Field>,
     component: &Component,
     speed: &RefCell<Field>,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,

@@ -1,11 +1,7 @@
-use std::{
-    cell::{RefCell, RefMut},
-    ops::Deref,
-};
+use std::cell::RefCell;
 
 use cfd_rs_utils::mesh::{
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::CellIndex,
+    assembled_mesh::{Mesh, MeshCore}
 };
 
 use crate::finite_volume::equation::variables::ControlVolume;
@@ -13,11 +9,10 @@ use crate::finite_volume::equation::variables::ControlVolume;
 use super::{
     super::{
         fields::Field,
-        boundary::{BoundaryCondition, FieldsBoundaryConditions},
         case::{GradRequirements, VariableFields},
         config::{CaseConfig, Schemes},
     },
-    Component, Dimension, Equation, EquationSolver, IntegrationCategory, Variable,
+    Component, EquationSolver, IntegrationCategory, Variable,
 };
 
 pub mod convection;
@@ -66,12 +61,12 @@ impl DifferentialOperator {
         }
     }
 
-    pub fn discretize(
+    pub fn discretize<M: MeshCore>(
         &self,
         component: &Component,
         solver: &mut EquationSolver,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         config: &CaseConfig,
         time_step: f64,
         coeff: f64,

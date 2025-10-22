@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellIndex};
+use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh, indices::CellIndex};
 use nalgebra::Vector2;
 
 use crate::finite_volume::{
@@ -25,12 +25,12 @@ impl DivergenceScheme {
         }
     }
 
-    pub fn discretize(
+    pub fn discretize<M: MeshCore>(
         &self,
         var: &Variable,
         solver: &mut EquationSolver,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
@@ -44,10 +44,10 @@ impl DivergenceScheme {
     }
 }
 
-fn basic(
+fn basic<M: MeshCore>(
     field: &RefCell<Field>,
     solver: &mut EquationSolver,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     integration: &IntegrationCategory,
     coeff: f64,
     equation_cv: &ControlVolume,

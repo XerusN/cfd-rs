@@ -1,8 +1,7 @@
 use std::{cell::RefCell, ops::Deref};
 
 use cfd_rs_utils::mesh::{
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::CellIndex,
+    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex
 };
 use nalgebra_sparse::SparseEntryMut;
 
@@ -32,13 +31,13 @@ impl LaplacianScheme {
         }
     }
 
-    pub fn discretize(
+    pub fn discretize<M: MeshCore>(
         &self,
         var: &Variable,
         component: &Component,
         solver: &mut EquationSolver,
         fields: &VariableFields,
-        mesh: &Computational2DMesh,
+        mesh: &Mesh<M>,
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
@@ -75,11 +74,11 @@ impl LaplacianScheme {
     }
 }
 
-fn orthogonal_correction(
+fn orthogonal_correction<M: MeshCore>(
     component: &Component,
     solver: &mut EquationSolver,
     field: &RefCell<Field>,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
@@ -211,11 +210,11 @@ fn orthogonal_correction(
 }
 
 // Not prod ready
-fn minimal_correction(
+fn minimal_correction<M: MeshCore>(
     component: &Component,
     solver: &mut EquationSolver,
     field: &RefCell<Field>,
-    mesh: &Computational2DMesh,
+    mesh: &Mesh<M>,
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
