@@ -15,7 +15,13 @@ use crate::{
     gradient, laplacian, time_derivative,
 };
 
-use cfd_rs_utils::{control::OutputControl, mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::*}};
+use cfd_rs_utils::{
+    control::OutputControl,
+    mesh::{
+        assembled_mesh::{Mesh, MeshCore},
+        computational_mesh::*,
+    },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase<T: MeshCore> {

@@ -1,6 +1,5 @@
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Variable {
     name: String,
@@ -41,7 +40,7 @@ impl Variable {
     pub fn dim(&self) -> &Dimension {
         &self.dim
     }
-    
+
     pub fn cv(&self) -> &ControlVolume {
         &self.cv
     }

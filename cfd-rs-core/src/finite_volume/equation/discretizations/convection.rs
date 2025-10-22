@@ -11,7 +11,9 @@ use crate::finite_volume::{
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, IntegrationCategory, Variable},
+    equation::{
+        self, variables::ControlVolume, Component, EquationSolver, IntegrationCategory, Variable,
+    },
 };
 
 use super::find_var_in_fields;
@@ -42,6 +44,7 @@ impl ConvectionScheme {
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
+        equation_cv: &ControlVolume,
     ) {
         let bc = config
             .bc
@@ -53,12 +56,28 @@ impl ConvectionScheme {
         let var = find_var_in_fields(var, fields);
 
         match *self {
-            Self::UpwindSecondOrder => {
-                upwind_second_order(var, component, speed, solver, mesh, bc, integration, coeff)
-            }
-            Self::CentralDifference => {
-                central_difference(var, component, speed, solver, mesh, bc, integration, coeff)
-            }
+            Self::UpwindSecondOrder => upwind_second_order(
+                var,
+                component,
+                speed,
+                solver,
+                mesh,
+                bc,
+                integration,
+                coeff,
+                equation_cv,
+            ),
+            Self::CentralDifference => central_difference(
+                var,
+                component,
+                speed,
+                solver,
+                mesh,
+                bc,
+                integration,
+                coeff,
+                equation_cv,
+            ),
         }
     }
 }
@@ -73,6 +92,7 @@ fn upwind_second_order(
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let speed = speed.borrow();
     let speed = match *speed {
@@ -249,6 +269,7 @@ fn central_difference(
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let speed = speed.borrow();
     let speed = match *speed {

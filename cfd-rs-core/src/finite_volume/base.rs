@@ -1,4 +1,7 @@
-use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh};
+use cfd_rs_utils::mesh::{
+    assembled_mesh::{Mesh, MeshCore},
+    computational_mesh::Computational2DMesh,
+};
 use nalgebra::{DVector, Point2, Vector2};
 
 use crate::finite_volume::config::InitFunc;

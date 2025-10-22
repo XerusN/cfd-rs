@@ -11,7 +11,9 @@ use crate::finite_volume::{
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, IntegrationCategory, Variable},
+    equation::{
+        variables::ControlVolume, Component, EquationSolver, IntegrationCategory, Variable,
+    },
 };
 
 use super::find_var_in_fields;
@@ -40,6 +42,7 @@ impl LaplacianScheme {
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
+        equation_cv: &ControlVolume,
     ) {
         let field = find_var_in_fields(var, fields);
         let bc = config
@@ -48,12 +51,26 @@ impl LaplacianScheme {
             .get(var)
             .expect("Missing boundary condition for field");
         match *self {
-            Self::OrthogonalCorrection => {
-                orthogonal_correction(component, solver, field, mesh, bc, integration, coeff)
-            }
-            Self::MinimalCorrection => {
-                minimal_correction(component, solver, field, mesh, bc, integration, coeff)
-            }
+            Self::OrthogonalCorrection => orthogonal_correction(
+                component,
+                solver,
+                field,
+                mesh,
+                bc,
+                integration,
+                coeff,
+                equation_cv,
+            ),
+            Self::MinimalCorrection => minimal_correction(
+                component,
+                solver,
+                field,
+                mesh,
+                bc,
+                integration,
+                coeff,
+                equation_cv,
+            ),
         }
     }
 }
@@ -66,6 +83,7 @@ fn orthogonal_correction(
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
@@ -201,6 +219,7 @@ fn minimal_correction(
     boundary_condition: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();

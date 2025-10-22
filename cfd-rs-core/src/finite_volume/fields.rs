@@ -1,13 +1,19 @@
-use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh};
+use cfd_rs_utils::mesh::{
+    assembled_mesh::{Mesh, MeshCore},
+    computational_mesh::Computational2DMesh,
+};
 use nalgebra::{DVector, Point2, Vector2};
 
-use crate::finite_volume::{config::InitFunc, equation::ControlVolume};
+use crate::finite_volume::{
+    config::InitFunc,
+    equation::variables::{ControlVolume, Variable},
+};
 
 use super::{
     boundary::BoundaryCondition,
     case::{CaseEquations, GradRequirements},
     config::{self, CaseConfig},
-    equation::{Component, Variable},
+    equation::Component,
     gradients::{update_grads, GradientConfig},
 };
 
@@ -55,7 +61,7 @@ impl ScalarField {
                 Component::Y => func_y,
             },
         };
-        
+
         let cv = variable.cv();
         let n_values = match cv {
             ControlVolume::Cells => mesh.cells.n,
@@ -67,14 +73,14 @@ impl ScalarField {
                 for (i, centers) in mesh.cells.centers().iter().enumerate() {
                     values[i] = init(centers);
                 }
-            },
+            }
             ControlVolume::Nodes => {
                 for (i, centers) in mesh.nodes.centers().iter().enumerate() {
                     values[i] = init(centers);
                 }
-            },
+            }
         }
-        
+
         let face_values = DVector::zeros(mesh.pairs.n);
 
         let grads_cell;

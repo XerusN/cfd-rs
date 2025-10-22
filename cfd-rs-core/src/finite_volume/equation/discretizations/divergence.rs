@@ -7,7 +7,7 @@ use crate::finite_volume::{
     base::Field,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{EquationSolver, IntegrationCategory, Variable},
+    equation::{variables::ControlVolume, EquationSolver, IntegrationCategory, Variable},
 };
 
 use super::find_var_in_fields;
@@ -34,11 +34,12 @@ impl DivergenceScheme {
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
+        equation_cv: &ControlVolume,
     ) {
         let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::Basic => basic(field, solver, mesh, integration, coeff),
+            Self::Basic => basic(field, solver, mesh, integration, coeff, equation_cv),
         }
     }
 }
@@ -49,6 +50,7 @@ fn basic(
     mesh: &Computational2DMesh,
     integration: &IntegrationCategory,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let field = field.borrow();
     let field = match *field {

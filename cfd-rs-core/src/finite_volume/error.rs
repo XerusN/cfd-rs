@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use super::equation::{Op, Variable};
+use super::equation::{operations::Op, variables::Variable};
 
 #[derive(Clone, Debug, Default, Error, PartialEq)]
 pub enum CfdError {

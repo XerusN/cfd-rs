@@ -4,11 +4,13 @@ use nalgebra::{Point2, Vector2};
 
 use super::{
     boundary::FieldsBoundaryConditions,
-    discretizations::{
-        convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
-        time_schemes::TimeIntegration,
+    equation::{
+        discretizations::{
+            convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
+            time_schemes::TimeIntegration,
+        },
+        variables::Variable,
     },
-    equation::Variable,
     gradients::GradientConfig,
 };
 

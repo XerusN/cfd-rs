@@ -2,12 +2,14 @@ use hashbrown::HashMap;
 use log::warn;
 use std::{
     cell::{RefCell, RefMut},
-    clone,
     ops::{Add, Deref, DerefMut, Div, Mul, Sub},
     vec,
 };
 
-use cfd_rs_utils::mesh::{assembled_mesh::{Mesh, MeshCore}, indices::CellIndex};
+use cfd_rs_utils::mesh::{
+    assembled_mesh::{Mesh, MeshCore},
+    indices::CellIndex,
+};
 use nalgebra::{DVector, Vector2};
 use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
 use nalgebra_sparse_linalg::iteratives::{
@@ -17,110 +19,23 @@ use nalgebra_sparse_linalg::iteratives::{
     IterativeSolver,
 };
 
-use crate::finite_volume::linalg::easy_jacobi;
+use crate::finite_volume::{equation::operations::Op, linalg::easy_jacobi};
 
 use super::{
     base::Field,
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
-    discretizations::{find_var_in_fields, DifferentialOperator},
     error::CfdError,
 };
+use discretizations::{find_var_in_fields, DifferentialOperator};
 
-use variable::{Variable, ControlVolume, Dimension};
+use variables::{ControlVolume, Dimension, Variable};
 
+pub mod discretizations;
 pub mod macros;
-pub mod variable;
-
-/// Implementation of the creation of calculation graph for matrix creation (OpenFoam style)
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Op {
-    Add(Box<(Op, Op)>),
-    Sub(Box<(Op, Op)>),
-    FieldOperator(FieldOperator),
-    MulScalar(f64, Box<Op>),
-    MulVector(Vector2<f64>, Box<Op>),
-    DivScalar(f64, Box<Op>),
-    Scalar(f64),
-    Vector2(Vector2<f64>),
-}
-
-impl Op {
-    pub fn collect_field_operators(&self, collector: &mut Vec<FieldOperator>) {
-        match self {
-            Op::Add(pair) | Op::Sub(pair) => {
-                Self::collect_field_operators(&pair.0, collector);
-                Self::collect_field_operators(&pair.1, collector);
-            }
-            Op::MulScalar(_, inner) | Op::DivScalar(_, inner) => {
-                Self::collect_field_operators(inner, collector);
-            }
-            Op::MulVector(_, inner) => {
-                Self::collect_field_operators(inner, collector);
-            }
-            Op::FieldOperator(f_op) => collector.push(f_op.clone()),
-            Op::Scalar(_) | Op::Vector2(_) => {}
-        }
-    }
-}
-
-impl Add for Op {
-    type Output = Op;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Op::Add(Box::new((self, rhs)))
-    }
-}
-
-impl Sub for Op {
-    type Output = Op;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Op::Sub(Box::new((self, rhs)))
-    }
-}
-
-impl Mul<f64> for Op {
-    type Output = Op;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        Op::MulScalar(rhs, Box::new(self))
-    }
-}
-
-impl Mul<Op> for f64 {
-    type Output = Op;
-
-    fn mul(self, rhs: Op) -> Self::Output {
-        Op::MulScalar(self, Box::new(rhs))
-    }
-}
-
-impl Mul<Vector2<f64>> for Op {
-    type Output = Op;
-
-    fn mul(self, rhs: Vector2<f64>) -> Self::Output {
-        Op::MulVector(rhs, Box::new(self))
-    }
-}
-
-impl Mul<Op> for Vector2<f64> {
-    type Output = Op;
-
-    fn mul(self, rhs: Op) -> Self::Output {
-        Op::MulVector(self, Box::new(rhs))
-    }
-}
-
-impl Div<f64> for Op {
-    type Output = Op;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        Op::DivScalar(rhs, Box::new(self))
-    }
-}
+pub mod operations;
+pub mod variables;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IntegrationCategory {
@@ -304,7 +219,6 @@ pub struct EquationSolver {
 
 impl EquationSolver {
     pub fn new<M: MeshCore>(mesh: &Mesh<M>, cv: ControlVolume) -> Self {
-        
         let n = match cv {
             ControlVolume::Cells => mesh.cells.n,
             ControlVolume::Nodes => mesh.nodes.n,
@@ -313,7 +227,7 @@ impl EquationSolver {
             ControlVolume::Cells => mesh.cells.neighboring_cells(),
             ControlVolume::Nodes => mesh.nodes.neighboring_pairs(),
         };
-        
+
         let mut matrix = CooMatrix::new(n, n);
 
         for i in 0..n {
@@ -346,7 +260,7 @@ impl EquationSolver {
     pub fn matrix_mut(&mut self) -> &mut CsrMatrix<f64> {
         &mut self.matrix
     }
-    
+
     pub fn cv(&self) -> &ControlVolume {
         &self.cv
     }
@@ -577,7 +491,7 @@ fn solve<M: MeshCore>(
         );
     }
 
-    match equation.unknown().dim {
+    match equation.unknown().dim() {
         Dimension::Scalar => {
             let mut result = false;
 

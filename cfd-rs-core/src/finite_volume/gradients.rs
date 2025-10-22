@@ -1,12 +1,14 @@
 use super::{
-    fields::{ScalarField, Field},
     boundary::BoundaryCondition,
     case::GradRequirements,
     equation::Component,
+    fields::{Field, ScalarField},
     interpolations::GradientInterpConfig,
 };
 use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}
+    assembled_mesh::{Mesh, MeshCore},
+    computational_mesh::{Computational2DMesh, Patch},
+    indices::{CellIndex, FaceIndex},
 };
 use nalgebra::Vector2;
 

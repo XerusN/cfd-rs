@@ -3,10 +3,13 @@ use cfd_rs_utils::{
     control::OutputControl,
     errors::MeshError,
     mesh::{
-        assembled_mesh::{Mesh, MeshCore}, computational_mesh::{
+        assembled_mesh::{Mesh, MeshCore},
+        computational_mesh::{
             manual_meshes::{quad_square, straight_line},
             BoundaryPatch, Computational2DMesh,
-        }, indices::{BoundaryPatchIndex, ParentIndex, VertexIndex}, Modifiable2DMesh, Parent
+        },
+        indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
+        Modifiable2DMesh, Parent,
     },
 };
 use nalgebra::Point2;
@@ -95,7 +98,11 @@ fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Mesh<Computational2DM
             let mesh = Computational2DMesh::new_from_he(mesh.0);
             Ok(Mesh::from(mesh))
         }
-        MeshingConfig::Cartesian { length, n_elements } => Ok(Mesh::from(quad_square(length, n_elements))),
-        MeshingConfig::Line { length, n_elements } => Ok(Mesh::from(straight_line(*length, *n_elements))),
+        MeshingConfig::Cartesian { length, n_elements } => {
+            Ok(Mesh::from(quad_square(length, n_elements)))
+        }
+        MeshingConfig::Line { length, n_elements } => {
+            Ok(Mesh::from(straight_line(*length, *n_elements)))
+        }
     }
 }

@@ -8,14 +8,17 @@ use cfd_rs_utils::mesh::{
     indices::CellIndex,
 };
 
+use crate::finite_volume::equation::variables::ControlVolume;
+
 use super::{
-    base::Field,
-    boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::{GradRequirements, VariableFields},
-    config::{CaseConfig, Schemes},
-    equation::{Component, Dimension, Equation, EquationSolver, IntegrationCategory, Variable},
+    super::{
+        base::Field,
+        boundary::{BoundaryCondition, FieldsBoundaryConditions},
+        case::{GradRequirements, VariableFields},
+        config::{CaseConfig, Schemes},
+    },
+    Component, Dimension, Equation, EquationSolver, IntegrationCategory, Variable,
 };
-use std::ops::DerefMut;
 
 pub mod convection;
 pub mod divergence;
@@ -72,6 +75,7 @@ impl DifferentialOperator {
         config: &CaseConfig,
         time_step: f64,
         coeff: f64,
+        equation_cv: &ControlVolume,
     ) {
         match self {
             Self::Laplacian(var, integration) => {
@@ -84,6 +88,7 @@ impl DifferentialOperator {
                     config,
                     &integration,
                     coeff,
+                    equation_cv,
                 );
             }
             Self::Convection {
@@ -100,6 +105,7 @@ impl DifferentialOperator {
                 config,
                 &integration,
                 coeff,
+                equation_cv,
             ),
             Self::Divergence(var, integration) => {
                 config.schemes.divergence.discretize(
@@ -110,12 +116,19 @@ impl DifferentialOperator {
                     config,
                     &integration,
                     coeff,
+                    equation_cv,
                 );
             }
-            Self::TimeDerivative(var) => config
-                .schemes
-                .transient
-                .discretize(&var, component, solver, mesh, fields, time_step, coeff),
+            Self::TimeDerivative(var) => config.schemes.transient.discretize(
+                &var,
+                component,
+                solver,
+                mesh,
+                fields,
+                time_step,
+                coeff,
+                equation_cv,
+            ),
         }
     }
 }

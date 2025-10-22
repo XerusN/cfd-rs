@@ -14,7 +14,7 @@ use crate::finite_volume::{
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
-    equation::{Component, EquationSolver, Variable},
+    equation::{variables::ControlVolume, Component, EquationSolver, Variable},
     mesh::mesh,
 };
 
@@ -42,11 +42,20 @@ impl TimeIntegration {
         fields: &VariableFields,
         time_step: f64,
         coeff: f64,
+        equation_cv: &ControlVolume,
     ) {
         let field = find_var_in_fields(var, fields);
 
         match *self {
-            Self::ForwardEuler => forward_euler(component, solver, mesh, field, time_step, coeff),
+            Self::ForwardEuler => forward_euler(
+                component,
+                solver,
+                mesh,
+                field,
+                time_step,
+                coeff,
+                equation_cv,
+            ),
         }
     }
 }
@@ -58,6 +67,7 @@ fn forward_euler(
     field: &RefCell<Field>,
     time_step: f64,
     coeff: f64,
+    equation_cv: &ControlVolume,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
