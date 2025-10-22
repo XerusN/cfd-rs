@@ -490,7 +490,7 @@ impl EquationSolver {
             }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
-                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, self.cv())
+                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, &self.cv().clone())
                 }
                 FieldOperator::Field(var, integration) => {
                     self.add_field(var, component, fields, mesh, coeff, integration)

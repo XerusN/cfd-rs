@@ -5,6 +5,6 @@ pub mod equation;
 pub mod error;
 pub mod fields;
 pub mod gradients;
-pub mod interpolations;
 pub mod linalg;
 pub mod mesh;
+pub mod interpolations;

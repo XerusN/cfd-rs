@@ -1,20 +1,17 @@
 use std::{
-    cell::{RefCell, RefMut},
+    cell::RefCell,
     ops::Deref,
 };
 
 use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::CellIndex
+    assembled_mesh::{Mesh, MeshCore}
 };
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
     fields::Field,
-    boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
-    config::CaseConfig,
     equation::{variables::ControlVolume, Component, EquationSolver, Variable},
-    mesh::mesh,
 };
 
 use super::find_var_in_fields;

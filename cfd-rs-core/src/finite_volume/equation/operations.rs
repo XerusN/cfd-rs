@@ -1,5 +1,5 @@
 use nalgebra::Vector2;
-use std::ops::{Add, Deref, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::finite_volume::equation::FieldOperator;
 
