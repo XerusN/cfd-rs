@@ -10,15 +10,14 @@ use std::{
 
 use cfd_rs_utils::mesh::{
     assembled_mesh::{Mesh, MeshCore},
-    computational_mesh::Computational2DMesh,
 };
 
-use crate::finite_volume::equation::{Component, ControlVolume};
+use crate::finite_volume::equation::Component;
 
 use super::{
-    base::{CellScalarField, Field},
+    fields::{ScalarField, Field},
     config::{self, CaseConfig, Schemes},
-    equation::{Dimension, Equation, EquationSolver, Variable},
+    equation::{variables::{Dimension, Variable, ControlVolume}, Equation, EquationSolver},
     error::CfdError,
 };
 
@@ -63,13 +62,13 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new(equations: &CaseEquations, mesh: &Computational2DMesh, config: &CaseConfig) -> Self {
+    pub fn new<M: MeshCore>(equations: &CaseEquations, mesh: &Mesh<M>, config: &CaseConfig) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
             match *var.dim() {
                 Dimension::Scalar => {
-                    let values = RefCell::new(Field::Scalar(CellScalarField::new(
+                    let values = RefCell::new(Field::Scalar(ScalarField::new(
                         mesh,
                         &grad_req,
                         &var,
@@ -80,8 +79,8 @@ impl VariableFields {
                 }
                 Dimension::Vector2 => {
                     let values = RefCell::new(Field::Vector2(Vector2::new(
-                        CellScalarField::new(mesh, &grad_req, &var, Component::X, config),
-                        CellScalarField::new(mesh, &grad_req, &var, Component::Y, config),
+                        ScalarField::new(mesh, &grad_req, &var, Component::X, config),
+                        ScalarField::new(mesh, &grad_req, &var, Component::Y, config),
                     )));
                     fields.insert(var, (values, grad_req));
                 }
@@ -167,7 +166,7 @@ pub trait Case<T: MeshCore> {
 
         writeln!(file, "      <CellData>")?;
 
-        export_scalar(&mut file, &mesh.cells.volumes, "Cell volumes")?;
+        export_scalar(&mut file, &mesh.cells.volumes(), "Cell volumes")?;
 
         writeln!(
             file,
@@ -175,7 +174,7 @@ pub trait Case<T: MeshCore> {
             "Cell id",
         )?;
         write!(file, "          ")?;
-        for id in 0..mesh.cells.centers.len() {
+        for id in 0..mesh.cells.n {
             write!(file, "{} ", id)?;
         }
         writeln!(file)?;
@@ -187,7 +186,7 @@ pub trait Case<T: MeshCore> {
 
         writeln!(file, "      <PointData>")?;
 
-        export_scalar(&mut file, &mesh.nodes.volumes, "Node volumes")?;
+        export_scalar(&mut file, &mesh.nodes.volumes(), "Node volumes")?;
 
         export_variables(&mut file, self, &ControlVolume::Nodes)?;
 
@@ -220,7 +219,7 @@ pub trait Case<T: MeshCore> {
 
         writeln!(file, "      <CellData>")?;
 
-        export_scalar(&mut file, &mesh.nodes.volumes, "Node volumes")?;
+        export_scalar(&mut file, &mesh.nodes.volumes(), "Node volumes")?;
 
         writeln!(
             file,
@@ -228,7 +227,7 @@ pub trait Case<T: MeshCore> {
             "Node id",
         )?;
         write!(file, "          ")?;
-        for id in 0..mesh.nodes.centers.len() {
+        for id in 0..mesh.nodes.n {
             write!(file, "{} ", id)?;
         }
         writeln!(file)?;
@@ -287,8 +286,8 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
             writeln!(
                 file,
                 "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-                mesh.nodes.centers.len(),
-                mesh.cells.centers.len()
+                mesh.nodes.n,
+                mesh.cells.n
             )?;
             writeln!(file, "      <Points>")?;
             writeln!(
@@ -296,7 +295,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
                 "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
             )?;
             write!(file, "          ")?;
-            for node in &mesh.nodes.centers {
+            for node in mesh.nodes.centers() {
                 write!(file, "{} {} 0 ", node.x, node.y)?;
             }
             writeln!(file)?;
@@ -309,7 +308,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
                 "        <DataArray type=\"UInt64\" Name=\"connectivity\" format=\"ascii\">"
             )?;
             write!(file, "          ")?;
-            for nodes in &mesh.cells.neighboring_nodes {
+            for nodes in mesh.cells.neighboring_nodes() {
                 for i_node in nodes {
                     write!(file, "{} ", i_node)?;
                 }
@@ -322,7 +321,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
             )?;
             write!(file, "          ")?;
             let mut offset = 0;
-            for faces in &mesh.cells.neighboring_pairs {
+            for faces in mesh.cells.neighboring_pairs() {
                 offset += faces.len();
                 write!(file, "{} ", offset)?;
             }
@@ -333,7 +332,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
                 "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
             )?;
             write!(file, "          ")?;
-            for faces in &mesh.cells.neighboring_pairs {
+            for faces in mesh.cells.neighboring_pairs() {
                 if faces.len() == 3 {
                     // Triangle
                     write!(file, "5 ")?;
@@ -349,14 +348,14 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
         ControlVolume::Nodes => {
             writeln!(file, "  <UnstructuredGrid>")?;
             let mut cv_points_number = 0;
-            for cv_nodes in &mesh.nodes.cv_nodes {
+            for cv_nodes in mesh.nodes.cv_nodes() {
                 cv_points_number += cv_nodes.len();
             }
             writeln!(
                 file,
                 "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
                 cv_points_number,
-                mesh.nodes.centers.len()
+                mesh.nodes.n
             )?;
             writeln!(file, "      <Points>")?;
             writeln!(
@@ -364,7 +363,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
                 "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">"
             )?;
             write!(file, "          ")?;
-            for cv_nodes in &mesh.nodes.cv_nodes {
+            for cv_nodes in mesh.nodes.cv_nodes() {
                 for node in cv_nodes {
                     write!(file, "{} {} 0 ", node.x, node.y)?;
                 }
@@ -380,7 +379,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
             )?;
             write!(file, "          ")?;
             let mut current_cv_node = 0;
-            for cv_nodes in &mesh.nodes.cv_nodes {
+            for cv_nodes in mesh.nodes.cv_nodes() {
                 for _ in cv_nodes {
                     write!(file, "{} ", current_cv_node)?;
                     current_cv_node += 1;
@@ -394,7 +393,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
             )?;
             write!(file, "          ")?;
             let mut offset = 0;
-            for cv_nodes in &mesh.nodes.cv_nodes {
+            for cv_nodes in mesh.nodes.cv_nodes() {
                 offset += cv_nodes.len();
                 write!(file, "{} ", offset)?;
             }
@@ -405,7 +404,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
                 "        <DataArray type=\"UInt64\" Name=\"types\" format=\"ascii\">"
             )?;
             write!(file, "          ")?;
-            for cv_nodes in &mesh.nodes.cv_nodes {
+            for cv_nodes in mesh.nodes.cv_nodes() {
                 if cv_nodes.len() == 3 {
                     write!(file, "5 ")?;
                 } else if cv_nodes.len() >= 4 {

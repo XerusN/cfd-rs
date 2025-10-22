@@ -10,7 +10,7 @@ use cfd_rs_utils::mesh::{
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    base::Field,
+    fields::Field,
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,

@@ -1,4 +1,3 @@
-pub mod base;
 pub mod boundary;
 pub mod case;
 pub mod config;

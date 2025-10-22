@@ -12,7 +12,7 @@ use crate::finite_volume::equation::variables::ControlVolume;
 
 use super::{
     super::{
-        base::Field,
+        fields::Field,
         boundary::{BoundaryCondition, FieldsBoundaryConditions},
         case::{GradRequirements, VariableFields},
         config::{CaseConfig, Schemes},

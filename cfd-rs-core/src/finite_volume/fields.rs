@@ -1,8 +1,7 @@
 use cfd_rs_utils::mesh::{
     assembled_mesh::{Mesh, MeshCore},
-    computational_mesh::Computational2DMesh,
 };
-use nalgebra::{DVector, Point2, Vector2};
+use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
     config::InitFunc,
@@ -11,8 +10,8 @@ use crate::finite_volume::{
 
 use super::{
     boundary::BoundaryCondition,
-    case::{CaseEquations, GradRequirements},
-    config::{self, CaseConfig},
+    case::GradRequirements,
+    config::CaseConfig,
     equation::Component,
     gradients::{update_grads, GradientConfig},
 };
@@ -30,9 +29,9 @@ impl Field {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScalarField {
     values: DVector<f64>,
-    face_values: DVector<f64>,
-    grads_cell: DVector<Vector2<f64>>,
-    grads_face: DVector<Vector2<f64>>,
+    faces_values: DVector<f64>,
+    grads_centers: DVector<Vector2<f64>>,
+    grads_faces: DVector<Vector2<f64>>,
     gradients_up_to_date: bool,
     cv: ControlVolume,
 }
@@ -81,20 +80,20 @@ impl ScalarField {
             }
         }
 
-        let face_values = DVector::zeros(mesh.pairs.n);
+        let faces_values = DVector::zeros(mesh.pairs.n);
 
-        let grads_cell;
+        let grads_centers;
         if grads_required.cell() | grads_required.face() {
-            grads_cell = DVector::zeros(n_values);
+            grads_centers = DVector::zeros(n_values);
         } else {
-            grads_cell = DVector::zeros(0);
+            grads_centers = DVector::zeros(0);
         }
 
-        let grads_face;
+        let grads_faces;
         if grads_required.face() {
-            grads_face = DVector::zeros(mesh.pairs.n);
+            grads_faces = DVector::zeros(mesh.pairs.n);
         } else {
-            grads_face = DVector::zeros(0);
+            grads_faces = DVector::zeros(0);
         }
 
         // println!(
@@ -107,9 +106,9 @@ impl ScalarField {
 
         ScalarField {
             values,
-            face_values,
-            grads_cell,
-            grads_face,
+            faces_values,
+            grads_centers,
+            grads_faces,
             gradients_up_to_date: false,
             cv: cv.clone(),
         }
@@ -125,30 +124,30 @@ impl ScalarField {
         &mut self.values
     }
 
-    pub fn face_values(&self) -> &DVector<f64> {
-        &self.face_values
+    pub fn faces_values(&self) -> &DVector<f64> {
+        &self.faces_values
     }
 
-    pub fn face_values_mut(&mut self) -> &mut DVector<f64> {
-        &mut self.face_values
+    pub fn faces_values_mut(&mut self) -> &mut DVector<f64> {
+        &mut self.faces_values
     }
 
-    pub fn grads_cell(&self) -> &DVector<Vector2<f64>> {
-        &self.grads_cell
-    }
-
-    /// Will not set the gradients as up to date
-    pub fn grads_cell_mut(&mut self) -> &mut DVector<Vector2<f64>> {
-        &mut self.grads_cell
-    }
-
-    pub fn grads_face(&self) -> &DVector<Vector2<f64>> {
-        &self.grads_face
+    pub fn grads_centers(&self) -> &DVector<Vector2<f64>> {
+        &self.grads_centers
     }
 
     /// Will not set the gradients as up to date
-    pub fn grads_face_mut(&mut self) -> &mut DVector<Vector2<f64>> {
-        &mut self.grads_face
+    pub fn grads_centers_mut(&mut self) -> &mut DVector<Vector2<f64>> {
+        &mut self.grads_centers
+    }
+
+    pub fn grads_faces(&self) -> &DVector<Vector2<f64>> {
+        &self.grads_faces
+    }
+
+    /// Will not set the gradients as up to date
+    pub fn grads_faces_mut(&mut self) -> &mut DVector<Vector2<f64>> {
+        &mut self.grads_faces
     }
 
     pub fn gradients_up_to_date(&self) -> bool {
@@ -170,9 +169,9 @@ impl ScalarField {
     ) {
         (
             &mut self.values,
-            &mut self.face_values,
-            &mut self.grads_cell,
-            &mut self.grads_face,
+            &mut self.faces_values,
+            &mut self.grads_centers,
+            &mut self.grads_faces,
         )
     }
 }

@@ -278,10 +278,7 @@ impl EquationSolver {
     }
 
     fn add_scalar<M: MeshCore>(&mut self, scalar: f64, mesh: &Mesh<M>) {
-        let volumes = match self.cv {
-            ControlVolume::Cells => mesh.cells.volumes(),
-            ControlVolume::Nodes => mesh.nodes.volumes(),
-        };
+        let volumes = self.cv.volumes(mesh);
         for (i, v) in self.rhs.iter_mut().enumerate() {
             *v -= scalar * volumes[i];
         }
@@ -295,17 +292,41 @@ impl EquationSolver {
         mesh: &Mesh<M>,
         coeff: f64,
     ) {
+        let volumes = self.cv.volumes(mesh);
+        
         let field = find_var_in_fields(var, fields);
         let field = field.borrow();
         let field = match *field {
             Field::Scalar(ref values) => values,
             Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
         };
+        let grads = match self.cv {
+            ControlVolume::Cells => {
+                match field.cv() {
+                    ControlVolume::Cells => {
+                        field.grads_cell()
+                    },
+                    ControlVolume::Nodes => {
+                        todo!()
+                    },
+                }
+            },
+            ControlVolume::Nodes => {
+                match field.cv() {
+                    ControlVolume::Cells => {
+                        field.grads_cell()
+                    },
+                    ControlVolume::Nodes => {
+                        field.grads_cell()
+                    },
+                }
+            },
+        };
 
         match component {
             Component::X => {
                 for (i, v) in self.rhs.iter_mut().enumerate() {
-                    *v -= field.grads_cell()[i].x * coeff * mesh.cells()[i].volume();
+                    *v -= grads[i].x * coeff * mesh.cells()[i].volume();
                 }
             }
             Component::Y => {

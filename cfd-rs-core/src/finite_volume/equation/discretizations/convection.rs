@@ -7,7 +7,7 @@ use cfd_rs_utils::mesh::{
 use nalgebra::{Scalar, Vector2};
 
 use crate::finite_volume::{
-    base::Field,
+    fields::Field,
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,

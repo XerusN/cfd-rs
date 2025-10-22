@@ -4,7 +4,7 @@ use cfd_rs_utils::mesh::{computational_mesh::Computational2DMesh, indices::CellI
 use nalgebra::Vector2;
 
 use crate::finite_volume::{
-    base::Field,
+    fields::Field,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
     equation::{variables::ControlVolume, EquationSolver, IntegrationCategory, Variable},

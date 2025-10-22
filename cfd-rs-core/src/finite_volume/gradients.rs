@@ -7,7 +7,6 @@ use super::{
 };
 use cfd_rs_utils::mesh::{
     assembled_mesh::{Mesh, MeshCore},
-    computational_mesh::{Computational2DMesh, Patch},
     indices::{CellIndex, FaceIndex},
 };
 use nalgebra::Vector2;
