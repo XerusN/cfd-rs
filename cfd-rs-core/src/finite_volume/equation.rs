@@ -1,29 +1,19 @@
 use hashbrown::HashMap;
 use log::warn;
 use std::{
-    cell::{RefCell, RefMut},
-    ops::{Add, Deref, DerefMut, Div, Mul, Sub},
+    ops::Deref,
     vec,
 };
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore},
-    indices::CellIndex,
-};
-use nalgebra::{DVector, Vector2};
-use nalgebra_sparse::{csr::CsrRowMut, CooMatrix, CsrMatrix};
-use nalgebra_sparse_linalg::iteratives::{
-    self,
-    amg::Amg,
-    gauss_seidel::{self, GaussSeidel},
-    IterativeSolver,
-};
+use cfd_rs_utils::mesh::
+    assembled_mesh::{Mesh, MeshCore};
+use nalgebra::DVector;
+use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use crate::finite_volume::{equation::operations::Op, linalg::easy_jacobi};
 
 use super::{
     fields::Field,
-    boundary::{BoundaryCondition, FieldsBoundaryConditions},
     case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
     error::CfdError,

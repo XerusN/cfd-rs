@@ -7,4 +7,3 @@ pub mod fields;
 pub mod gradients;
 pub mod linalg;
 pub mod mesh;
-pub mod interpolations;

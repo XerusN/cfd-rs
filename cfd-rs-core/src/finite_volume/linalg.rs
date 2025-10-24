@@ -1,4 +1,4 @@
-use nalgebra::{DVector, Normed};
+use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 
 #[derive(Debug, Clone, PartialEq)]

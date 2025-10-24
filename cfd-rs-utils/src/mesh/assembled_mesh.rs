@@ -7,7 +7,7 @@ pub use core::{MeshCore, Patch};
 pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
-    cell::Cell, fs::File, io::{self, Write}, path::PathBuf
+    fs::File, io::{self, Write}, path::PathBuf, vec
 };
 
 use crate::geometry::{area, centroid_and_area};
@@ -58,13 +58,19 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
         let mut pairs_centers = Vec::with_capacity(n_pairs);
         let mut pairs_lengths = Vec::with_capacity(n_pairs);
-        let mut pairs_normals = Vec::with_capacity(n_pairs);
         let mut pairs_nodes = Vec::with_capacity(n_pairs);
+        let mut pairs_vectors = Vec::with_capacity(n_pairs);
         let mut pairs_neighboring_cells = Vec::with_capacity(n_pairs);
+        let mut pairs_cells_normals = Vec::with_capacity(n_pairs);
+        let mut pairs_cells_areas = Vec::with_capacity(n_pairs);
+        let mut pairs_nodes_normals = Vec::with_capacity(n_pairs);
+        let mut pairs_nodes_areas = Vec::with_capacity(n_pairs);
+        let mut pairs_on_bnd = Vec::with_capacity(n_pairs);
 
         let mut boundaries_names = Vec::with_capacity(n_boundaries);
         let mut boundaries_nodes = Vec::with_capacity(n_boundaries);
         let mut boundaries_faces = Vec::with_capacity(n_boundaries);
+        let mut boundaries_cells = Vec::with_capacity(n_boundaries);
 
         // ---------------------------
 
@@ -73,6 +79,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             boundaries_names.push(core.boundary(i_bnd));
             boundaries_faces.push(vec![]);
             boundaries_nodes.push(vec![]);
+            boundaries_cells.push(vec![]);
         }
         for i_node in 0..n_nodes {
             nodes_centers.push(core.node(i_node));
@@ -158,13 +165,22 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_nodes.push(core.face_to_nodes(i_pair));
 
             let pair_to_neighbors = core.face_to_neighbors(i_pair);
-            for patch in &pair_to_neighbors {
+            for (i_patch, patch) in pair_to_neighbors.iter().enumerate() {
                 match patch {
-                    Patch::Boundary(i_bnd) => boundaries_faces[*i_bnd].push(i_pair),
+                    Patch::Boundary(i_bnd) => {
+                        boundaries_faces[*i_bnd].push(i_pair);
+                        pairs_on_bnd[i_pair] = true;
+                        if let Patch::Cell(i_cell) = pair_to_neighbors[(i_patch + 1) % 2] {
+                            boundaries_cells[*i_bnd].push(i_cell);
+                        } else {
+                            panic!()
+                        }
+                    },
                     Patch::Cell(_) => (),
                 }
             }
             pairs_neighboring_cells.push(pair_to_neighbors);
+            pairs_on_bnd.push(false);
         }
 
         // Geometry
@@ -172,8 +188,15 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             let i_nodes = pairs_nodes[i_pair];
             let nodes = [core.node(i_nodes[0]), core.node(i_nodes[1])];
             pairs_centers.push(nodes[0].lerp(&nodes[1], 0.5));
-            pairs_lengths.push((nodes[1] - nodes[0]).magnitude());
-            pairs_normals.push((nodes[1] - nodes[0]).normalize());
+            let length = (nodes[1] - nodes[0]).magnitude();
+            pairs_lengths.push(length);
+            let vector = (nodes[1] - nodes[0]).normalize();
+            pairs_vectors.push(vector);
+            pairs_cells_normals.push(Vector2::new(vector.y, - vector.x));
+            pairs_cells_areas.push(length);
+            
+            pairs_nodes_areas.push(0.);
+            pairs_nodes_normals.push(Vector2::zeros());
         }
         for i_cell in 0..n_cells {
             let mut nodes = Vec::with_capacity(cells_neighboring_nodes[i_cell].len());
@@ -234,6 +257,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             let mut normals = Vec::with_capacity(cv_nodes.len() / 2);
             // for node in 0..cv_nodes.len() / 2 {
             let mut node = 0;
+            let mut pair = 0;
             loop {
                 let vector;
                 let is_bnd;
@@ -252,13 +276,20 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let area_2 = if !is_bnd { vector.magnitude() } else { 0. };
                 let vector = vector.normalize();
                 let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
-                areas.push(area_1 + area_2);
-                normals.push(normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)));
+                let area = area_1 + area_2;
+                areas.push(area);
+                pairs_nodes_areas[pair] = area;
+                let normal = normal_1.lerp(&normal_2, area_2 / (area_1 + area_2));
+                normals.push(normal);
+                pairs_nodes_normals[pair] = normal;
+                
+                
                 if (is_bnd) && (cv_nodes[(node + 2) % cv_nodes.len()] == nodes_centers[i_node]) {
                     node += 3;
                 } else {
                     node += 2;
                 }
+                pair += 1;
 
                 if node >= cv_nodes.len() {
                     break;
@@ -297,12 +328,17 @@ impl<T: MeshCore> From<T> for Mesh<T> {
         let pairs = Pairs::new(
             pairs_centers,
             pairs_lengths,
-            pairs_normals,
             pairs_nodes,
+            pairs_vectors,
             pairs_neighboring_cells,
+            pairs_cells_normals,
+            pairs_cells_areas,
+            pairs_nodes_normals,
+            pairs_nodes_areas,
+            pairs_on_bnd,
         );
 
-        let boundaries = Boundaries::new(boundaries_names, boundaries_faces, boundaries_nodes);
+        let boundaries = Boundaries::new(boundaries_names, boundaries_faces, boundaries_nodes, boundaries_cells);
 
         Mesh {
             core,

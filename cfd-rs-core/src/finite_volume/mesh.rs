@@ -3,7 +3,7 @@ use cfd_rs_utils::{
     control::OutputControl,
     errors::MeshError,
     mesh::{
-        assembled_mesh::{Mesh, MeshCore},
+        assembled_mesh::Mesh,
         computational_mesh::{
             manual_meshes::{quad_square, straight_line},
             BoundaryPatch, Computational2DMesh,

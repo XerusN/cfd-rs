@@ -1,10 +1,7 @@
-use std::ops::Index;
-
-use cfd_rs_utils::mesh::indices::BoundaryPatchIndex;
 use hashbrown::HashMap;
-use nalgebra::{Scalar, Vector2};
+use nalgebra::Vector2;
 
-use super::equation::{Component, Variable};
+use super::equation::{Component, variables::Variable};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum BoundaryCondition {

@@ -5,14 +5,16 @@ pub struct Boundaries {
     names: Vec<String>,
     faces: Vec<Vec<usize>>,
     nodes: Vec<Vec<usize>>,
+    cells: Vec<Vec<usize>>,
 }
 
 impl Boundaries {
-    pub fn new(names: Vec<String>, faces: Vec<Vec<usize>>, nodes: Vec<Vec<usize>>) -> Self {
+    pub fn new(names: Vec<String>, faces: Vec<Vec<usize>>, nodes: Vec<Vec<usize>>, cells: Vec<Vec<usize>>) -> Self {
         Self {
             names,
             faces,
             nodes,
+            cells,
         }
     }
 }

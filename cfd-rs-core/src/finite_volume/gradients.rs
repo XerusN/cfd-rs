@@ -3,10 +3,9 @@ use super::{
     case::GradRequirements,
     equation::Component,
     fields::{Field, ScalarField},
-    interpolations::GradientInterpConfig,
 };
 use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore},
+    assembled_mesh::{Mesh, MeshCore, Patch},
     indices::{CellIndex, FaceIndex},
 };
 use nalgebra::Vector2;
@@ -19,6 +18,13 @@ pub enum GradientScheme {
     GreenGaussCompact,
     GreenGaussExtended,
     LeastSquare,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum GradientInterpConfig {
+    Averaged,
+    #[default]
+    AveragedCorrected,
 }
 
 #[derive(Clone, Debug, PartialEq)]
