@@ -4,7 +4,7 @@ use cfd_rs_utils::mesh::{
     assembled_mesh::{Mesh, MeshCore}
 };
 
-use crate::finite_volume::equation::variables::ControlVolume;
+use crate::finite_volume::equation::variables::ControlVolumeType;
 
 use super::{
     super::{
@@ -70,7 +70,7 @@ impl DifferentialOperator {
         config: &CaseConfig,
         time_step: f64,
         coeff: f64,
-        equation_cv: &ControlVolume,
+        equation_cvt: &ControlVolumeType,
     ) {
         match self {
             Self::Laplacian(var, integration) => {
@@ -83,7 +83,7 @@ impl DifferentialOperator {
                     config,
                     &integration,
                     coeff,
-                    equation_cv,
+                    equation_cvt,
                 );
             }
             Self::Convection {
@@ -100,7 +100,7 @@ impl DifferentialOperator {
                 config,
                 &integration,
                 coeff,
-                equation_cv,
+                equation_cvt,
             ),
             Self::Divergence(var, integration) => {
                 config.schemes.divergence.discretize(
@@ -111,7 +111,7 @@ impl DifferentialOperator {
                     config,
                     &integration,
                     coeff,
-                    equation_cv,
+                    equation_cvt,
                 );
             }
             Self::TimeDerivative(var) => config.schemes.transient.discretize(
@@ -122,7 +122,7 @@ impl DifferentialOperator {
                 fields,
                 time_step,
                 coeff,
-                equation_cv,
+                equation_cvt,
             ),
         }
     }

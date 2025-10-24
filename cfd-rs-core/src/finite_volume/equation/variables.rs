@@ -4,7 +4,7 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 pub struct Variable {
     name: String,
     dim: Dimension,
-    cv: ControlVolume,
+    cvt: ControlVolumeType,
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
@@ -14,23 +14,23 @@ pub enum Dimension {
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum ControlVolume {
+pub enum ControlVolumeType {
     Nodes,
     Cells,
 }
 
-impl ControlVolume {
+impl ControlVolumeType {
     pub fn volumes<'a, M: MeshCore>(&self, mesh: &'a Mesh<M>) -> &'a [f64] {
         match self {
-            ControlVolume::Cells => mesh.cells.volumes(),
-            ControlVolume::Nodes => mesh.nodes.volumes(),
+            ControlVolumeType::Cells => mesh.cells.volumes(),
+            ControlVolumeType::Nodes => mesh.nodes.volumes(),
         }
     }
 }
 
 impl Variable {
-    pub fn new(name: String, dim: Dimension, cv: ControlVolume) -> Self {
-        Variable { name, dim, cv }
+    pub fn new(name: String, dim: Dimension, cvt: ControlVolumeType) -> Self {
+        Variable { name, dim, cvt }
     }
 
     pub fn name(&self) -> &str {
@@ -41,7 +41,7 @@ impl Variable {
         &self.dim
     }
 
-    pub fn cv(&self) -> &ControlVolume {
-        &self.cv
+    pub fn cvt(&self) -> &ControlVolumeType {
+        &self.cvt
     }
 }

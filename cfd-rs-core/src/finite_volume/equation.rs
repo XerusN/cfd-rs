@@ -20,7 +20,7 @@ use super::{
 };
 use discretizations::{find_var_in_fields, DifferentialOperator};
 
-use variables::{ControlVolume, Dimension, Variable};
+use variables::{ControlVolumeType, Dimension, Variable};
 
 pub mod discretizations;
 pub mod macros;
@@ -204,18 +204,18 @@ impl Equation {
 pub struct EquationSolver {
     matrix: CsrMatrix<f64>,
     rhs: DVector<f64>,
-    cv: ControlVolume,
+    cvt: ControlVolumeType,
 }
 
 impl EquationSolver {
-    pub fn new<M: MeshCore>(mesh: &Mesh<M>, cv: ControlVolume) -> Self {
-        let n = match cv {
-            ControlVolume::Cells => mesh.cells.n,
-            ControlVolume::Nodes => mesh.nodes.n,
+    pub fn new<M: MeshCore>(mesh: &Mesh<M>, cvt: ControlVolumeType) -> Self {
+        let n = match cvt {
+            ControlVolumeType::Cells => mesh.cells.n,
+            ControlVolumeType::Nodes => mesh.nodes.n,
         };
-        let neighbors = match cv {
-            ControlVolume::Cells => mesh.cells.neighboring_cells(),
-            ControlVolume::Nodes => mesh.nodes.neighboring_pairs(),
+        let neighbors = match cvt {
+            ControlVolumeType::Cells => mesh.cells.neighboring_cells(),
+            ControlVolumeType::Nodes => mesh.nodes.neighboring_pairs(),
         };
 
         let mut matrix = CooMatrix::new(n, n);
@@ -231,7 +231,7 @@ impl EquationSolver {
 
         let rhs = DVector::zeros(n);
 
-        EquationSolver { matrix, rhs, cv }
+        EquationSolver { matrix, rhs, cvt }
     }
 
     pub fn clear(&mut self) {
@@ -251,8 +251,8 @@ impl EquationSolver {
         &mut self.matrix
     }
 
-    pub fn cv(&self) -> &ControlVolume {
-        &self.cv
+    pub fn cvt(&self) -> &ControlVolumeType {
+        &self.cvt
     }
 
     pub fn rhs(&self) -> &DVector<f64> {
@@ -268,7 +268,7 @@ impl EquationSolver {
     }
 
     fn add_scalar<M: MeshCore>(&mut self, scalar: f64, mesh: &Mesh<M>) {
-        let volumes = self.cv.volumes(mesh);
+        let volumes = self.cvt.volumes(mesh);
         for (i, v) in self.rhs.iter_mut().enumerate() {
             *v -= scalar * volumes[i];
         }
@@ -282,7 +282,7 @@ impl EquationSolver {
         mesh: &Mesh<M>,
         coeff: f64,
     ) {
-        let volumes = self.cv.volumes(mesh);
+        let volumes = self.cvt.volumes(mesh);
         
         let field = find_var_in_fields(var, fields);
         let field = field.borrow();
@@ -290,23 +290,23 @@ impl EquationSolver {
             Field::Scalar(ref values) => values,
             Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
         };
-        let grads = match self.cv {
-            ControlVolume::Cells => {
-                match var.cv() {
-                    ControlVolume::Cells => {
+        let grads = match self.cvt {
+            ControlVolumeType::Cells => {
+                match var.cvt() {
+                    ControlVolumeType::Cells => {
                         field.grads_centers()
                     },
-                    ControlVolume::Nodes => {
+                    ControlVolumeType::Nodes => {
                         todo!()
                     },
                 }
             },
-            ControlVolume::Nodes => {
-                match var.cv() {
-                    ControlVolume::Cells => {
+            ControlVolumeType::Nodes => {
+                match var.cvt() {
+                    ControlVolumeType::Cells => {
                         todo!()
                     },
-                    ControlVolume::Nodes => {
+                    ControlVolumeType::Nodes => {
                         field.grads_centers()
                     },
                 }
@@ -336,7 +336,7 @@ impl EquationSolver {
         coeff: f64,
         integration: &IntegrationCategory,
     ) {
-        let volumes = self.cv.volumes(mesh);
+        let volumes = self.cvt.volumes(mesh);
         
         match integration {
             IntegrationCategory::Explicit => {
@@ -349,23 +349,23 @@ impl EquationSolver {
                         Component::Y => &value.y,
                     },
                 };
-                let values = match self.cv {
-                    ControlVolume::Cells => {
-                        match var.cv() {
-                            ControlVolume::Cells => {
+                let values = match self.cvt {
+                    ControlVolumeType::Cells => {
+                        match var.cvt() {
+                            ControlVolumeType::Cells => {
                                 field.values()
                             },
-                            ControlVolume::Nodes => {
+                            ControlVolumeType::Nodes => {
                                 todo!()
                             },
                         }
                     },
-                    ControlVolume::Nodes => {
-                        match var.cv() {
-                            ControlVolume::Cells => {
+                    ControlVolumeType::Nodes => {
+                        match var.cvt() {
+                            ControlVolumeType::Cells => {
                                 todo!()
                             },
-                            ControlVolume::Nodes => {
+                            ControlVolumeType::Nodes => {
                                 field.faces_values()
                             },
                         }
@@ -377,7 +377,7 @@ impl EquationSolver {
                 }
             }
             IntegrationCategory::Implicit => {
-                if self.cv != *var.cv() {
+                if self.cvt != *var.cvt() {
                     panic!();
                 }
                 for (i, j, value) in self.matrix_mut().triplet_iter_mut() {
@@ -480,7 +480,7 @@ impl EquationSolver {
             }
             Op::FieldOperator(f_op) => match f_op {
                 FieldOperator::DifferentialOperator(diff_op) => {
-                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, &self.cv().clone())
+                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, &self.cvt().clone())
                 }
                 FieldOperator::Field(var, integration) => {
                     self.add_field(var, component, fields, mesh, coeff, integration)

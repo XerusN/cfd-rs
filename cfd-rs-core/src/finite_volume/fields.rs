@@ -5,7 +5,7 @@ use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
     config::InitFunc,
-    equation::variables::{ControlVolume, Variable},
+    equation::variables::{ControlVolumeType, Variable},
 };
 
 use super::{
@@ -33,7 +33,7 @@ pub struct ScalarField {
     grads_centers: DVector<Vector2<f64>>,
     grads_faces: DVector<Vector2<f64>>,
     gradients_up_to_date: bool,
-    cv: ControlVolume,
+    cvt: ControlVolumeType,
 }
 
 impl ScalarField {
@@ -61,19 +61,19 @@ impl ScalarField {
             },
         };
 
-        let cv = variable.cv();
-        let n_values = match cv {
-            ControlVolume::Cells => mesh.cells.n,
-            ControlVolume::Nodes => mesh.nodes.n,
+        let cvt = variable.cvt();
+        let n_values = match cvt {
+            ControlVolumeType::Cells => mesh.cells.n,
+            ControlVolumeType::Nodes => mesh.nodes.n,
         };
         let mut values = DVector::zeros(n_values);
         match cv {
-            ControlVolume::Cells => {
+            ControlVolumeType::Cells => {
                 for (i, centers) in mesh.cells.centers().iter().enumerate() {
                     values[i] = init(centers);
                 }
             }
-            ControlVolume::Nodes => {
+            ControlVolumeType::Nodes => {
                 for (i, centers) in mesh.nodes.centers().iter().enumerate() {
                     values[i] = init(centers);
                 }
@@ -110,7 +110,7 @@ impl ScalarField {
             grads_centers,
             grads_faces,
             gradients_up_to_date: false,
-            cv: cv.clone(),
+            cvt: cvt.clone(),
         }
     }
 
@@ -166,12 +166,14 @@ impl ScalarField {
         &mut DVector<f64>,
         &mut DVector<Vector2<f64>>,
         &mut DVector<Vector2<f64>>,
+        &ControlVolumeType,
     ) {
         (
             &mut self.values,
             &mut self.faces_values,
             &mut self.grads_centers,
             &mut self.grads_faces,
+            &self.cvt
         )
     }
 }

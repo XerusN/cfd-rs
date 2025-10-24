@@ -1,3 +1,5 @@
+use crate::finite_volume::equation::variables::ControlVolumeType;
+
 use super::{
     boundary::BoundaryCondition,
     case::GradRequirements,
@@ -96,6 +98,54 @@ fn update_grad_scalar<M: MeshCore>(
 }
 
 fn green_gauss_compact<M: MeshCore>(
+    field: &mut ScalarField,
+    mesh: &Mesh<M>,
+    bc: &Vec<BoundaryCondition>,
+    component: &Component,
+) {
+    let (values, face_values, grads, _, cvt) = field.get_deconstructed_field_mut();
+    
+    let pairs = &mesh.pairs;
+    let bnd = &mesh.boundaries;
+    
+    
+    for pair in 0..pairs.n {
+        if pairs.on_bnd()[pair] {
+            continue;
+        }
+        
+        let i_cv = match cvt {
+            ControlVolumeType::Cells => {
+                let patches = &pairs.neighboring_cells()[pair];
+                [
+                    {
+                        if let Patch::Cell(i_cell) = patches[0] { i_cell } else {panic!()}
+                    },
+                    {
+                        if let Patch::Cell(i_cell) = patches[1] { i_cell } else {panic!()}
+                    },
+                ]
+            },
+            ControlVolumeType::Nodes => pairs.nodes()[pair],
+        };
+        
+        let area = match cvt {
+            ControlVolumeType::Cells => pairs.cells_areas()[pair],
+            ControlVolumeType::Nodes => pairs.nodes_areas()[pair],
+        };
+        let normals = match cvt {
+            ControlVolumeType::Cells => pairs.cells_normals()[pair],
+            ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
+        };
+        
+        face_values[pair] = (values[i_cv[0]] + values[i_cv[1]]) * 0.5;
+    }
+    
+    for i_bnd in bnd.n
+
+}
+
+fn green_gauss_compact_old<M: MeshCore>(
     field: &mut ScalarField,
     mesh: &Mesh<M>,
     bc: &Vec<BoundaryCondition>,
