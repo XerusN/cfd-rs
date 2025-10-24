@@ -39,7 +39,7 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
 
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
-        directory: "./target/exports".to_string(),
+        directory: "./exports".to_string(),
     };
 
     let mut bc_fields = HashMap::new();
@@ -162,7 +162,7 @@ pub fn divergence_source_x(point: &Point2<f64>) -> f64 {
 fn main() {
     
     let geometry = GeometryConfig {
-        import_path: Some("./target/exports/mesh.cfd".to_string()),
+        import_path: Some("../meshes/mesh.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
     let geometry = GeometryConfig {

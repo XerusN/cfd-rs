@@ -53,7 +53,7 @@ pub fn update_grads(
                 mesh,
                 config,
                 bc,
-                &Component::X,
+                &Component::Y,
             );
         }
     }
