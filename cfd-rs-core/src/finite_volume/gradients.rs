@@ -53,7 +53,7 @@ pub fn update_grads<M: MeshCore>(
                 mesh,
                 config,
                 bc,
-                &Component::X,
+                &Component::Y,
             );
         }
     }
