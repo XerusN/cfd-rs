@@ -67,7 +67,7 @@ impl ScalarField {
             ControlVolumeType::Nodes => mesh.nodes.n,
         };
         let mut values = DVector::zeros(n_values);
-        match cv {
+        match cvt {
             ControlVolumeType::Cells => {
                 for (i, centers) in mesh.cells.centers().iter().enumerate() {
                     values[i] = init(centers);

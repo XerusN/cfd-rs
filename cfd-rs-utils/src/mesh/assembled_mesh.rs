@@ -162,6 +162,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             cells_neighboring_cells.push(neighboring_patches.iter().filter(|patch| if let Patch::Cell(_) = patch { true } else { false }).map(|cell_patch| if let Patch::Cell(i_cell) = cell_patch {*i_cell} else {panic!()}).collect());
         }
         for i_pair in 0..n_pairs {
+            pairs_on_bnd.push(false);
             pairs_nodes.push(core.face_to_nodes(i_pair));
 
             let pair_to_neighbors = core.face_to_neighbors(i_pair);
@@ -180,7 +181,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 }
             }
             pairs_neighboring_cells.push(pair_to_neighbors);
-            pairs_on_bnd.push(false);
+            
         }
 
         // Geometry
@@ -208,14 +209,9 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             let mut areas = Vec::with_capacity(nodes.len());
             let mut normals = Vec::with_capacity(nodes.len());
             for i_node in 0..nodes.len() {
-                let vector;
-                if i_node == 0 {
-                    vector = nodes[i_node] - nodes[nodes.len() - 1];
-                } else {
-                    vector = nodes[i_node] - nodes[i_node - 1];
-                }
+                let vector = nodes[i_node + 1] - nodes[i_node % nodes.len()];
                 areas.push(vector.magnitude());
-                normals.push(Vector2::new(vector.y, -vector.x).normalize());
+                normals.push(Vector2::new(-vector.y, vector.x).normalize());
             }
             cells_centers.push(center);
             cells_areas.push(areas);

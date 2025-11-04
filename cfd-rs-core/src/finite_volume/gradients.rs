@@ -100,7 +100,7 @@ fn update_grad_scalar<M: MeshCore>(
 fn green_gauss_compact<M: MeshCore>(
     field: &mut ScalarField,
     mesh: &Mesh<M>,
-    bc: &Vec<BoundaryCondition>,
+    boundary_conditions: &Vec<BoundaryCondition>,
     component: &Component,
 ) {
     let (values, face_values, grads, _, cvt) = field.get_deconstructed_field_mut();
@@ -108,41 +108,101 @@ fn green_gauss_compact<M: MeshCore>(
     let pairs = &mesh.pairs;
     let bnd = &mesh.boundaries;
     
-    
-    for pair in 0..pairs.n {
-        if pairs.on_bnd()[pair] {
-            continue;
+    for i_iter in 0..GREEN_GAUSS_COMPACT_ITER {
+        for pair in 0..pairs.n {
+            if pairs.on_bnd()[pair] {
+                continue;
+            }
+            
+            let i_cv = match cvt {
+                ControlVolumeType::Cells => {
+                    let patches = &pairs.neighboring_cells()[pair];
+                    [
+                        {
+                            if let Patch::Cell(i_cell) = patches[0] { i_cell } else {panic!()}
+                        },
+                        {
+                            if let Patch::Cell(i_cell) = patches[1] { i_cell } else {panic!()}
+                        },
+                    ]
+                },
+                ControlVolumeType::Nodes => pairs.nodes()[pair],
+            };
+            
+            let area = match cvt {
+                ControlVolumeType::Cells => pairs.cells_areas()[pair],
+                ControlVolumeType::Nodes => pairs.nodes_areas()[pair],
+            };
+            let normals = match cvt {
+                ControlVolumeType::Cells => pairs.cells_normals()[pair],
+                ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
+            };
+            
+            face_values[pair] = (values[i_cv[0]] + values[i_cv[1]]) * 0.5;
+            if i_iter != 0 {
+                
+            }
         }
         
-        let i_cv = match cvt {
-            ControlVolumeType::Cells => {
-                let patches = &pairs.neighboring_cells()[pair];
-                [
-                    {
-                        if let Patch::Cell(i_cell) = patches[0] { i_cell } else {panic!()}
-                    },
-                    {
-                        if let Patch::Cell(i_cell) = patches[1] { i_cell } else {panic!()}
-                    },
-                ]
-            },
-            ControlVolumeType::Nodes => pairs.nodes()[pair],
-        };
+        for (i_bnd, bc) in boundary_conditions.iter().enumerate() {
+            match cvt {
+                ControlVolumeType::Nodes => {
+                    match bc {
+                        BoundaryCondition::Dirichlet(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            for &pair in &bnd.faces()[i_bnd] {
+                                face_values[pair] = bc_value;
+                            }
+                        },
+                        BoundaryCondition::Neumann(bc_value) => {
+                            todo!()
+                        },
+                    }
+                },
+                ControlVolumeType::Cells => {
+                    match bc {
+                        BoundaryCondition::Dirichlet(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            for &pair in &bnd.faces()[i_bnd] {
+                                face_values[pair] = bc_value;
+                            }
+                        },
+                        BoundaryCondition::Neumann(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            for i in 0..bnd.faces()[i_bnd].len() {
+                                let i_face = bnd.faces()[i_bnd][i];
+                                let i_cell = bnd.faces()[i_bnd][i];
+                                match pairs.neighboring_cells()[i_face][0] {
+                                    Patch::Cell(_) => {
+                                        // Check sign in .dot()
+                                        face_values[i_face] = values[i_cell] + bc_value * (pairs.centers()[i_face] - mesh.cells.centers()[i_cell]).dot(&(- pairs.cells_normals()[i_face]))
+                                    }
+                                    Patch::Boundary(_) => {
+                                        face_values[i_face] = values[i_cell] + bc_value * (pairs.centers()[i_face] - mesh.cells.centers()[i_cell]).dot(&pairs.cells_normals()[i_face])
+                                    },
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        }
         
-        let area = match cvt {
-            ControlVolumeType::Cells => pairs.cells_areas()[pair],
-            ControlVolumeType::Nodes => pairs.nodes_areas()[pair],
-        };
-        let normals = match cvt {
-            ControlVolumeType::Cells => pairs.cells_normals()[pair],
-            ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
-        };
         
-        face_values[pair] = (values[i_cv[0]] + values[i_cv[1]]) * 0.5;
+        for (cell, grad) in grads.iter_mut().enumerate() {
+            let (faces_id, normals) = mesh.normals_from_cell_with_faces_id(CellIndex(cell));
+
+            grad.x = 0.;
+            grad.y = 0.;
+            for (i, face_id) in faces_id.iter().enumerate() {
+                *grad += face_values[face_id.0] * normals[i] * mesh.faces()[face_id.0].area();
+            }
+
+            *grad /= mesh.cells()[cell].volume();
+        }
+        
     }
     
-    for i_bnd in bnd.n
-
 }
 
 fn green_gauss_compact_old<M: MeshCore>(
