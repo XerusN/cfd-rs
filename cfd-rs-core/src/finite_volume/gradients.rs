@@ -8,9 +8,7 @@ use super::{
 };
 use cfd_rs_utils::mesh::{
     assembled_mesh::{Mesh, MeshCore, Patch},
-    indices::{CellIndex, FaceIndex},
 };
-use nalgebra::Vector2;
 
 /// Recommanded value in book: 2
 const GREEN_GAUSS_COMPACT_ITER: usize = 2;
@@ -251,83 +249,114 @@ fn green_gauss_compact<M: MeshCore>(
 fn averaged_corrected_interp<M: MeshCore>(
     field: &mut ScalarField,
     mesh: &Mesh<M>,
-    bc: &Vec<BoundaryCondition>,
+    boundary_conditions: &Vec<BoundaryCondition>,
     component: &Component,
 ) {
-    let (values, _, grads, face_grads) = field.get_deconstructed_field_mut();
-
-    for (i, face_grad) in face_grads.iter_mut().enumerate() {
-        let (patch_1, patch_2, g_c) = mesh.geometric_weighting_factor(FaceIndex(i));
-
-        let id_1 = match *patch_1 {
-            Patch::Cell(id) => id,
-            Patch::Boundary(id) => {
-                let id_2 = match *patch_2 {
-                    Patch::Cell(id) => id,
-                    Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
-                };
-
-                // Check!!
-                match &bc[id.0] {
-                    BoundaryCondition::Dirichlet(bc_value) => {
-                        let d = mesh.middle_point_from_face(FaceIndex(i))
-                            - mesh.cells()[id_2.0].centroid();
-                        let normal = mesh.faces()[i]
-                            .normal_from_cell(id_2)
-                            .expect("Mesh not coherent");
-
-                        let bc_value = bc_value.get_value(component);
-                        *face_grad = (bc_value - values[id_2.0]) / (d.dot(&normal)) * normal;
-                    }
-                    BoundaryCondition::Neumann(bc_value) => {
-                        let normal = mesh.faces()[i]
-                            .normal_from_cell(id_2)
-                            .expect("Mesh not coherent");
-                        let tangent = Vector2::new(-normal.y, normal.x);
-                        let bc_value = bc_value.get_value(component);
-                        *face_grad = grads[id_2.0].dot(&tangent) * tangent + bc_value * normal;
-                    }
-                }
-
-                continue;
-            }
+    let (values, _, grads, face_grads, cvt) = field.get_deconstructed_field_mut();
+    
+    let pairs = &mesh.pairs;
+    let cv_centers = match cvt {
+        ControlVolumeType::Cells => mesh.cells.centers(),
+        ControlVolumeType::Nodes => mesh.nodes.centers(),
+    };
+    let bnd = &mesh.boundaries;
+    
+    for pair in 0..pairs.n {
+        if pairs.on_bnd()[pair] {
+            continue;
+        }
+        
+        let i_cv = match cvt {
+            ControlVolumeType::Cells => {
+                let patches = &pairs.neighboring_cells()[pair];
+                [
+                    {
+                        if let Patch::Cell(i_cell) = patches[0] { i_cell } else {panic!()}
+                    },
+                    {
+                        if let Patch::Cell(i_cell) = patches[1] { i_cell } else {panic!()}
+                    },
+                ]
+            },
+            ControlVolumeType::Nodes => pairs.nodes()[pair],
         };
-        let id_2 = match *patch_2 {
-            Patch::Cell(id) => id,
-            Patch::Boundary(id) => {
-                match &bc[id.0] {
-                    BoundaryCondition::Dirichlet(bc_value) => {
-                        let bc_value = bc_value.get_value(component);
-                        let d = mesh.middle_point_from_face(FaceIndex(i))
-                            - mesh.cells()[id_1.0].centroid();
-                        // Assumption on the way geometric weighting factor behaves (same patch order as face)
-                        let normal = mesh.faces()[i]
-                            .normal_from_cell(id_1)
-                            .expect("Mesh not coherent");
-
-                        *face_grad = (bc_value - values[id_1.0]) / (d.dot(&(-normal))) * &normal;
-                    }
-                    BoundaryCondition::Neumann(bc_value) => {
-                        let normal = mesh.faces()[i]
-                            .normal_from_cell(id_1)
-                            .expect("Mesh not coherent");
-                        let tangent = Vector2::new(-normal.y, normal.x);
-                        let bc_value = bc_value.get_value(component);
-
-                        // SUSPICIOUS
-                        *face_grad = grads[id_1.0].dot(&tangent) * tangent + bc_value * normal;
-                    }
-                }
-                continue;
-            }
-        };
-        let d_cf = mesh.cells()[id_2.0].centroid() - mesh.cells()[id_1.0].centroid();
-        let d_cf_norm_2 = d_cf.norm_squared();
-        let mean_grad = g_c * grads[id_1.0] + (1. - g_c) * grads[id_2.0];
-        // To check
-        *face_grad = mean_grad
-            + ((values[id_2.0] - values[id_1.0]) - mean_grad.dot(&d_cf)) * d_cf / d_cf_norm_2;
+        
+        let d_cf = cv_centers[i_cv[1]] - cv_centers[i_cv[0]];
+        let d_cf_norm = d_cf.norm();
+        let e_cf = d_cf/d_cf_norm;
+        let geometric_weighting = (pairs.centers()[pair] - cv_centers[i_cv[1]]).norm()/d_cf_norm;
+        
+        face_grads[pair] = grads[i_cv[0]]*geometric_weighting + grads[i_cv[1]]*(1. - geometric_weighting);
+        face_grads[pair] = face_grads[pair] + e_cf*((values[i_cv[1]] - values[i_cv[0]])/d_cf_norm - face_grads[pair].dot(&e_cf));
     }
-
+    
+    for (i_bnd, bc) in boundary_conditions.iter().enumerate() {
+        match cvt {
+            ControlVolumeType::Nodes => {
+                match bc {
+                    // ToCheck : not using the Dirichlet bc
+                    BoundaryCondition::Dirichlet(_) => {
+                        for &pair in &bnd.faces()[i_bnd] {
+                            let i_cv = pairs.nodes()[pair];
+                            let d_cf = cv_centers[i_cv[1]] - cv_centers[i_cv[0]];
+                            let d_cf_norm = d_cf.norm();
+                            let e_cf = d_cf/d_cf_norm;
+                            let geometric_weighting = (pairs.centers()[pair] - cv_centers[i_cv[1]]).norm()/d_cf_norm;
+                            
+                            face_grads[pair] = grads[i_cv[0]]*geometric_weighting + grads[i_cv[1]]*(1. - geometric_weighting);
+                            face_grads[pair] = face_grads[pair] + e_cf*((values[i_cv[1]] - values[i_cv[0]])/d_cf_norm - face_grads[pair].dot(&e_cf));
+                        }
+                    },
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
+                        for &pair in &bnd.faces()[i_bnd] {
+                            let i_cv = pairs.nodes()[pair];
+                            let d_cf = cv_centers[i_cv[1]] - cv_centers[i_cv[0]];
+                            let d_cf_norm = d_cf.norm();
+                            let e_cf = d_cf/d_cf_norm;
+                            let geometric_weighting = (pairs.centers()[pair] - cv_centers[i_cv[1]]).norm()/d_cf_norm;
+                            
+                            face_grads[pair] = grads[i_cv[0]]*geometric_weighting + grads[i_cv[1]]*(1. - geometric_weighting);
+                            face_grads[pair] = face_grads[pair] + e_cf*((values[i_cv[1]] - values[i_cv[0]])/d_cf_norm - face_grads[pair].dot(&e_cf));
+                            let cell_normal = match pairs.neighboring_cells()[pair][0] {
+                                Patch::Cell(_) => pairs.cells_normals()[pair],
+                                Patch::Boundary(_) => - pairs.cells_normals()[pair],
+                            };
+                            face_grads[pair] = - bc_value*cell_normal + face_grads[pair].dot(&pairs.nodes_normals()[pair])*pairs.nodes_normals()[pair];
+                        }
+                    },
+                }
+            },
+            ControlVolumeType::Cells => {
+                match bc {
+                    BoundaryCondition::Dirichlet(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
+                        for i in 0..bnd.faces()[i_bnd].len() {
+                            let i_face = bnd.faces()[i_bnd][i];
+                            let i_cell = bnd.faces()[i_bnd][i];
+                            let d = pairs.centers()[i_face] - cv_centers[i_cell];
+                            let normal = match pairs.neighboring_cells()[i_face][0] {
+                                Patch::Cell(_) => pairs.cells_normals()[i_face],
+                                Patch::Boundary(_) => - pairs.cells_normals()[i_face],
+                            };
+                            face_grads[i_face] = (bc_value - values[i_cell])/(d.dot(&(-normal)))*normal;
+                        }
+                    },
+                    BoundaryCondition::Neumann(bc_value) => {
+                        let bc_value = bc_value.get_value(component);
+                        for i in 0..bnd.faces()[i_bnd].len() {
+                            let i_face = bnd.faces()[i_bnd][i];
+                            let i_cell = bnd.faces()[i_bnd][i];
+                            let normal = match pairs.neighboring_cells()[i_face][0] {
+                                Patch::Cell(_) => pairs.cells_normals()[i_face],
+                                Patch::Boundary(_) => - pairs.cells_normals()[i_face],
+                            };
+                            face_grads[i_face] = - bc_value*normal + grads[i_cell].dot(&pairs.nodes_normals()[i_face])*pairs.nodes_normals()[i_face];
+                        }
+                    },
+                }
+            }
+        }
+    }
     // println!("Gradients interpolated");
 }
