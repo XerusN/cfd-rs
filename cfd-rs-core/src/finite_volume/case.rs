@@ -16,8 +16,8 @@ use crate::finite_volume::equation::Component;
 
 use super::{
     fields::{ScalarField, Field},
-    config::{self, CaseConfig, Schemes},
-    equation::{variables::{Dimension, Variable, ControlVolume}, Equation, EquationSolver},
+    config::{CaseConfig, Schemes},
+    equation::{variables::{Dimension, Variable, ControlVolumeType}, Equation, EquationSolver},
     error::CfdError,
 };
 
@@ -132,7 +132,7 @@ impl CaseEquations {
     }
 }
 
-pub trait Case<T: MeshCore> {
+pub trait Case<T: MeshCore>: Sized {
     fn name(&self) -> &str;
 
     fn step(&self) -> usize;
@@ -162,7 +162,7 @@ pub trait Case<T: MeshCore> {
             "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
         )?;
 
-        export_mesh(&mut file, mesh, &ControlVolume::Cells)?;
+        export_mesh(&mut file, mesh, &ControlVolumeType::Cells)?;
 
         writeln!(file, "      <CellData>")?;
 
@@ -180,7 +180,7 @@ pub trait Case<T: MeshCore> {
         writeln!(file)?;
         writeln!(file, "        </DataArray>")?;
 
-        export_variables(&mut file, self, &ControlVolume::Cells)?;
+        export_variables(&mut file, self, &ControlVolumeType::Cells)?;
 
         writeln!(file, "      </CellData>")?;
 
@@ -188,7 +188,7 @@ pub trait Case<T: MeshCore> {
 
         export_scalar(&mut file, &mesh.nodes.volumes(), "Node volumes")?;
 
-        export_variables(&mut file, self, &ControlVolume::Nodes)?;
+        export_variables(&mut file, self, &ControlVolumeType::Nodes)?;
 
         writeln!(file, "      </PointData>")?;
 
@@ -233,7 +233,7 @@ pub trait Case<T: MeshCore> {
         writeln!(file)?;
         writeln!(file, "        </DataArray>")?;
 
-        export_variables(&mut file, self, &ControlVolume::Nodes)?;
+        export_variables(&mut file, self, &ControlVolumeType::Nodes)?;
 
         writeln!(file, "      </CellData>")?;
 
@@ -279,9 +279,9 @@ pub trait Case<T: MeshCore> {
     fn new(config: CaseConfig) -> Self;
 }
 
-fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume) -> io::Result<()> {
-    match *cv {
-        ControlVolume::Cells => {
+fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cvt: &ControlVolumeType) -> io::Result<()> {
+    match *cvt {
+        ControlVolumeType::Cells => {
             writeln!(file, "  <UnstructuredGrid>")?;
             writeln!(
                 file,
@@ -345,7 +345,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cv: &ControlVolume)
             writeln!(file, "        </DataArray>")?;
             writeln!(file, "      </Cells>")?;
         }
-        ControlVolume::Nodes => {
+        ControlVolumeType::Nodes => {
             writeln!(file, "  <UnstructuredGrid>")?;
             let mut cv_points_number = 0;
             for cv_nodes in mesh.nodes.cv_nodes() {
@@ -453,10 +453,10 @@ fn export_vector(file: &mut File, data: &[Vector2<f64>], name: &str) -> io::Resu
 fn export_variables<M: MeshCore, T: Case<M>>(
     file: &mut File,
     case: &T,
-    cv: &ControlVolume,
+    cvt: &ControlVolumeType,
 ) -> io::Result<()> {
     for var in case.fields_list() {
-        if var.cv() != cv {
+        if var.cvt() != cvt {
             continue;
         }
         let temp = case
