@@ -149,6 +149,10 @@ impl ScalarField {
     pub fn grads_faces_mut(&mut self) -> &mut DVector<Vector2<f64>> {
         &mut self.grads_faces
     }
+    
+    pub fn cvt(&self) -> &ControlVolumeType {
+        &self.cvt
+    }
 
     pub fn gradients_up_to_date(&self) -> bool {
         self.gradients_up_to_date

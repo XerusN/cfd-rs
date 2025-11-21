@@ -11,7 +11,7 @@ use nalgebra_sparse::SparseEntryMut;
 use crate::finite_volume::{
     fields::Field,
     case::{GradRequirements, VariableFields},
-    equation::{variables::ControlVolume, Component, EquationSolver, Variable},
+    equation::{variables::ControlVolumeType, Component, EquationSolver, Variable},
 };
 
 use super::find_var_in_fields;
@@ -38,7 +38,7 @@ impl TimeIntegration {
         fields: &VariableFields,
         time_step: f64,
         coeff: f64,
-        equation_cv: &ControlVolume,
+        equation_cvt: &ControlVolumeType,
     ) {
         let field = find_var_in_fields(var, fields);
 
@@ -50,7 +50,7 @@ impl TimeIntegration {
                 field,
                 time_step,
                 coeff,
-                equation_cv,
+                equation_cvt,
             ),
         }
     }
@@ -63,7 +63,7 @@ fn forward_euler<M: MeshCore>(
     field: &RefCell<Field>,
     time_step: f64,
     coeff: f64,
-    equation_cv: &ControlVolume,
+    equation_cvt: &ControlVolumeType,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
@@ -76,7 +76,7 @@ fn forward_euler<M: MeshCore>(
     };
 
     let time_step_inv = 1. / time_step;
-    let volume = equation_cv.volumes(mesh);
+    let volume = equation_cvt.volumes(mesh);
 
     for i in 0..rhs.len() {
         let mut row = matrix
