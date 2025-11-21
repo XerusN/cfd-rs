@@ -143,8 +143,6 @@ fn green_gauss_compact<M: MeshCore>(
                 ControlVolumeType::Nodes => pairs.nodes()[pair],
             };
             
-            
-            
             face_values[pair] = (values[i_cv[0]] + values[i_cv[1]]) * 0.5;
             face_values[pair] += 0.5
                 * (grads[i_cv[0]] + grads[i_cv[1]]).dot(
@@ -152,10 +150,6 @@ fn green_gauss_compact<M: MeshCore>(
                         - cv_centers[i_cv[0]]
                             .lerp(&cv_centers[i_cv[1]], 0.5)),
             );
-            
-            if i_iter != 0 {
-                
-            }
         }
         
         for (i_bnd, bc) in boundary_conditions.iter().enumerate() {
@@ -208,7 +202,7 @@ fn green_gauss_compact<M: MeshCore>(
             }
         }
         
-        for grad in grads {
+        for grad in grads.iter_mut() {
             grad.x = 0.;
             grad.y = 0.;
         }
@@ -226,7 +220,7 @@ fn green_gauss_compact<M: MeshCore>(
             
             match cvt {
                 ControlVolumeType::Cells => {
-                    let patches = pairs.neighboring_cells()[pair];
+                    let patches = &pairs.neighboring_cells()[pair];
                     let flux = area*normal*face_values[pair];
                     match patches[0] {
                         Patch::Boundary(_) => (),
@@ -249,6 +243,8 @@ fn green_gauss_compact<M: MeshCore>(
                 },
             }
         }
+        
+        // ToDo add convergence check
     }
 }
 
