@@ -1,16 +1,14 @@
 use std::cell::RefCell;
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore}
-};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 use crate::finite_volume::equation::variables::ControlVolumeType;
 
 use super::{
     super::{
-        fields::Field,
         case::{GradRequirements, VariableFields},
         config::{CaseConfig, Schemes},
+        fields::Field,
     },
     Component, EquationSolver, IntegrationCategory, Variable,
 };

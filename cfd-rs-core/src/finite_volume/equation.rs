@@ -1,22 +1,18 @@
 use hashbrown::HashMap;
 use log::warn;
-use std::{
-    ops::Deref,
-    vec,
-};
+use std::{ops::Deref, vec};
 
-use cfd_rs_utils::mesh::
-    assembled_mesh::{Mesh, MeshCore};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use crate::finite_volume::{equation::operations::Op, linalg::easy_jacobi};
 
 use super::{
-    fields::Field,
     case::{Case, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
     error::CfdError,
+    fields::Field,
 };
 use discretizations::{find_var_in_fields, DifferentialOperator};
 
@@ -283,7 +279,7 @@ impl EquationSolver {
         coeff: f64,
     ) {
         let volumes = self.cvt.volumes(mesh);
-        
+
         let field = find_var_in_fields(var, fields);
         let field = field.borrow();
         let field = match *field {
@@ -291,25 +287,17 @@ impl EquationSolver {
             Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
         };
         let grads = match self.cvt {
-            ControlVolumeType::Cells => {
-                match var.cvt() {
-                    ControlVolumeType::Cells => {
-                        field.grads_centers()
-                    },
-                    ControlVolumeType::Nodes => {
-                        todo!()
-                    },
+            ControlVolumeType::Cells => match var.cvt() {
+                ControlVolumeType::Cells => field.grads_centers(),
+                ControlVolumeType::Nodes => {
+                    todo!()
                 }
             },
-            ControlVolumeType::Nodes => {
-                match var.cvt() {
-                    ControlVolumeType::Cells => {
-                        todo!()
-                    },
-                    ControlVolumeType::Nodes => {
-                        field.grads_centers()
-                    },
+            ControlVolumeType::Nodes => match var.cvt() {
+                ControlVolumeType::Cells => {
+                    todo!()
                 }
+                ControlVolumeType::Nodes => field.grads_centers(),
             },
         };
 
@@ -337,7 +325,7 @@ impl EquationSolver {
         integration: &IntegrationCategory,
     ) {
         let volumes = self.cvt.volumes(mesh);
-        
+
         match integration {
             IntegrationCategory::Explicit => {
                 let field = find_var_in_fields(var, fields);
@@ -350,28 +338,20 @@ impl EquationSolver {
                     },
                 };
                 let values = match self.cvt {
-                    ControlVolumeType::Cells => {
-                        match var.cvt() {
-                            ControlVolumeType::Cells => {
-                                field.values()
-                            },
-                            ControlVolumeType::Nodes => {
-                                todo!()
-                            },
+                    ControlVolumeType::Cells => match var.cvt() {
+                        ControlVolumeType::Cells => field.values(),
+                        ControlVolumeType::Nodes => {
+                            todo!()
                         }
                     },
-                    ControlVolumeType::Nodes => {
-                        match var.cvt() {
-                            ControlVolumeType::Cells => {
-                                todo!()
-                            },
-                            ControlVolumeType::Nodes => {
-                                field.faces_values()
-                            },
+                    ControlVolumeType::Nodes => match var.cvt() {
+                        ControlVolumeType::Cells => {
+                            todo!()
                         }
+                        ControlVolumeType::Nodes => field.faces_values(),
                     },
                 };
-                
+
                 for (i, v) in self.rhs.iter_mut().enumerate() {
                     *v -= values[i] * coeff * volumes[i];
                 }
@@ -479,9 +459,16 @@ impl EquationSolver {
                 );
             }
             Op::FieldOperator(f_op) => match f_op {
-                FieldOperator::DifferentialOperator(diff_op) => {
-                    diff_op.discretize(component, self, fields, mesh, config, time_step, coeff, &self.cvt().clone())
-                }
+                FieldOperator::DifferentialOperator(diff_op) => diff_op.discretize(
+                    component,
+                    self,
+                    fields,
+                    mesh,
+                    config,
+                    time_step,
+                    coeff,
+                    &self.cvt().clone(),
+                ),
                 FieldOperator::Field(var, integration) => {
                     self.add_field(var, component, fields, mesh, coeff, integration)
                 }

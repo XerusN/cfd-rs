@@ -1,18 +1,16 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore}, computational_mesh::{Computational2DMesh, Patch}, indices::{CellIndex, FaceIndex}
-};
-use nalgebra::{Scalar, Vector2};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
+use nalgebra::Vector2;
 
 use crate::finite_volume::{
-    fields::Field,
     boundary::BoundaryCondition,
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
     equation::{
-        self, variables::ControlVolume, Component, EquationSolver, IntegrationCategory, Variable,
+        variables::ControlVolumeType, Component, EquationSolver, IntegrationCategory, Variable,
     },
+    fields::Field,
 };
 
 use super::find_var_in_fields;
@@ -20,15 +18,12 @@ use super::find_var_in_fields;
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConvectionScheme {
     UpwindSecondOrder,
-    /// Not recommanded, very unstable
-    CentralDifference,
 }
 
 impl ConvectionScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
             Self::UpwindSecondOrder => GradRequirements::new(true, true),
-            Self::CentralDifference => GradRequirements::new(false, true),
         }
     }
 
@@ -43,7 +38,7 @@ impl ConvectionScheme {
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
-        equation_cv: &ControlVolume,
+        equation_cvt: &ControlVolumeType,
     ) {
         let bc = config
             .bc
@@ -64,18 +59,7 @@ impl ConvectionScheme {
                 bc,
                 integration,
                 coeff,
-                equation_cv,
-            ),
-            Self::CentralDifference => central_difference(
-                var,
-                component,
-                speed,
-                solver,
-                mesh,
-                bc,
-                integration,
-                coeff,
-                equation_cv,
+                equation_cvt,
             ),
         }
     }
@@ -88,10 +72,10 @@ fn upwind_second_order<M: MeshCore>(
     speed: &RefCell<Field>,
     solver: &mut EquationSolver,
     mesh: &Mesh<M>,
-    boundary_condition: &Vec<BoundaryCondition>,
+    boundary_conditions: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
-    equation_cv: &ControlVolume,
+    equation_cvt: &ControlVolumeType,
 ) {
     let speed = speed.borrow();
     let speed = match *speed {
@@ -109,202 +93,225 @@ fn upwind_second_order<M: MeshCore>(
             Component::Y => &value.y,
         },
     };
+    let field_cvt = field.cvt();
+
+    let pairs = &mesh.pairs;
+    let (areas, normals) = match equation_cvt {
+        ControlVolumeType::Cells => (pairs.cells_areas(), pairs.cells_normals()),
+        ControlVolumeType::Nodes => (pairs.nodes_areas(), pairs.nodes_normals()),
+    };
+    let field_normals = match equation_cvt {
+        ControlVolumeType::Cells => pairs.cells_normals(),
+        ControlVolumeType::Nodes => pairs.nodes_normals(),
+    };
+
+    let field_cv_centers = match field_cvt {
+        ControlVolumeType::Cells => mesh.cells.centers(),
+        ControlVolumeType::Nodes => mesh.nodes.centers(),
+    };
+
+    let bnd = &mesh.boundaries;
 
     match integration {
         IntegrationCategory::Explicit => {
-            for (face_id, face) in mesh.faces().iter().enumerate() {
-                let face_speed = Vector2::new(
-                    speed.x.face_values()[face_id],
-                    speed.y.face_values()[face_id],
-                );
-                let flow_rate = face.area() * face.normal().dot(&face_speed);
-                let id_1 = match face.patches().0 {
-                    Patch::Cell(id) => id,
-                    Patch::Boundary(id) => {
-                        let id_2 = match face.patches().1 {
-                            Patch::Cell(id) => id,
-                            Patch::Boundary(_) => panic!("Face with two boundaries as neighbors"),
-                        };
+            for pair in 0..pairs.n {
+                if pairs.on_bnd()[pair] {
+                    continue;
+                }
 
-                        let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id))
-                            - mesh.cells()[id_2.0].centroid();
+                let face_speed =
+                    Vector2::new(speed.x.faces_values()[pair], speed.y.faces_values()[pair]);
+                let flow_rate = areas[pair] * normals[pair].dot(&face_speed);
 
-                        if flow_rate > 0. {
-                            match &boundary_condition[id.0] {
-                                BoundaryCondition::Dirichlet(bc_value) => {
-                                    let face_field = bc_value.get_value(component)
-                                        + field.grads_face()[face_id].dot(&d_cf_2);
-                                    rhs[id_2.0] += coeff * face_field * flow_rate;
-                                }
-                                // Check Neumann implementation
-                                BoundaryCondition::Neumann(bc_value) => {
-                                    let face_field = field.face_values()[face_id]
-                                        + bc_value.get_value(component)
-                                            * face.normal().dot(&d_cf_2);
-                                    rhs[id_2.0] += coeff * face_field * flow_rate;
-                                }
-                            }
-                        } else {
-                            let face_field = field.values()[id_2.0]
-                                + (2. * field.grads_cell()[id_2.0] - field.grads_face()[face_id])
-                                    .dot(&d_cf_2);
-                            rhs[id_2.0] += coeff * face_field * flow_rate;
-                        }
-                        continue;
+                let upwind_cv;
+                // Compute Phi_f for the field control volume
+                if field_normals[pair].dot(&face_speed) < 0. {
+                    upwind_cv = match field_cvt {
+                        ControlVolumeType::Cells => match pairs.neighboring_cells()[pair][1] {
+                            Patch::Boundary(_) => panic!("Undected boundary"),
+                            Patch::Cell(i) => i,
+                        },
+                        ControlVolumeType::Nodes => pairs.nodes()[pair][1],
                     }
-                };
-
-                let id_2 = match face.patches().1 {
-                    Patch::Cell(id) => id,
-                    Patch::Boundary(id) => {
-                        let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id))
-                            - mesh.cells()[id_1.0].centroid();
-
-                        if flow_rate < 0. {
-                            match &boundary_condition[id.0] {
-                                BoundaryCondition::Dirichlet(bc_value) => {
-                                    let face_field = bc_value.get_value(component)
-                                        + field.grads_face()[face_id].dot(&d_cf_1);
-                                    rhs[id_1.0] -= coeff * face_field * flow_rate;
-                                }
-                                // Check Neumann implementation
-                                BoundaryCondition::Neumann(bc_value) => {
-                                    let face_field = field.face_values()[face_id]
-                                        + bc_value.get_value(component)
-                                            * face.normal().dot(&d_cf_1);
-                                    rhs[id_1.0] -= coeff * face_field * flow_rate;
-                                }
-                            }
-                        } else {
-                            let face_field = field.values()[id_1.0]
-                                + (2. * field.grads_cell()[id_1.0] - field.grads_face()[face_id])
-                                    .dot(&d_cf_1);
-                            rhs[id_1.0] -= coeff * face_field * flow_rate;
-                        }
-                        continue;
+                } else if field_normals[pair].dot(&face_speed) > 0. {
+                    upwind_cv = match field_cvt {
+                        ControlVolumeType::Cells => match pairs.neighboring_cells()[pair][0] {
+                            Patch::Boundary(_) => panic!("Undetected boundary"),
+                            Patch::Cell(i) => i,
+                        },
+                        ControlVolumeType::Nodes => pairs.nodes()[pair][0],
                     }
-                };
-                let face_field;
-                if flow_rate < 0. {
-                    let d_cf_2 = mesh.middle_point_from_face(FaceIndex(face_id))
-                        - mesh.cells()[id_2.0].centroid();
-                    face_field = field.values()[id_2.0]
-                        + (2. * field.grads_cell()[id_2.0] - field.grads_face()[face_id])
-                            .dot(&d_cf_2);
                 } else {
-                    let d_cf_1 = mesh.middle_point_from_face(FaceIndex(face_id))
-                        - mesh.cells()[id_1.0].centroid();
-                    face_field = field.values()[id_1.0]
-                        + (2. * field.grads_cell()[id_1.0] - field.grads_face()[face_id])
-                            .dot(&d_cf_1);
+                    continue;
                 }
-                rhs[id_1.0] -= coeff * face_field * flow_rate;
-                rhs[id_2.0] += coeff * face_field * flow_rate;
-            }
-        }
-        IntegrationCategory::Implicit => todo!(),
-    }
-}
 
-fn _upwind_second_order<M: MeshCore>(
-    field: &RefCell<Field>,
-    component: &Component,
-    speed: &RefCell<Field>,
-    solver: &mut EquationSolver,
-    mesh: &Mesh<M>,
-    boundary_condition: &Vec<BoundaryCondition>,
-    integration: &IntegrationCategory,
-    coeff: f64,
-) {
-    let speed = speed.borrow();
-    let speed = match *speed {
-        Field::Scalar(_) => panic!("Speed has to be a vector"),
-        Field::Vector2(ref values) => values,
-    };
+                let d_uf = pairs.centers()[pair] - field_cv_centers[upwind_cv];
+                let face_value = field.values()[upwind_cv]
+                    + (2. * field.grads_centers()[upwind_cv] - field.grads_faces()[pair])
+                        .dot(&d_uf);
+                let flux = flow_rate * face_value * coeff;
 
-    let (_, rhs) = solver.solver_borrow_mut();
-
-    let field = field.borrow();
-    let field = match *field {
-        Field::Scalar(ref value) => value,
-        Field::Vector2(ref value) => match *component {
-            Component::X => &value.x,
-            Component::Y => &value.y,
-        },
-    };
-
-    match integration {
-        IntegrationCategory::Explicit => {
-            for (cell_id, cell) in mesh.cells().iter().enumerate() {
-                let mut f = 0.;
-                let (faces_id, normals) =
-                    mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
-                for i in 0..faces_id.len() {
-                    let face_speed = Vector2::new(
-                        speed.x.face_values()[faces_id[i].0],
-                        speed.y.face_values()[faces_id[i].0],
-                    );
-                    let flow_rate =
-                        mesh.faces()[faces_id[i].0].area() * normals[i].dot(&face_speed);
-                    //println!("{:?} {:?}", flow_rate, face_speed);
-                    let d_cf = mesh.middle_point_from_face(faces_id[i]) - cell.centroid();
-                    let face_field = field.values()[cell_id]
-                        + (2. * field.grads_cell()[cell_id] - field.grads_face()[faces_id[i].0])
-                            .dot(&d_cf);
-                    rhs[cell_id] -= coeff * flow_rate * face_field;
+                // Sum over faces on equation control volume
+                match equation_cvt {
+                    ControlVolumeType::Cells => {
+                        let cells = &pairs.neighboring_cells()[pair];
+                        match cells[0] {
+                            Patch::Cell(i_cell) => rhs[i_cell] -= flux,
+                            Patch::Boundary(_) => panic!("Undetected boundary"),
+                        }
+                        match cells[1] {
+                            Patch::Cell(i_cell) => rhs[i_cell] += flux,
+                            Patch::Boundary(_) => panic!("Undetected boundary"),
+                        }
+                    }
+                    ControlVolumeType::Nodes => {
+                        let nodes = pairs.nodes()[pair];
+                        rhs[nodes[0]] -= flux;
+                        rhs[nodes[1]] += flux;
+                    }
                 }
             }
-        }
-        IntegrationCategory::Implicit => todo!(),
-    }
-}
 
-fn central_difference<M: MeshCore>(
-    field: &RefCell<Field>,
-    component: &Component,
-    speed: &RefCell<Field>,
-    solver: &mut EquationSolver,
-    mesh: &Mesh<M>,
-    boundary_condition: &Vec<BoundaryCondition>,
-    integration: &IntegrationCategory,
-    coeff: f64,
-    equation_cv: &ControlVolume,
-) {
-    let speed = speed.borrow();
-    let speed = match *speed {
-        Field::Scalar(_) => panic!("Speed has to be a vector"),
-        Field::Vector2(ref values) => values,
-    };
+            for (i_bnd, bc) in boundary_conditions.iter().enumerate() {
+                match field_cvt {
+                    ControlVolumeType::Nodes => {
+                        match bc {
+                            BoundaryCondition::Dirichlet(_) => (), //ToCheck
+                            BoundaryCondition::Neumann(_) => {
+                                for &pair in &bnd.faces()[i_bnd] {
+                                    let face_speed = Vector2::new(
+                                        speed.x.faces_values()[pair],
+                                        speed.y.faces_values()[pair],
+                                    );
+                                    let flow_rate = areas[pair] * normals[pair].dot(&face_speed);
 
-    let (_, rhs) = solver.solver_borrow_mut();
+                                    let upwind_cv;
+                                    // Compute Phi_f for the field control volume
+                                    if field_normals[pair].dot(&face_speed) < 0. {
+                                        upwind_cv = pairs.nodes()[pair][1];
+                                    } else if field_normals[pair].dot(&face_speed) > 0. {
+                                        upwind_cv = pairs.nodes()[pair][1];
+                                    } else {
+                                        continue;
+                                    }
 
-    let field = field.borrow();
-    let field = match *field {
-        Field::Scalar(ref value) => value,
-        Field::Vector2(ref value) => match *component {
-            Component::X => &value.x,
-            Component::Y => &value.y,
-        },
-    };
+                                    let d_uf = pairs.centers()[pair] - field_cv_centers[upwind_cv];
+                                    let face_value = field.values()[upwind_cv]
+                                        + (2. * field.grads_centers()[upwind_cv]
+                                            - field.grads_faces()[pair])
+                                            .dot(&d_uf);
+                                    let flux = flow_rate * face_value * coeff;
 
-    match integration {
-        IntegrationCategory::Explicit => {
-            println!("ok");
-            for (cell_id, cell) in mesh.cells().iter().enumerate() {
-                let (faces_id, normals) =
-                    mesh.normal_vectors_from_cell_with_faces_id(CellIndex(cell_id));
-                for i in 0..faces_id.len() {
-                    let face_speed = Vector2::new(
-                        speed.x.face_values()[faces_id[i].0],
-                        speed.y.face_values()[faces_id[i].0],
-                    );
-                    let flow_rate =
-                        mesh.faces()[faces_id[i].0].area() * normals[i].dot(&face_speed);
-                    //println!("{:?} {:?}", flow_rate, face_speed);
-                    let d_cf = mesh.middle_point_from_face(faces_id[i]) - cell.centroid();
-                    let face_field =
-                        field.values()[cell_id] + field.grads_face()[faces_id[i].0].dot(&d_cf);
-                    rhs[cell_id] -= coeff * flow_rate * face_field;
+                                    // Sum over faces on equation control volume
+                                    match equation_cvt {
+                                        ControlVolumeType::Cells => {
+                                            let cells = &pairs.neighboring_cells()[pair];
+                                            match cells[0] {
+                                                Patch::Cell(i_cell) => rhs[i_cell] -= flux,
+                                                Patch::Boundary(_) => (),
+                                            }
+                                            match cells[1] {
+                                                Patch::Cell(i_cell) => rhs[i_cell] += flux,
+                                                Patch::Boundary(_) => (),
+                                            }
+                                        }
+                                        ControlVolumeType::Nodes => {
+                                            let nodes = pairs.nodes()[pair];
+                                            rhs[nodes[0]] -= flux;
+                                            rhs[nodes[1]] += flux;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ControlVolumeType::Cells => match bc {
+                        BoundaryCondition::Dirichlet(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            for i in 0..bnd.faces()[i_bnd].len() {
+                                let i_face = bnd.faces()[i_bnd][i];
+
+                                let face_speed = Vector2::new(
+                                    speed.x.faces_values()[i_face],
+                                    speed.y.faces_values()[i_face],
+                                );
+                                let flow_rate = areas[i_face] * normals[i_face].dot(&face_speed);
+                                let flux = flow_rate * bc_value * coeff;
+                                match equation_cvt {
+                                    ControlVolumeType::Cells => {
+                                        let cells = &pairs.neighboring_cells()[i_face];
+                                        match cells[0] {
+                                            Patch::Cell(i_cell) => rhs[i_cell] -= flux,
+                                            Patch::Boundary(_) => (),
+                                        }
+                                        match cells[1] {
+                                            Patch::Cell(i_cell) => rhs[i_cell] += flux,
+                                            Patch::Boundary(_) => (),
+                                        }
+                                    }
+                                    ControlVolumeType::Nodes => {
+                                        let nodes = pairs.nodes()[i_face];
+                                        rhs[nodes[0]] -= flux;
+                                        rhs[nodes[1]] += flux;
+                                    }
+                                }
+                            }
+                        }
+                        BoundaryCondition::Neumann(_) => {
+                            for i in 0..bnd.faces()[i_bnd].len() {
+                                let i_face = bnd.faces()[i_bnd][i];
+                                let i_cell = bnd.cells()[i_bnd][i];
+                                let sign;
+                                if let Patch::Cell(_) = pairs.neighboring_cells()[i_face][0] {
+                                    sign = 1.
+                                } else {
+                                    sign = -1.;
+                                }
+
+                                let face_speed = Vector2::new(
+                                    speed.x.faces_values()[i_face],
+                                    speed.y.faces_values()[i_face],
+                                );
+                                let flow_rate = areas[i_face] * normals[i_face].dot(&face_speed);
+
+                                let flux;
+                                if field_normals[i_face].dot(&face_speed) * sign < 0. {
+                                    let d_cf = pairs.centers()[i_face] - field_cv_centers[i_cell];
+                                    let face_value = field.values()[i_cell]
+                                        + field.grads_faces()[i_face].dot(&d_cf);
+                                    flux = flow_rate * face_value * coeff;
+                                } else if field_normals[i_face].dot(&face_speed) * sign > 0. {
+                                    let d_uf = pairs.centers()[i_face] - field_cv_centers[i_cell];
+                                    let face_value = field.values()[i_cell]
+                                        + (2. * field.grads_centers()[i_cell]
+                                            - field.grads_faces()[i_face])
+                                            .dot(&d_uf);
+                                    flux = flow_rate * face_value * coeff;
+                                } else {
+                                    continue;
+                                }
+
+                                match equation_cvt {
+                                    ControlVolumeType::Cells => {
+                                        let cells = &pairs.neighboring_cells()[i_face];
+                                        match cells[0] {
+                                            Patch::Cell(i_cell) => rhs[i_cell] -= flux,
+                                            Patch::Boundary(_) => (),
+                                        }
+                                        match cells[1] {
+                                            Patch::Cell(i_cell) => rhs[i_cell] += flux,
+                                            Patch::Boundary(_) => (),
+                                        }
+                                    }
+                                    ControlVolumeType::Nodes => {
+                                        let nodes = pairs.nodes()[i_face];
+                                        rhs[nodes[0]] -= flux;
+                                        rhs[nodes[1]] += flux;
+                                    }
+                                }
+                            }
+                        }
+                    },
                 }
             }
         }

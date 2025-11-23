@@ -10,7 +10,12 @@ pub struct Boundaries {
 }
 
 impl Boundaries {
-    pub fn new(names: Vec<String>, faces: Vec<Vec<usize>>, nodes: Vec<Vec<usize>>, cells: Vec<Vec<usize>>) -> Self {
+    pub fn new(
+        names: Vec<String>,
+        faces: Vec<Vec<usize>>,
+        nodes: Vec<Vec<usize>>,
+        cells: Vec<Vec<usize>>,
+    ) -> Self {
         let n = names.len();
         assert_eq!(n, faces.len());
         assert_eq!(n, nodes.len());
@@ -23,19 +28,19 @@ impl Boundaries {
             cells,
         }
     }
-    
+
     pub fn names(&self) -> &[String] {
         &self.names
     }
-    
+
     pub fn faces(&self) -> &[Vec<usize>] {
         &self.faces
     }
-    
+
     pub fn nodes(&self) -> &[Vec<usize>] {
         &self.nodes
     }
-    
+
     pub fn cells(&self) -> &[Vec<usize>] {
         &self.cells
     }

@@ -1,17 +1,12 @@
-use std::{
-    cell::RefCell,
-    ops::Deref,
-};
+use std::{cell::RefCell, ops::Deref};
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore}
-};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    fields::Field,
     case::{GradRequirements, VariableFields},
     equation::{variables::ControlVolumeType, Component, EquationSolver, Variable},
+    fields::Field,
 };
 
 use super::find_var_in_fields;
@@ -75,22 +70,25 @@ fn forward_euler<M: MeshCore>(
         },
     };
 
+    assert_eq!(
+        field.cvt(),
+        equation_cvt,
+        "Implicit term, field ({:?}) and equation ({:?}) ControlVolumeType should be the same",
+        field.cvt(),
+        equation_cvt
+    );
+
     let time_step_inv = 1. / time_step;
     let volume = equation_cvt.volumes(mesh);
 
     for i in 0..rhs.len() {
-        let mut row = matrix
-            .get_row_mut(i)
-            .expect("Bad Initialization of matrix");
+        let mut row = matrix.get_row_mut(i).expect("Bad Initialization of matrix");
 
         let f_c = time_step_inv * volume[i];
 
         rhs[i] += f_c * coeff * field.values()[i];
 
-        match row
-            .get_entry_mut(i)
-            .expect("Bad Initialization of matrix")
-        {
+        match row.get_entry_mut(i).expect("Bad Initialization of matrix") {
             SparseEntryMut::NonZero(value) => *value += f_c * coeff,
             SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
         }

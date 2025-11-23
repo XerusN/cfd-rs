@@ -1,7 +1,7 @@
 use hashbrown::HashMap;
 use nalgebra::Vector2;
 
-use super::equation::{Component, variables::Variable};
+use super::equation::{variables::Variable, Component};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum BoundaryCondition {

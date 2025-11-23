@@ -8,17 +8,18 @@ use std::{
     path::PathBuf,
 };
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore},
-};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 use crate::finite_volume::equation::Component;
 
 use super::{
-    fields::{ScalarField, Field},
     config::{CaseConfig, Schemes},
-    equation::{variables::{Dimension, Variable, ControlVolumeType}, Equation, EquationSolver},
+    equation::{
+        variables::{ControlVolumeType, Dimension, Variable},
+        Equation, EquationSolver,
+    },
     error::CfdError,
+    fields::{Field, ScalarField},
 };
 
 pub mod burger;
@@ -62,7 +63,11 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new<M: MeshCore>(equations: &CaseEquations, mesh: &Mesh<M>, config: &CaseConfig) -> Self {
+    pub fn new<M: MeshCore>(
+        equations: &CaseEquations,
+        mesh: &Mesh<M>,
+        config: &CaseConfig,
+    ) -> Self {
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
@@ -279,15 +284,18 @@ pub trait Case<T: MeshCore>: Sized {
     fn new(config: CaseConfig) -> Self;
 }
 
-fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cvt: &ControlVolumeType) -> io::Result<()> {
+fn export_mesh<M: MeshCore>(
+    file: &mut File,
+    mesh: &Mesh<M>,
+    cvt: &ControlVolumeType,
+) -> io::Result<()> {
     match *cvt {
         ControlVolumeType::Cells => {
             writeln!(file, "  <UnstructuredGrid>")?;
             writeln!(
                 file,
                 "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-                mesh.nodes.n,
-                mesh.cells.n
+                mesh.nodes.n, mesh.cells.n
             )?;
             writeln!(file, "      <Points>")?;
             writeln!(
@@ -354,8 +362,7 @@ fn export_mesh<M: MeshCore>(file: &mut File, mesh: &Mesh<M>, cvt: &ControlVolume
             writeln!(
                 file,
                 "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-                cv_points_number,
-                mesh.nodes.n
+                cv_points_number, mesh.nodes.n
             )?;
             writeln!(file, "      <Points>")?;
             writeln!(

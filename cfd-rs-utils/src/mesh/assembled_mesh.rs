@@ -7,7 +7,10 @@ pub use core::{MeshCore, Patch};
 pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
-    fs::File, io::{self, Write}, path::PathBuf, vec
+    fs::File,
+    io::{self, Write},
+    path::PathBuf,
+    vec,
 };
 
 use crate::geometry::{area, centroid_and_area};
@@ -159,7 +162,25 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             cells_neighboring_pairs.push(core.cell_to_faces(i_cell));
             let neighboring_patches = core.cell_to_neighbors(i_cell);
             cells_neighboring_patches.push(neighboring_patches.clone());
-            cells_neighboring_cells.push(neighboring_patches.iter().filter(|patch| if let Patch::Cell(_) = patch { true } else { false }).map(|cell_patch| if let Patch::Cell(i_cell) = cell_patch {*i_cell} else {panic!()}).collect());
+            cells_neighboring_cells.push(
+                neighboring_patches
+                    .iter()
+                    .filter(|patch| {
+                        if let Patch::Cell(_) = patch {
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .map(|cell_patch| {
+                        if let Patch::Cell(i_cell) = cell_patch {
+                            *i_cell
+                        } else {
+                            panic!()
+                        }
+                    })
+                    .collect(),
+            );
         }
         for i_pair in 0..n_pairs {
             pairs_on_bnd.push(false);
@@ -176,12 +197,11 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                         } else {
                             panic!()
                         }
-                    },
+                    }
                     Patch::Cell(_) => (),
                 }
             }
             pairs_neighboring_cells.push(pair_to_neighbors);
-            
         }
 
         // Geometry
@@ -193,9 +213,9 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_lengths.push(length);
             let vector = (nodes[1] - nodes[0]).normalize();
             pairs_vectors.push(vector);
-            pairs_cells_normals.push(Vector2::new(vector.y, - vector.x));
+            pairs_cells_normals.push(Vector2::new(vector.y, -vector.x));
             pairs_cells_areas.push(length);
-            
+
             pairs_nodes_areas.push(0.);
             pairs_nodes_normals.push(Vector2::zeros());
         }
@@ -278,8 +298,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let normal = normal_1.lerp(&normal_2, area_2 / (area_1 + area_2));
                 normals.push(normal);
                 pairs_nodes_normals[pair] = normal;
-                
-                
+
                 if (is_bnd) && (cv_nodes[(node + 2) % cv_nodes.len()] == nodes_centers[i_node]) {
                     node += 3;
                 } else {
@@ -334,7 +353,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_on_bnd,
         );
 
-        let boundaries = Boundaries::new(boundaries_names, boundaries_faces, boundaries_nodes, boundaries_cells);
+        let boundaries = Boundaries::new(
+            boundaries_names,
+            boundaries_faces,
+            boundaries_nodes,
+            boundaries_cells,
+        );
 
         Mesh {
             core,
@@ -361,8 +385,7 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(
             file,
             "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-            self.nodes.n,
-            self.cells.n
+            self.nodes.n, self.cells.n
         )?;
         writeln!(file, "      <Points>")?;
         writeln!(
@@ -470,8 +493,7 @@ impl<T: MeshCore> Mesh<T> {
         writeln!(
             file,
             "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">",
-            cv_points_number,
-            self.nodes.n
+            cv_points_number, self.nodes.n
         )?;
         writeln!(file, "      <Points>")?;
         writeln!(
@@ -555,7 +577,7 @@ impl<T: MeshCore> Mesh<T> {
 
         Ok(())
     }
-    
+
     pub fn serialize_file(&self, path: &str) -> std::io::Result<()> {
         let mut file = File::create(path)?;
         bincode::serde::encode_into_std_write(self, &mut file, bincode::config::standard())

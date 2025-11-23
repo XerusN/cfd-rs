@@ -1,6 +1,4 @@
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore},
-};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
@@ -149,7 +147,7 @@ impl ScalarField {
     pub fn grads_faces_mut(&mut self) -> &mut DVector<Vector2<f64>> {
         &mut self.grads_faces
     }
-    
+
     pub fn cvt(&self) -> &ControlVolumeType {
         &self.cvt
     }
@@ -177,7 +175,7 @@ impl ScalarField {
             &mut self.faces_values,
             &mut self.grads_centers,
             &mut self.grads_faces,
-            &self.cvt
+            &self.cvt,
         )
     }
 }

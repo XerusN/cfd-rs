@@ -20,31 +20,31 @@ impl Nodes {
     pub fn centers(&self) -> &[Point2<f64>] {
         &self.centers
     }
-    
+
     pub fn volumes(&self) -> &[f64] {
         &self.volumes
     }
-    
+
     pub fn areas(&self) -> &[Vec<f64>] {
         &self.areas
     }
-    
+
     pub fn normals(&self) -> &[Vec<Vector2<f64>>] {
         &self.normals
     }
-    
+
     pub fn cv_nodes(&self) -> &[Vec<Point2<f64>>] {
         &self.cv_nodes
     }
-    
+
     pub fn neighboring_nodes(&self) -> &[Vec<usize>] {
         &self.neighboring_nodes
     }
-    
+
     pub fn neighboring_pairs(&self) -> &[Vec<usize>] {
         &self.neighboring_pairs
     }
-    
+
     pub fn neighboring_cells(&self) -> &[Vec<Patch>] {
         &self.neighboring_cells
     }
