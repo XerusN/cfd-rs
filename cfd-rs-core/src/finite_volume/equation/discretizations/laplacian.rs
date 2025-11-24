@@ -1,10 +1,6 @@
 use std::{cell::RefCell, ops::Deref};
 
-use cfd_rs_utils::mesh::{
-    assembled_mesh::{Mesh, MeshCore},
-    computational_mesh::{Computational2DMesh, Patch},
-    indices::CellIndex,
-};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
@@ -12,7 +8,7 @@ use crate::finite_volume::{
     case::{GradRequirements, VariableFields},
     config::CaseConfig,
     equation::{
-        variables::ControlVolume, Component, EquationSolver, IntegrationCategory, Variable,
+        variables::ControlVolumeType, Component, EquationSolver, IntegrationCategory, Variable,
     },
     fields::Field,
 };
@@ -22,14 +18,12 @@ use super::find_var_in_fields;
 #[derive(Clone, Debug, PartialEq)]
 pub enum LaplacianScheme {
     OrthogonalCorrection,
-    MinimalCorrection,
 }
 
 impl LaplacianScheme {
     pub fn required_grads(&self) -> GradRequirements {
         match *self {
             Self::OrthogonalCorrection => GradRequirements::new(false, true),
-            Self::MinimalCorrection => GradRequirements::new(false, true),
         }
     }
 
@@ -43,7 +37,7 @@ impl LaplacianScheme {
         config: &CaseConfig,
         integration: &IntegrationCategory,
         coeff: f64,
-        equation_cv: &ControlVolume,
+        equation_cvt: &ControlVolumeType,
     ) {
         let field = find_var_in_fields(var, fields);
         let bc = config
@@ -60,17 +54,7 @@ impl LaplacianScheme {
                 bc,
                 integration,
                 coeff,
-                equation_cv,
-            ),
-            Self::MinimalCorrection => minimal_correction(
-                component,
-                solver,
-                field,
-                mesh,
-                bc,
-                integration,
-                coeff,
-                equation_cv,
+                equation_cvt,
             ),
         }
     }
@@ -81,10 +65,10 @@ fn orthogonal_correction<M: MeshCore>(
     solver: &mut EquationSolver,
     field: &RefCell<Field>,
     mesh: &Mesh<M>,
-    boundary_condition: &Vec<BoundaryCondition>,
+    boundary_conditions: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
-    equation_cv: &ControlVolume,
+    equation_cvt: &ControlVolumeType,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
@@ -96,254 +80,290 @@ fn orthogonal_correction<M: MeshCore>(
         },
     };
 
-    match *integration {
-        IntegrationCategory::Implicit => {
-            for cell in 0..rhs.len() {
-                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut row = matrix
-                    .get_row_mut(cell)
-                    .expect("Bad Initialization of matrix");
-                let mut f_c = 0.;
-                for (neighbor, face, face_id) in neighbors_and_faces {
-                    match *neighbor {
-                        Patch::Cell(id) => {
-                            let normal = face
-                                .normal_from_cell(CellIndex(cell))
-                                .expect("Incoherence in face and cell connection");
-                            let d_cf =
-                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
-                            let e_f = face.area() * d_cf.normalize();
-                            let f_f = -face.area() / d_cf.magnitude();
-                            f_c -= f_f;
-                            match row
-                                .get_entry_mut(id.0)
-                                .expect("Bad Initialization of matrix")
-                            {
-                                SparseEntryMut::NonZero(value) => *value += f_f * coeff,
-                                SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
-                            }
-                            let t_f = face.area() * normal - e_f;
-                            println!("{:?} {:?}", e_f, t_f);
-                            rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
-                        }
-                        Patch::Boundary(id) => match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                let d_cb = face.middle_point(mesh.vertices())
-                                    - mesh.cells()[cell].centroid();
-                                let e_b = face.area() * d_cb.normalize();
-                                let f_b = face.area() / d_cb.magnitude();
-                                f_c += f_b;
-                                let t_b = face.area()
-                                    * face
-                                        .normal_from_cell(CellIndex(cell))
-                                        .expect("Incoherence in face and cell connection")
-                                    - e_b;
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] += coeff
-                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-                            }
-                            BoundaryCondition::Neumann(bc_value) => {
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] -= coeff * bc_value * face.area();
-                            }
-                        },
-                    }
-                }
-
-                match row
-                    .get_entry_mut(cell)
-                    .expect("Bad Initialization of matrix")
-                {
-                    SparseEntryMut::NonZero(value) => *value += f_c * coeff,
-                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
-                }
-
-                // println!("{:?}", row)
-            }
-            // panic!("Test")
-        }
-        IntegrationCategory::Explicit => {
-            for cell in 0..rhs.len() {
-                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut f_c = 0.;
-                for (neighbor, face, face_id) in neighbors_and_faces {
-                    match *neighbor {
-                        Patch::Cell(id) => {
-                            let d_cf =
-                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
-                            let e_f = face.area() * d_cf.normalize();
-                            let f_f = -e_f.magnitude() / d_cf.magnitude();
-                            f_c -= f_f;
-                            rhs[cell] -= f_f * coeff * field.values()[id.0];
-                            let t_f = face.area()
-                                * face
-                                    .normal_from_cell(CellIndex(cell))
-                                    .expect("Incoherence in face and cell connection")
-                                - e_f;
-                            rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
-                        }
-                        Patch::Boundary(id) => match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                let d_cb = face.middle_point(mesh.vertices())
-                                    - mesh.cells()[cell].centroid();
-                                let e_b = face.area() * d_cb.normalize();
-                                let f_b = e_b.magnitude() / d_cb.magnitude();
-                                f_c += f_b;
-                                let t_b = face.area()
-                                    * face
-                                        .normal_from_cell(CellIndex(cell))
-                                        .expect("Incoherence in face and cell connection")
-                                    - e_b;
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] += coeff
-                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-                            }
-                            BoundaryCondition::Neumann(bc_value) => {
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] -= coeff * bc_value * face.area();
-                            }
-                        },
-                    }
-                }
-                rhs[cell] -= f_c * coeff * field.values()[cell];
-            }
-        }
-    }
-}
-
-// Not prod ready
-fn minimal_correction<M: MeshCore>(
-    component: &Component,
-    solver: &mut EquationSolver,
-    field: &RefCell<Field>,
-    mesh: &Mesh<M>,
-    boundary_condition: &Vec<BoundaryCondition>,
-    integration: &IntegrationCategory,
-    coeff: f64,
-    equation_cv: &ControlVolume,
-) {
-    let (matrix, rhs) = solver.solver_borrow_mut();
-    let field = field.borrow();
-    let field = match field.deref() {
-        Field::Scalar(value) => value,
-        Field::Vector2(value) => match *component {
-            Component::X => &value.x,
-            Component::Y => &value.y,
-        },
+    let field_cvt = field.cvt();
+    let pairs = &mesh.pairs;
+    let (areas, normals) = match equation_cvt {
+        ControlVolumeType::Cells => (pairs.cells_areas(), pairs.cells_normals()),
+        ControlVolumeType::Nodes => (pairs.nodes_areas(), pairs.nodes_normals()),
     };
+    let centers = match field_cvt {
+        ControlVolumeType::Cells => mesh.cells.centers(),
+        ControlVolumeType::Nodes => mesh.nodes.centers(),
+    };
+    
+    let bnd = &mesh.boundaries;
 
     match *integration {
         IntegrationCategory::Implicit => {
-            for cell in 0..rhs.len() {
-                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut row = matrix
-                    .get_row_mut(cell)
-                    .expect("Bad Initialization of matrix");
-                let mut f_c = 0.;
-                for (neighbor, face, face_id) in neighbors_and_faces {
-                    match *neighbor {
-                        Patch::Cell(id) => {
-                            let normal = face
-                                .normal_from_cell(CellIndex(cell))
-                                .expect("Incoherence in face and cell connection");
-                            let d_cf =
-                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
-                            let mut e_f = d_cf.normalize();
-                            e_f *= face.area() * (e_f.angle(&normal)).cos();
-                            let f_f = e_f.magnitude() / d_cf.magnitude();
-                            f_c -= f_f;
-                            match row
-                                .get_entry_mut(id.0)
-                                .expect("Bad Initialization of matrix")
-                            {
-                                SparseEntryMut::NonZero(value) => *value += f_f * coeff,
-                                SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
-                            }
-                            let t_f = face.area() * normal - e_f;
-                            println!("{:?} {:?}", e_f, t_f);
-                            rhs[cell] -= coeff * field.grads_face()[face_id.0].dot(&t_f);
-                        }
-                        Patch::Boundary(id) => match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                let d_cb = face.middle_point(mesh.vertices())
-                                    - mesh.cells()[cell].centroid();
-                                let normal = face
-                                    .normal_from_cell(CellIndex(cell))
-                                    .expect("Incoherence in face and cell connection");
-                                let mut e_b = d_cb.normalize();
-                                e_b *= face.area() * (e_b.angle(&normal)).cos();
-                                let f_b = e_b.magnitude() / d_cb.magnitude();
-                                f_c += f_b;
-                                let t_b = face.area() * normal - e_b;
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] += coeff
-                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-                            }
-                            BoundaryCondition::Neumann(bc_value) => {
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] -= coeff * bc_value * face.area();
-                            }
-                        },
-                    }
+            assert_eq!(
+                field_cvt,
+                equation_cvt,
+                "Implicit term, field ({:?}) and equation ({:?}) ControlVolumeTypes should be the same",
+                field_cvt,
+                equation_cvt
+            );
+
+            for pair in 0..pairs.n {
+                if pairs.on_bnd()[pair] {
+                    continue;
                 }
 
+                let s_f = areas[pair] * normals[pair];
+
+                let cvs = match field_cvt {
+                    ControlVolumeType::Nodes => pairs.nodes()[pair],
+                    ControlVolumeType::Cells => {
+                        let cells = pairs.neighboring_cells()[pair]
+                            .iter()
+                            .map(|cell| match cell {
+                                Patch::Boundary(_) => panic!("Undetected boundary"),
+                                Patch::Cell(value) => *value,
+                            })
+                            .collect::<Vec<usize>>();
+                        // ToOptimize
+                        [cells[0], cells[1]]
+                    }
+                };
+
+                let e_f = areas[pair] * (centers[cvs[1]] - centers[cvs[0]]).normalize();
+                let t_f = s_f - e_f;
+                let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
+
+                let flux_f = coeff * e_f.norm() / d_cf;
+
+                let mut row = matrix
+                    .get_row_mut(cvs[0])
+                    .expect("Bad Initialization of matrix");
                 match row
-                    .get_entry_mut(cell)
+                    .get_entry_mut(cvs[1])
                     .expect("Bad Initialization of matrix")
                 {
-                    SparseEntryMut::NonZero(value) => *value += f_c * coeff,
+                    SparseEntryMut::NonZero(value) => *value += flux_f,
+                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                }
+                match row
+                    .get_entry_mut(cvs[0])
+                    .expect("Bad Initialization of matrix")
+                {
+                    SparseEntryMut::NonZero(value) => *value -= flux_f,
                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                 }
 
-                // println!("{:?}", row)
-            }
-            // panic!("Test")
-        }
-        // Not yet minimal correction
-        IntegrationCategory::Explicit => {
-            for cell in 0..rhs.len() {
-                let neighbors_and_faces = mesh.neighboring_patches_and_faces(CellIndex(cell));
-                let mut f_c = 0.;
-                for (neighbor, face, face_id) in neighbors_and_faces {
-                    match *neighbor {
-                        Patch::Cell(id) => {
-                            let d_cf =
-                                mesh.cells()[id.0].centroid() - mesh.cells()[cell].centroid();
-                            let e_f = face.area() * d_cf.normalize();
-                            let f_f = -e_f.magnitude() / d_cf.magnitude();
-                            f_c -= f_f;
-                            rhs[cell] -= f_f * coeff * field.values()[id.0];
-                            let t_f = face.area()
-                                * face
-                                    .normal_from_cell(CellIndex(cell))
-                                    .expect("Incoherence in face and cell connection")
-                                - e_f;
-                            rhs[cell] += coeff * field.grads_face()[face_id.0].dot(&t_f);
-                        }
-                        Patch::Boundary(id) => match &boundary_condition[id.0] {
-                            BoundaryCondition::Dirichlet(bc_value) => {
-                                let d_cb = face.middle_point(mesh.vertices())
-                                    - mesh.cells()[cell].centroid();
-                                let e_b = face.area() * d_cb.normalize();
-                                let f_b = e_b.magnitude() / d_cb.magnitude();
-                                f_c += f_b;
-                                let t_b = face.area()
-                                    * face
-                                        .normal_from_cell(CellIndex(cell))
-                                        .expect("Incoherence in face and cell connection")
-                                    - e_b;
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] += coeff
-                                    * (f_b * bc_value + field.grads_face()[face_id.0].dot(&t_b));
-                            }
-                            BoundaryCondition::Neumann(bc_value) => {
-                                let bc_value = bc_value.get_value(component);
-                                rhs[cell] -= coeff * bc_value * face.area();
-                            }
-                        },
-                    }
+                let mut row = matrix
+                    .get_row_mut(cvs[1])
+                    .expect("Bad Initialization of matrix");
+                match row
+                    .get_entry_mut(cvs[0])
+                    .expect("Bad Initialization of matrix")
+                {
+                    SparseEntryMut::NonZero(value) => *value += flux_f,
+                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                 }
-                rhs[cell] -= f_c * coeff * field.values()[cell];
+                match row
+                    .get_entry_mut(cvs[1])
+                    .expect("Bad Initialization of matrix")
+                {
+                    SparseEntryMut::NonZero(value) => *value -= flux_f,
+                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                }
+
+                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f);
+                rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f);
+            }
+
+            for (i_bnd, bc) in boundary_conditions.iter().enumerate() {
+                match field_cvt {
+                    ControlVolumeType::Nodes => {
+                        match bc {
+                            BoundaryCondition::Dirichlet(_) => (), //ToCheck
+                            BoundaryCondition::Neumann(_) => {
+                                for &pair in &bnd.faces()[i_bnd] {
+                                    let s_f = areas[pair] * normals[pair];
+
+                                    let cvs = pairs.nodes()[pair];
+
+                                    let e_f = areas[pair] * (centers[cvs[1]] - centers[cvs[0]]).normalize();
+                                    let t_f = s_f - e_f;
+                                    let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
+
+                                    let flux_f = coeff * e_f.norm() / d_cf;
+
+                                    let mut row = matrix
+                                        .get_row_mut(cvs[0])
+                                        .expect("Bad Initialization of matrix");
+                                    match row
+                                        .get_entry_mut(cvs[1])
+                                        .expect("Bad Initialization of matrix")
+                                    {
+                                        SparseEntryMut::NonZero(value) => *value += flux_f,
+                                        SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                    }
+                                    match row
+                                        .get_entry_mut(cvs[0])
+                                        .expect("Bad Initialization of matrix")
+                                    {
+                                        SparseEntryMut::NonZero(value) => *value -= flux_f,
+                                        SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                    }
+
+                                    let mut row = matrix
+                                        .get_row_mut(cvs[1])
+                                        .expect("Bad Initialization of matrix");
+                                    match row
+                                        .get_entry_mut(cvs[0])
+                                        .expect("Bad Initialization of matrix")
+                                    {
+                                        SparseEntryMut::NonZero(value) => *value += flux_f,
+                                        SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                    }
+                                    match row
+                                        .get_entry_mut(cvs[1])
+                                        .expect("Bad Initialization of matrix")
+                                    {
+                                        SparseEntryMut::NonZero(value) => *value -= flux_f,
+                                        SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                    }
+
+                                    rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f);
+                                    rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f);
+                                }
+                            }
+                        }
+                    }
+                    ControlVolumeType::Cells => match bc {
+                        BoundaryCondition::Dirichlet(bc_value) => {
+                            let bc_value = bc_value.get_value(component);
+                            
+                            for i in 0..bnd.faces().len() {
+                                let i_face = bnd.faces()[i_bnd][i];
+                                let i_cell = bnd.cells()[i_bnd][i];
+                                let s_f = areas[i_face] * normals[i_face];
+                                
+                                let sign;
+                                if let Patch::Cell(_) = pairs.neighboring_cells()[i_face][0] {
+                                    sign = 1.;
+                                } else {
+                                    sign = -1.;
+                                }
+                                let e_f = areas[i_face] * (pairs.centers()[i_face] - centers[i_cell]).normalize()*sign;
+                                let t_f = s_f - e_f;
+                                let d_cf = (pairs.centers()[i_face] - centers[i_cell]).norm();
+
+                                let flux_f = coeff * e_f.norm() / d_cf;
+                                
+                                let mut row = matrix
+                                    .get_row_mut(i_cell)
+                                    .expect("Bad Initialization of matrix");
+                                match row
+                                    .get_entry_mut(i_cell)
+                                    .expect("Bad Initialization of matrix")
+                                {
+                                    SparseEntryMut::NonZero(value) => *value += flux_f,
+                                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                }
+                                
+                                rhs[i_cell] -= sign*(field.grads_faces()[i_face].dot(&t_f) + flux_f*bc_value);
+                            }
+                        }
+                        BoundaryCondition::Neumann(_) => {
+                            for i in 0..bnd.faces().len() {
+                                let i_face = bnd.faces()[i_bnd][i];
+                                let i_cell = bnd.cells()[i_bnd][i];
+                                let s_f = areas[i_face] * normals[i_face];
+                                
+                                let sign;
+                                if let Patch::Cell(_) = pairs.neighboring_cells()[i_face][0] {
+                                    sign = 1.;
+                                } else {
+                                    sign = -1.;
+                                }
+                                let e_f = areas[i_face] * (pairs.centers()[i_face] - centers[i_cell]).normalize()*sign;
+                                let t_f = s_f - e_f;
+                                let d_cf = (pairs.centers()[i_face] - centers[i_cell]).norm();
+
+                                let flux_f = coeff * e_f.norm() / d_cf;
+                                
+                                let mut row = matrix
+                                    .get_row_mut(i_cell)
+                                    .expect("Bad Initialization of matrix");
+                                match row
+                                    .get_entry_mut(i_cell)
+                                    .expect("Bad Initialization of matrix")
+                                {
+                                    SparseEntryMut::NonZero(value) => *value += flux_f,
+                                    SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
+                                }
+                                
+                                rhs[i_cell] -= sign*(field.grads_faces()[i_face].dot(&t_f) + flux_f*field.faces_values()[i_face]);
+                            }
+                        }
+                    },
+                }
+            }
+        }
+        IntegrationCategory::Explicit => {
+            assert_eq!(
+                field_cvt,
+                equation_cvt,
+                "Implicit term, field ({:?}) and equation ({:?}) ControlVolumeTypes should be the same",
+                field_cvt,
+                equation_cvt
+            );
+
+            for pair in 0..pairs.n {
+                if pairs.on_bnd()[pair] {
+                    continue;
+                }
+
+                let s_f = areas[pair] * normals[pair];
+
+                let cvs = match equation_cvt {
+                    ControlVolumeType::Nodes => pairs.nodes()[pair],
+                    ControlVolumeType::Cells => {
+                        let cells = pairs.neighboring_cells()[pair]
+                            .iter()
+                            .map(|cell| match cell {
+                                Patch::Boundary(_) => panic!("Undetected boundary"),
+                                Patch::Cell(value) => *value,
+                            })
+                            .collect::<Vec<usize>>();
+                        // ToOptimize
+                        [cells[0], cells[1]]
+                    }
+                };
+
+                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f);
+                rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f);
+            }
+
+            for (i_bnd, _) in boundary_conditions.iter().enumerate() {
+                match equation_cvt {
+                    ControlVolumeType::Nodes => {
+                        for &pair in &bnd.faces()[i_bnd] {
+                            let s_f = areas[pair] * normals[pair];
+
+                            let cvs = pairs.nodes()[pair];
+
+                            rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f);
+                            rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f);
+                        }
+                    },
+                    ControlVolumeType::Cells => {
+                        for &pair in &bnd.faces()[i_bnd] {
+                            
+                            let s_f = areas[pair] * normals[pair];
+
+                            let cvs = &pairs.neighboring_cells()[pair];
+                            
+                            if let Patch::Cell(cell) = cvs[0] {
+                                rhs[cell] -= field.grads_faces()[pair].dot(&s_f);
+                            }
+                            if let Patch::Cell(cell) = cvs[1] {
+                                rhs[cell] += field.grads_faces()[pair].dot(&s_f);
+                            }
+                        }
+                    },
+                }
             }
         }
     }

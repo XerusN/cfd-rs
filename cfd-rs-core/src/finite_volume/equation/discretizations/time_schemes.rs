@@ -73,7 +73,7 @@ fn forward_euler<M: MeshCore>(
     assert_eq!(
         field.cvt(),
         equation_cvt,
-        "Implicit term, field ({:?}) and equation ({:?}) ControlVolumeType should be the same",
+        "Implicit term, field ({:?}) and equation ({:?}) ControlVolumeTypes should be the same",
         field.cvt(),
         equation_cvt
     );
