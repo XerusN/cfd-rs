@@ -215,7 +215,7 @@ impl EquationSolver {
         };
         let neighbors = match cvt {
             ControlVolumeType::Cells => mesh.cells.neighboring_cells(),
-            ControlVolumeType::Nodes => mesh.nodes.neighboring_pairs(),
+            ControlVolumeType::Nodes => mesh.nodes.neighboring_nodes(),
         };
 
         let mut matrix = CooMatrix::new(n, n);

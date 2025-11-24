@@ -34,7 +34,7 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
 
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
-        directory: "./target/exports".to_string(),
+        directory: "./exports".to_string(),
     };
 
     let mut bc_fields = HashMap::new();
@@ -164,13 +164,13 @@ fn main() {
         import_path: Some("../meshes/mesh3.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
-    let geometry = GeometryConfig {
-        import_path: None,
-        meshing: MeshingConfig::Cartesian {
-            length: Vector2::new(1., 1.),
-            n_elements: Vector2::new(50, 50),
-        },
-    };
+    // let geometry = GeometryConfig {
+    //     import_path: None,
+    //     meshing: MeshingConfig::Cartesian {
+    //         length: Vector2::new(1., 1.),
+    //         n_elements: Vector2::new(50, 50),
+    //     },
+    // };
 
     let mut case = SimpleCase::new(simple(geometry));
 
