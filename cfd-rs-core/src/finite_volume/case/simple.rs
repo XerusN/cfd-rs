@@ -1,27 +1,17 @@
-use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver, Variable};
+use super::super::equation::{EquationSolver};
 use crate::{
     convection, divergence,
     finite_volume::{
-        base::Field,
-        case::{Case, CaseEquations, VariableFields},
-        config::{CaseConfig, GeometryConfig, Schemes},
-        discretizations::DifferentialOperator,
-        equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-        mesh::mesh,
+        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
     },
     gradient, laplacian, time_derivative,
 };
 
-use cfd_rs_utils::{
-    control::OutputControl,
-    mesh::{
-        assembled_mesh::{Mesh, MeshCore},
-        computational_mesh::*,
-    },
-};
+use cfd_rs_utils::mesh::{
+        assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh,
+    };
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase<T: MeshCore> {
@@ -36,13 +26,13 @@ pub struct SimpleCase<T: MeshCore> {
 
     fields: VariableFields,
     equations: CaseEquations,
-    solver: EquationSolver,
+    solvers: SolversSet,
 
     density: f64,
     kinematic_viscosity: f64,
 }
 
-impl<T: MeshCore> Case<T> for SimpleCase<T> {
+impl Case<Computational2DMesh> for SimpleCase<Computational2DMesh> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -99,33 +89,33 @@ impl<T: MeshCore> Case<T> for SimpleCase<T> {
         self.equations.map.get_mut(name)
     }
 
-    fn solver(&self) -> &EquationSolver {
-        &self.solver
+    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver {
+        &self.solvers.get_from_cvt(cvt)
     }
 
-    fn solver_mut(&mut self) -> &mut EquationSolver {
-        &mut self.solver
+    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
+        self.solvers.get_from_cvt_mut(cvt)
     }
 
     fn schemes(&self) -> &Schemes {
         &self.config.schemes
     }
 
-    fn mesh(&self) -> &Mesh<T> {
+    fn mesh(&self) -> &Mesh<Computational2DMesh> {
         &self.mesh
     }
 
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut EquationSolver,
+        &mut SolversSet,
         &mut VariableFields,
         &CaseEquations,
-        &Mesh<T>,
+        &Mesh<Computational2DMesh>,
         &CaseConfig,
     ) {
         (
-            &mut self.solver,
+            &mut self.solvers,
             &mut self.fields,
             &self.equations,
             &self.mesh,
@@ -140,17 +130,17 @@ impl<T: MeshCore> Case<T> for SimpleCase<T> {
 
         println!("Div");
         Equation::solve(self, "Div");
-
+        
         self.step += 1;
-        self.export().unwrap();
+        self.export_cell_centered("./exports".to_owned()).unwrap();
 
         println!("Poisson");
         Equation::solve(self, "Poisson");
         println!("Grad");
         Equation::solve(self, "Grad");
-
+        
         self.step += 1;
-        self.export().unwrap();
+        self.export_cell_centered("./exports".to_owned()).unwrap();
 
         println!("Correction");
         Equation::solve(self, "Correction");
@@ -173,10 +163,10 @@ impl<T: MeshCore> Case<T> for SimpleCase<T> {
 
         let mut equations = CaseEquations::new();
 
-        let p = Variable::new("P".to_string(), Dimension::Scalar);
-        let u = Variable::new("U".to_string(), Dimension::Vector2);
-        let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2);
-        let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar);
+        let p = Variable::new("P".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+        let u = Variable::new("U".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
+        let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
+        let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
 
         let lhs = Op::FieldOperator(FieldOperator::Field(
             div_u.clone(),
@@ -215,7 +205,7 @@ impl<T: MeshCore> Case<T> for SimpleCase<T> {
 
         let fields = VariableFields::new(&equations, &mesh, &config);
 
-        let solver = EquationSolver::new(&mesh);
+        let solvers = SolversSet::new(&mesh);
 
         Self {
             name: "Simple-2D".to_string(),
@@ -228,7 +218,7 @@ impl<T: MeshCore> Case<T> for SimpleCase<T> {
             mesh,
             fields,
             equations: equations,
-            solver,
+            solvers,
 
             density,
             kinematic_viscosity,

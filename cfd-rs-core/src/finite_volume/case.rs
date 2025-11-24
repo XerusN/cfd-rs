@@ -22,13 +22,13 @@ use super::{
     fields::{Field, ScalarField},
 };
 
-pub mod burger;
-pub mod convection_diffusion_test;
-pub mod convection_test;
-pub mod diffusion_test;
-pub mod divergence_test;
-pub mod divergence_test2;
-pub mod poisson;
+// pub mod burger;
+// pub mod convection_diffusion_test;
+// pub mod convection_test;
+// pub mod diffusion_test;
+// pub mod divergence_test;
+// pub mod divergence_test2;
+// pub mod poisson;
 pub mod simple;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -134,6 +134,50 @@ impl CaseEquations {
         }
 
         variables_glob
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolversSet {
+    node: EquationSolver,
+    cell: EquationSolver,
+}
+
+impl SolversSet {
+    pub fn new<M: MeshCore>(mesh: &Mesh<M>) -> Self {
+        let node = EquationSolver::new(mesh, ControlVolumeType::Nodes);
+        let cell = EquationSolver::new(mesh, ControlVolumeType::Cells);
+        Self { node, cell }
+    }
+    
+    pub fn get_node(&self) -> &EquationSolver {
+        &self.node
+    }
+    
+    pub fn get_node_mut(&mut self) -> &mut EquationSolver {
+        &mut self.node
+    }
+    
+    pub fn get_cell(&self) -> &EquationSolver {
+        &self.cell
+    }
+    
+    pub fn get_cell_mut(&mut self) -> &mut EquationSolver {
+        &mut self.cell
+    }
+    
+    pub fn get_from_cvt(&self, cvt: &ControlVolumeType) -> &EquationSolver {
+        match cvt {
+            ControlVolumeType::Cells => &self.cell,
+            ControlVolumeType::Nodes => &self.node,
+        }
+    }
+    
+    pub fn get_from_cvt_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
+        match cvt {
+            ControlVolumeType::Cells => &mut self.cell,
+            ControlVolumeType::Nodes => &mut self.node,
+        }
     }
 }
 
@@ -263,9 +307,9 @@ pub trait Case<T: MeshCore>: Sized {
 
     fn equation_mut(&mut self, name: &str) -> Option<&mut Equation>;
 
-    fn solver(&self) -> &EquationSolver;
+    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver;
 
-    fn solver_mut(&mut self) -> &mut EquationSolver;
+    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver;
 
     fn schemes(&self) -> &Schemes;
 
@@ -274,7 +318,7 @@ pub trait Case<T: MeshCore>: Sized {
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut EquationSolver,
+        &mut SolversSet,
         &mut VariableFields,
         &CaseEquations,
         &Mesh<T>,

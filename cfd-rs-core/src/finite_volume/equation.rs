@@ -81,6 +81,10 @@ impl Equation {
     pub fn unknown(&self) -> &Variable {
         &self.unknown
     }
+    
+    pub fn cvt(&self) -> &ControlVolumeType {
+        &self.unknown.cvt()
+    }
 
     pub fn fields_required(&self) -> &HashMap<Variable, GradRequirements> {
         &self.variables_requirements
@@ -185,14 +189,14 @@ impl Equation {
 
     pub fn solve<M: MeshCore, T: Case<M>>(case: &mut T, name: &str) -> usize {
         let time_step = case.time_step();
-        let (solver, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
+        let (solvers, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
 
         let equation = equations
             .map
             .get(name)
             .expect(&format!("This equation is not defined: {name:?}"));
 
-        solve(solver, equation, variable_fields, mesh, config, time_step)
+        solve(solvers.get_from_cvt_mut(equation.cvt()), equation, variable_fields, mesh, config, time_step)
     }
 }
 

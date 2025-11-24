@@ -1,27 +1,22 @@
 use core::f64;
-use std::mem;
-use std::ops::Deref;
 
-use cfd_rs::finite_volume::base::Field;
 use cfd_rs::finite_volume::boundary::BoundaryValue;
 use cfd_rs::finite_volume::case::simple::SimpleCase;
 use cfd_rs::finite_volume::config::{InitFunc, OutputConfig};
+use cfd_rs::finite_volume::equation::variables::{ControlVolumeType, Dimension, Variable};
+use cfd_rs::finite_volume::gradients::GradientInterpConfig;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
-use cfd_rs::finite_volume::case::{self, poisson};
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    case::poisson::PoissonCase,
     case::Case,
     config::{CaseConfig, GeometryConfig, MeshingConfig, Schemes},
-    discretizations::{
+    equation::discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
     },
-    equation::{Dimension, Variable},
     gradients::{GradientConfig, GradientScheme},
-    interpolations::GradientInterpConfig,
 };
 use nalgebra::{Point2, Vector2};
 
@@ -62,45 +57,50 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
             ];
         }
     }
-    bc_fields.insert(Variable::new("U".to_string(), Dimension::Vector2), bc);
+    
+    let u = Variable::new("U".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
+    let p = Variable::new("P".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+    let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+    let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
+    bc_fields.insert(u.clone(), bc);
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
-    bc_fields.insert(Variable::new("P".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(p.clone(), bc);
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
-    bc_fields.insert(Variable::new("div(U)".to_string(), Dimension::Scalar), bc);
+    bc_fields.insert(div_u.clone(), bc);
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
     ];
-    bc_fields.insert(Variable::new("grad(P)".to_string(), Dimension::Vector2), bc);
+    bc_fields.insert(grad_p.clone(), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
-        Variable::new("U".to_string(), Dimension::Vector2),
+        u.clone(),
         InitFunc::Vector2(constant, constant),
     );
     initial_fields.insert(
-        Variable::new("P".to_string(), Dimension::Scalar),
+        p.clone(),
         InitFunc::Scalar(constant),
     );
     initial_fields.insert(
-        Variable::new("div(U)".to_string(), Dimension::Scalar),
+        div_u.clone(),
         InitFunc::Scalar(constant),
     );
     initial_fields.insert(
-        Variable::new("grad(P)".to_string(), Dimension::Vector2),
+        grad_p.clone(),
         InitFunc::Vector2(constant, constant),
     );
 
@@ -174,7 +174,7 @@ fn main() {
 
     let mut case = SimpleCase::new(simple(geometry));
 
-    case.export_cell_centered().unwrap();
+    case.export_cell_centered("".to_owned()).unwrap();
 
     for _ in 0..10 {
         case.next_step();
@@ -190,7 +190,7 @@ fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        case.export().unwrap();
+        case.export_cell_centered("".to_owned()).unwrap();
         println!("{:?}", case.time());
     }
 }
