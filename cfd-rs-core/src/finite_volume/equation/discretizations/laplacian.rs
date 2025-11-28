@@ -249,7 +249,7 @@ fn orthogonal_correction<M: MeshCore>(
                                 let t_f = s_f - e_f;
                                 let d_cf = (pairs.centers()[i_face] - centers[i_cell]).norm();
 
-                                let flux_f = coeff * e_f.norm() / d_cf;
+                                let flux_f = coeff * areas[i_face] / d_cf;
                                 
                                 let mut row = matrix
                                     .get_row_mut(i_cell)

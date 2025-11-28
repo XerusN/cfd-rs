@@ -195,7 +195,7 @@ pub trait Case<T: MeshCore>: Sized {
     fn import_from_file(file_name: &str) -> io::Result<()>;
 
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
-    fn export_cell_centered(&self, path: String) -> io::Result<()> {
+    fn export_cell_centered(&self) -> io::Result<()> {
         let path = PathBuf::from(format!(
             "{}/{}_cells_nodes_{:06}.vtu",
             &self.config().output.directory,
@@ -250,7 +250,7 @@ pub trait Case<T: MeshCore>: Sized {
 
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
     /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
-    fn export_node_centered(&self, path: String) -> io::Result<()> {
+    fn export_node_centered(&self) -> io::Result<()> {
         let path = PathBuf::from(format!(
             "{}/{}_nodes_{:06}.vtu",
             &self.config().output.directory,

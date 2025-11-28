@@ -132,7 +132,7 @@ impl<M: MeshCore> Case<M> for SimpleCase<M> {
         Equation::solve(self, "Div");
         
         self.step += 1;
-        self.export_cell_centered("./exports".to_owned()).unwrap();
+        self.export_cell_centered().unwrap();
 
         println!("Poisson");
         Equation::solve(self, "Poisson");
@@ -140,7 +140,7 @@ impl<M: MeshCore> Case<M> for SimpleCase<M> {
         Equation::solve(self, "Grad");
         
         self.step += 1;
-        self.export_cell_centered("./exports".to_owned()).unwrap();
+        self.export_cell_centered().unwrap();
 
         println!("Correction");
         Equation::solve(self, "Correction");

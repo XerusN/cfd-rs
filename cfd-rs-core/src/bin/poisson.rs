@@ -20,16 +20,17 @@ fn poisson() -> CaseConfig {
     //     element_size: 0.01,
     // };
     let geometry = GeometryConfig {
-        import_path: Some("../meshes/mesh3.cfd".to_string()),
+        import_path: Some("../meshes/mesh5.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
     let output = OutputConfig {
         control: OutputControl::Iteration(1),
-        directory: "./target/exports".to_string(),
+        directory: "./exports".to_string(),
     };
     
     let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+    let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
     
     let mut bc_fields = HashMap::new();
     let bc = vec![
@@ -39,11 +40,22 @@ fn poisson() -> CaseConfig {
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(300.)),
     ];
     bc_fields.insert(t.clone(), bc);
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+    ];
+    bc_fields.insert(lap.clone(), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
         t.clone(),
+        InitFunc::Scalar(constant),
+    );
+    initial_fields.insert(
+        lap.clone(),
         InitFunc::Scalar(constant),
     );
 
@@ -65,9 +77,9 @@ fn main() {
     let mesh = mesh(&config.geometry);
     let mut case = PoissonCase::new(config, mesh);
 
-    case.export_cell_centered("".to_owned()).unwrap();
+    case.export_cell_centered().unwrap();
 
-    for _ in 0..10 {
+    for _ in 0..2 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -81,7 +93,7 @@ fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        case.export_cell_centered("".to_owned()).unwrap();
+        case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
 }

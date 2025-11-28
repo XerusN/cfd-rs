@@ -229,7 +229,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             let mut areas = Vec::with_capacity(nodes.len());
             let mut normals = Vec::with_capacity(nodes.len());
             for i_node in 0..nodes.len() {
-                let vector = nodes[i_node + 1] - nodes[i_node % nodes.len()];
+                let vector = nodes[(i_node + 1) % nodes.len()] - nodes[i_node % nodes.len()];
                 areas.push(vector.magnitude());
                 normals.push(Vector2::new(-vector.y, vector.x).normalize());
             }

@@ -119,6 +119,7 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
 
     fn next_step(&mut self) {
         Equation::solve(self, "Poisson");
+        Equation::solve(self, "Laplacian Eq");
 
         self.time += self.time_step;
         self.step += 1;
@@ -129,14 +130,22 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let mut equations = CaseEquations::new();
 
         let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
-
+        let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+        
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
-
         let rhs = Op::Scalar(0.);
-
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
-
+        
+        let lhs = Op::FieldOperator(FieldOperator::Field(
+            lap.clone(),
+            IntegrationCategory::Implicit,
+        ));
+        let rhs = laplacian!(&t, IntegrationCategory::Explicit);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Laplacian Eq".to_string(), eq).unwrap();
+        
+        
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solvers = SolversSet::new(&mesh);

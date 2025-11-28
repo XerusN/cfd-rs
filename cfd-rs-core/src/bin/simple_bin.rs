@@ -177,7 +177,7 @@ fn main() {
     let mesh = mesh(&config.geometry);
     let mut case = SimpleCase::new(config, mesh);
 
-    case.export_cell_centered("".to_owned()).unwrap();
+    case.export_cell_centered().unwrap();
 
     for _ in 0..10 {
         case.next_step();
@@ -193,7 +193,7 @@ fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        case.export_cell_centered("".to_owned()).unwrap();
+        case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
 }

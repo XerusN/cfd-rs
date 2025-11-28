@@ -1,5 +1,6 @@
 use hashbrown::HashMap;
 use log::warn;
+use nalgebra_sparse_linalg::iteratives::{Amg, IterativeSolver, gauss_seidel};
 use std::{ops::Deref, vec};
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
@@ -542,7 +543,8 @@ fn solve<M: MeshCore>(
                 // To change
                 warn!("Matrix cloned for amg");
                 warn!("Hard-coded tol and max_iter for solve");
-                // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, field.values_mut(), 10000, 1e-4);
+                // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, scalar_field.values_mut(), 10000, 1e-4);
+                
                 // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
                 // linalg_solver.init(
                 //     solver.matrix(),
