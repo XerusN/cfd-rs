@@ -4,13 +4,13 @@ use super::super::equation::{EquationSolver};
 use crate::{
     convection, divergence,
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
+        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field
     },
     gradient, laplacian, time_derivative,
 };
 
 use cfd_rs_utils::mesh::{
-        assembled_mesh::{Mesh, MeshCore}, computational_mesh::Computational2DMesh,
+        assembled_mesh::{Mesh, MeshCore},
     };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -32,7 +32,7 @@ pub struct SimpleCase<T: MeshCore> {
     kinematic_viscosity: f64,
 }
 
-impl Case<Computational2DMesh> for SimpleCase<Computational2DMesh> {
+impl<M: MeshCore> Case<M> for SimpleCase<M> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -101,7 +101,7 @@ impl Case<Computational2DMesh> for SimpleCase<Computational2DMesh> {
         &self.config.schemes
     }
 
-    fn mesh(&self) -> &Mesh<Computational2DMesh> {
+    fn mesh(&self) -> &Mesh<M> {
         &self.mesh
     }
 
@@ -111,7 +111,7 @@ impl Case<Computational2DMesh> for SimpleCase<Computational2DMesh> {
         &mut SolversSet,
         &mut VariableFields,
         &CaseEquations,
-        &Mesh<Computational2DMesh>,
+        &Mesh<M>,
         &CaseConfig,
     ) {
         (
@@ -152,10 +152,8 @@ impl Case<Computational2DMesh> for SimpleCase<Computational2DMesh> {
         self.step += 1;
     }
 
-    fn new(config: CaseConfig) -> Self {
+    fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
         // let mesh = quad_mesh(&config.geometry);
-        let mesh = mesh(&config.geometry);
-
         let density = 1.;
         let kinematic_viscosity = 1.;
 

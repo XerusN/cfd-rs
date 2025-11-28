@@ -161,6 +161,8 @@ fn green_gauss_compact<M: MeshCore>(
                         let bc_value = bc_value.get_value(component);
                         for &pair in &bnd.faces()[i_bnd] {
                             face_values[pair] = bc_value;
+                            values[pairs.nodes()[pair][0]] = bc_value;
+                            values[pairs.nodes()[pair][1]] = bc_value;
                         }
                     }
                     BoundaryCondition::Neumann(bc_value) => {

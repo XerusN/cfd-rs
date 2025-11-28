@@ -28,7 +28,7 @@ use super::{
 // pub mod diffusion_test;
 // pub mod divergence_test;
 // pub mod divergence_test2;
-// pub mod poisson;
+pub mod poisson;
 pub mod simple;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -325,7 +325,7 @@ pub trait Case<T: MeshCore>: Sized {
         &CaseConfig,
     );
 
-    fn new(config: CaseConfig) -> Self;
+    fn new(config: CaseConfig, mesh: Mesh<T>) -> Self;
 }
 
 fn export_mesh<M: MeshCore>(

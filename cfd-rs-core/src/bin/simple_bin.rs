@@ -5,6 +5,7 @@ use cfd_rs::finite_volume::case::simple::SimpleCase;
 use cfd_rs::finite_volume::config::{InitFunc, OutputConfig};
 use cfd_rs::finite_volume::equation::variables::{ControlVolumeType, Dimension, Variable};
 use cfd_rs::finite_volume::gradients::GradientInterpConfig;
+use cfd_rs::finite_volume::mesh::mesh;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
@@ -171,8 +172,10 @@ fn main() {
     //         n_elements: Vector2::new(50, 50),
     //     },
     // };
-
-    let mut case = SimpleCase::new(simple(geometry));
+    
+    let config = simple(geometry);
+    let mesh = mesh(&config.geometry);
+    let mut case = SimpleCase::new(config, mesh);
 
     case.export_cell_centered("".to_owned()).unwrap();
 

@@ -1,23 +1,17 @@
-use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver, Variable};
+use super::super::equation::{EquationSolver};
 use crate::{
     finite_volume::{
-        base::Field,
-        case::{Case, CaseEquations, VariableFields},
-        config::{CaseConfig, GeometryConfig, Schemes},
-        discretizations::DifferentialOperator,
-        equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-        mesh::mesh,
+        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
     },
     laplacian,
 };
 
-use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
+use cfd_rs_utils::{mesh::{assembled_mesh::{Mesh, MeshCore}}};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase {
+pub struct PoissonCase<M: MeshCore> {
     name: String,
     step: usize,
     time: f64,
@@ -25,14 +19,14 @@ pub struct PoissonCase {
 
     config: CaseConfig,
 
-    mesh: Computational2DMesh,
+    mesh: Mesh<M>,
 
     fields: VariableFields,
     equations: CaseEquations,
-    solver: EquationSolver,
+    solvers: SolversSet,
 }
 
-impl Case for PoissonCase {
+impl<M: MeshCore> Case<M> for PoissonCase<M> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -89,33 +83,33 @@ impl Case for PoissonCase {
         self.equations.map.get_mut(name)
     }
 
-    fn solver(&self) -> &EquationSolver {
-        &self.solver
+    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver {
+        &self.solvers.get_from_cvt(cvt)
     }
 
-    fn solver_mut(&mut self) -> &mut EquationSolver {
-        &mut self.solver
+    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
+        self.solvers.get_from_cvt_mut(cvt)
     }
 
     fn schemes(&self) -> &Schemes {
         &self.config.schemes
     }
 
-    fn mesh(&self) -> &Computational2DMesh {
+    fn mesh(&self) -> &Mesh<M> {
         &self.mesh
     }
 
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut EquationSolver,
+        &mut SolversSet,
         &mut VariableFields,
         &CaseEquations,
-        &Computational2DMesh,
+        &Mesh<M>,
         &CaseConfig,
     ) {
         (
-            &mut self.solver,
+            &mut self.solvers,
             &mut self.fields,
             &self.equations,
             &self.mesh,
@@ -130,13 +124,11 @@ impl Case for PoissonCase {
         self.step += 1;
     }
 
-    fn new(config: CaseConfig) -> Self {
-        let mesh = mesh(&config.geometry);
-        // let mesh = mesh(&config.geometry);
+    fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
 
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar);
+        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
 
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
 
@@ -147,7 +139,7 @@ impl Case for PoissonCase {
 
         let fields = VariableFields::new(&equations, &mesh, &config);
 
-        let solver = EquationSolver::new(&mesh);
+        let solvers = SolversSet::new(&mesh);
 
         Self {
             name: "Poisson-2D".to_string(),
@@ -160,7 +152,7 @@ impl Case for PoissonCase {
             mesh,
             fields,
             equations: equations,
-            solver,
+            solvers,
         }
     }
 }
