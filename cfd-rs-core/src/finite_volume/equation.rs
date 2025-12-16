@@ -523,16 +523,21 @@ fn solve<M: MeshCore>(
 
     match equation.unknown().dim() {
         Dimension::Scalar => {
+            
             let mut result = false;
 
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
+            
+            // for row in solver.matrix.row_iter() {
+            //     println!("{:?}", row);
+            // }
 
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation");
-
+            
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
             for i in 0..1 {
                 let scalar_field = match &mut *field.0 {
@@ -620,12 +625,12 @@ fn solve<M: MeshCore>(
                     _ => panic!("Unknown should be vector"),
                 };
 
-                // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
-                // linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
-                // let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
-                // *buffer.values_mut() = linalg_solver.x.clone();
+                let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
+                linalg_solver.init(solver.matrix(), solver.rhs(), Some(buffer.values_mut()));
+                let result = linalg_solver.solve_iterations(solver.matrix(), solver.rhs(), 100);
+                *buffer.values_mut() = linalg_solver.x.clone();
 
-                easy_jacobi(&solver.matrix, &solver.rhs, buffer.values_mut());
+                // easy_jacobi(&solver.matrix, &solver.rhs, buffer.values_mut());
 
                 // let result = iteratives::amg::solve_with_initial_guess(
                 //     solver.matrix().clone(),
@@ -636,9 +641,9 @@ fn solve<M: MeshCore>(
                 //     0.8,
                 // );
 
-                // if !result {
-                //     panic!("Did not converge when solving {:?}", equation)
-                // }
+                if !result {
+                    panic!("Did not converge when solving {:?}", equation)
+                }
             }
 
             fields

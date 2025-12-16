@@ -70,6 +70,7 @@ fn orthogonal_correction<M: MeshCore>(
     coeff: f64,
     equation_cvt: &ControlVolumeType,
 ) {
+    
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
     let field = match field.deref() {
@@ -258,11 +259,11 @@ fn orthogonal_correction<M: MeshCore>(
                                     .get_entry_mut(i_cell)
                                     .expect("Bad Initialization of matrix")
                                 {
-                                    SparseEntryMut::NonZero(value) => *value += flux_f,
+                                    SparseEntryMut::NonZero(value) => *value -= flux_f,     //Test, else other sign
                                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                                 }
                                 
-                                rhs[i_cell] -= sign*(field.grads_faces()[i_face].dot(&t_f) + flux_f*bc_value);
+                                rhs[i_cell] += sign*(field.grads_faces()[i_face].dot(&t_f) + flux_f*bc_value);      //Same
                             }
                         }
                         BoundaryCondition::Neumann(_) => {
