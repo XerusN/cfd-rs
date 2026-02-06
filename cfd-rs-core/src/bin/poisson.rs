@@ -20,7 +20,7 @@ fn poisson() -> CaseConfig {
     //     element_size: 0.01,
     // };
     let geometry = GeometryConfig {
-        import_path: Some("../meshes/mesh4.cfd".to_string()),
+        import_path: Some("../meshes/mesh5.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
@@ -116,4 +116,6 @@ fn main() {
         case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
+    
+    
 }

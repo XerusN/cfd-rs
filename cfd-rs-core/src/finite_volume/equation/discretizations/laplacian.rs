@@ -130,7 +130,7 @@ fn orthogonal_correction<M: MeshCore>(
                 let t_f = s_f - e_f;
                 let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
 
-                let flux_f = coeff * e_f.norm() / d_cf;
+                let flux_f = - coeff * e_f.norm() / d_cf;
 
                 let mut row = matrix
                     .get_row_mut(cvs[0])
@@ -187,7 +187,7 @@ fn orthogonal_correction<M: MeshCore>(
                                     let t_f = s_f - e_f;
                                     let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
 
-                                    let flux_f = coeff * areas[pair] / d_cf;
+                                    let flux_f = - coeff * areas[pair] / d_cf;
 
                                     let mut row = matrix
                                         .get_row_mut(cvs[0])
@@ -238,7 +238,6 @@ fn orthogonal_correction<M: MeshCore>(
                             for i in 0..bnd.faces().len() {
                                 let i_face = bnd.faces()[i_bnd][i];
                                 let i_cell = bnd.cells()[i_bnd][i];
-                                let s_f = areas[i_face] * normals[i_face];
                                 
                                 let sign;
                                 if let Patch::Cell(_) = pairs.neighboring_cells()[i_face][0] {
@@ -246,7 +245,8 @@ fn orthogonal_correction<M: MeshCore>(
                                 } else {
                                     sign = -1.;
                                 }
-                                let e_f = areas[i_face] * (pairs.centers()[i_face] - centers[i_cell]).normalize()*sign;  //*sign before
+                                let s_f = areas[i_face] * normals[i_face] * sign;
+                                let e_f = areas[i_face] * (pairs.centers()[i_face] - centers[i_cell]).normalize();  //*sign before
                                 let t_f = s_f - e_f;
                                 let d_cf = (pairs.centers()[i_face] - centers[i_cell]).norm();
 
@@ -259,7 +259,7 @@ fn orthogonal_correction<M: MeshCore>(
                                     .get_entry_mut(i_cell)
                                     .expect("Bad Initialization of matrix")
                                 {
-                                    SparseEntryMut::NonZero(value) => *value -= flux_b,     //Test, else other sign + why not *sign?
+                                    SparseEntryMut::NonZero(value) => *value += flux_b,     //Test, else other sign + why not *sign?
                                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                                 }
                                 

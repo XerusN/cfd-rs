@@ -529,9 +529,12 @@ fn solve<M: MeshCore>(
             let component = Component::X;
             solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
             
-            // for row in solver.matrix.row_iter() {
-            //     println!("{:?}", row);
-            // }
+            for row in solver.matrix.row_iter() {
+                println!("{:?}", row);
+            }
+            for value in &solver.rhs {
+                println!("{:?}", value);
+            }
 
             let field_cell = &fields
                 .map
