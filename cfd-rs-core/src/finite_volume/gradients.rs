@@ -193,7 +193,7 @@ fn green_gauss_compact<M: MeshCore>(
                             let bc_value = bc_value.get_value(component);
                             for i in 0..bnd.faces()[i_bnd].len() {
                                 let i_face = bnd.faces()[i_bnd][i];
-                                let i_cell = bnd.faces()[i_bnd][i];
+                                let i_cell = bnd.cells()[i_bnd][i];
                                 match pairs.neighboring_cells()[i_face][0] {
                                     Patch::Cell(_) => {
                                         // Check sign in .dot()
@@ -224,6 +224,7 @@ fn green_gauss_compact<M: MeshCore>(
         }
 
         for pair in 0..pairs.n {
+            // to be moved outside of loop
             let area = match cvt {
                 ControlVolumeType::Cells => pairs.cells_areas()[pair],
                 ControlVolumeType::Nodes => pairs.nodes_areas()[pair],
@@ -240,21 +241,21 @@ fn green_gauss_compact<M: MeshCore>(
                     match patches[0] {
                         Patch::Boundary(_) => (),
                         Patch::Cell(cell) => {
-                            grads[cell] = flux / volumes[cell];
+                            grads[cell] += flux / volumes[cell];
                         }
                     };
                     match patches[1] {
                         Patch::Boundary(_) => (),
                         Patch::Cell(cell) => {
-                            grads[cell] = -flux / volumes[cell];
+                            grads[cell] -= flux / volumes[cell];
                         }
                     };
                 }
                 ControlVolumeType::Nodes => {
                     let nodes = pairs.nodes()[pair];
                     let flux = area * normal * face_values[pair];
-                    grads[nodes[0]] = flux / volumes[nodes[0]]; //ToCheck sign
-                    grads[nodes[1]] = -flux / volumes[nodes[1]];
+                    grads[nodes[0]] += flux / volumes[nodes[0]]; //ToCheck sign
+                    grads[nodes[1]] -= flux / volumes[nodes[1]];
                 }
             }
         }

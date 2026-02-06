@@ -53,4 +53,5 @@ fn main() {
     // println!("------------------------------");
     // println!("{:?}", assembled.boundaries);
     assembled.serialize_file("../meshes/mesh5.cfd").unwrap();
+    assembled.json_file("../meshes/small_structured.json").unwrap()
 }

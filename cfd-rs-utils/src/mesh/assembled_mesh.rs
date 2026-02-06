@@ -1,5 +1,6 @@
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 pub use boundaries::Boundaries;
 pub use cells::Cells;
@@ -8,7 +9,7 @@ pub use nodes::Nodes;
 pub use pairs::Pairs;
 use std::{
     fs::File,
-    io::{self, Write},
+    io::{self, BufWriter, Write},
     path::PathBuf,
     vec,
 };
@@ -582,6 +583,14 @@ impl<T: MeshCore> Mesh<T> {
         let mut file = File::create(path)?;
         bincode::serde::encode_into_std_write(self, &mut file, bincode::config::standard())
             .unwrap();
+        Ok(())
+    }
+    
+    pub fn json_file(&self, path: &str) -> std::io::Result<()> {
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer(&mut writer, self)?;
+        writer.flush()?;
         Ok(())
     }
 

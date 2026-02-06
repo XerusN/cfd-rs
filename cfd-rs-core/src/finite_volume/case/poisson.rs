@@ -3,9 +3,8 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::{EquationSolver};
 use crate::{
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
-    },
-    laplacian,
+        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{Equation, FieldOperator, IntegrationCategory, discretizations::DifferentialOperator, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
+    }, gradient, laplacian
 };
 
 use cfd_rs_utils::{mesh::{assembled_mesh::{Mesh, MeshCore}}};
@@ -120,6 +119,7 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
     fn next_step(&mut self) {
         Equation::solve(self, "Poisson");
         Equation::solve(self, "Laplacian Eq");
+        Equation::solve(self, "Gradient Eq");
 
         self.time += self.time_step;
         self.step += 1;
@@ -130,6 +130,8 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let mut equations = CaseEquations::new();
 
         let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+        let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
+        
         let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
         
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
@@ -145,6 +147,13 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Laplacian Eq".to_string(), eq).unwrap();
         
+        let lhs = Op::FieldOperator(FieldOperator::Field(
+            grad_t.clone(),
+            IntegrationCategory::Implicit,
+        ));
+        let rhs = gradient!(&t);
+        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
+        equations.add_eq("Gradient Eq".to_string(), eq).unwrap();
         
         let fields = VariableFields::new(&equations, &mesh, &config);
 
