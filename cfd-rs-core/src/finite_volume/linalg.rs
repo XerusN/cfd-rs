@@ -75,5 +75,8 @@ pub fn easy_jacobi(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>, x: &mut DVector<
         i += 1;
 
         println!("Iter: {i} Norm: {norm}");
+        // if i > 100000 {
+        //     break;
+        // }
     }
 }

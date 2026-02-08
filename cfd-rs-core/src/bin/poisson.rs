@@ -29,9 +29,9 @@ fn poisson() -> CaseConfig {
         directory: "./exports".to_string(),
     };
     
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
-    let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
-    let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+    let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
+    let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
     
     let mut bc_fields = HashMap::new();
     let bc = vec![
@@ -99,7 +99,7 @@ fn main() {
 
     case.export_cell_centered().unwrap();
 
-    for _ in 0..2 {
+    for _ in 0..20 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -116,6 +116,4 @@ fn main() {
         case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
-    
-    
 }

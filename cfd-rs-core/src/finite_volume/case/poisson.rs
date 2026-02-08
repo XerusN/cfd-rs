@@ -118,8 +118,8 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
 
     fn next_step(&mut self) {
         Equation::solve(self, "Poisson");
-        Equation::solve(self, "Laplacian Eq");
-        Equation::solve(self, "Gradient Eq");
+        // Equation::solve(self, "Laplacian Eq");
+        // Equation::solve(self, "Gradient Eq");
 
         self.time += self.time_step;
         self.step += 1;
@@ -129,10 +129,10 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
 
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
-        let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
+        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+        let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
         
-        let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+        let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
         
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
         let rhs = Op::Scalar(0.);

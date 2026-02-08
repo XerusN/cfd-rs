@@ -294,11 +294,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let vector = vector.normalize();
                 let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
                 let area = area_1 + area_2;
+                let abs_pair = nodes_neighboring_pairs[i_node][pair];   // To check
                 areas.push(area);
-                pairs_nodes_areas[pair] = area;
+                pairs_nodes_areas[abs_pair] = area;
                 let normal = normal_1.lerp(&normal_2, area_2 / (area_1 + area_2));
                 normals.push(normal);
-                pairs_nodes_normals[pair] = normal;
+                pairs_nodes_normals[abs_pair] = normal;
 
                 if (is_bnd) && (cv_nodes[(node + 2) % cv_nodes.len()] == nodes_centers[i_node]) {
                     node += 3;
@@ -353,7 +354,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_nodes_areas,
             pairs_on_bnd,
         );
-
+        
         let boundaries = Boundaries::new(
             boundaries_names,
             boundaries_faces,

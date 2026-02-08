@@ -82,6 +82,7 @@ fn orthogonal_correction<M: MeshCore>(
     };
 
     let field_cvt = field.cvt();
+    println!("{:?}", field_cvt);
     let pairs = &mesh.pairs;
     let (areas, normals) = match equation_cvt {
         ControlVolumeType::Cells => (pairs.cells_areas(), pairs.cells_normals()),
@@ -125,12 +126,16 @@ fn orthogonal_correction<M: MeshCore>(
                         [cells[0], cells[1]]
                     }
                 };
+                
+                println!("areas : {:?}", areas[pair]);
 
                 let e_f = areas[pair] * (centers[cvs[1]] - centers[cvs[0]]).normalize();
                 let t_f = s_f - e_f;
                 let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
-
+                println!("e, t, d : {:?} {:?} {:?}", e_f, t_f, d_cf);
+                
                 let flux_f = - coeff * e_f.norm() / d_cf;
+                println!("f : {:?}", flux_f);
 
                 let mut row = matrix
                     .get_row_mut(cvs[0])
@@ -176,7 +181,9 @@ fn orthogonal_correction<M: MeshCore>(
                 match field_cvt {
                     ControlVolumeType::Nodes => {
                         match bc {
-                            BoundaryCondition::Dirichlet(_) => (), //ToCheck
+                            BoundaryCondition::Dirichlet(bc_value) => {
+                                ()
+                            }, //ToCheck, Maybe ensure that the matrix is 0 at each row? or ensure that elsewhere (probably better)
                             BoundaryCondition::Neumann(_) => {
                                 for &pair in &bnd.faces()[i_bnd] {
                                     let s_f = areas[pair] * normals[pair];

@@ -7,7 +7,7 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
-use crate::finite_volume::{equation::operations::Op, linalg::easy_jacobi};
+use crate::finite_volume::{equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi};
 
 use super::{
     case::{Case, GradRequirements, VariableFields},
@@ -23,6 +23,7 @@ pub mod discretizations;
 pub mod macros;
 pub mod operations;
 pub mod variables;
+pub mod boundaries;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IntegrationCategory {
@@ -377,6 +378,7 @@ impl EquationSolver {
     pub fn apply_op<M: MeshCore>(
         &mut self,
         op: &Op,
+        unknown: &Variable,
         component: &Component,
         fields: &VariableFields,
         mesh: &Mesh<M>,
@@ -388,6 +390,7 @@ impl EquationSolver {
             Op::Add(op) => {
                 self.apply_op(
                     &op.as_ref().0,
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -397,6 +400,7 @@ impl EquationSolver {
                 );
                 self.apply_op(
                     &op.as_ref().1,
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -408,6 +412,7 @@ impl EquationSolver {
             Op::Sub(op) => {
                 self.apply_op(
                     &op.as_ref().0,
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -417,6 +422,7 @@ impl EquationSolver {
                 );
                 self.apply_op(
                     &op.as_ref().1,
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -428,6 +434,7 @@ impl EquationSolver {
             Op::MulScalar(scalar, op) => {
                 self.apply_op(
                     op.as_ref(),
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -439,6 +446,7 @@ impl EquationSolver {
             Op::DivScalar(scalar, op) => {
                 self.apply_op(
                     op.as_ref(),
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -455,6 +463,7 @@ impl EquationSolver {
 
                 self.apply_op(
                     op.as_ref(),
+                    unknown,
                     component,
                     fields,
                     mesh,
@@ -489,6 +498,9 @@ impl EquationSolver {
                 Component::Y => self.add_scalar(vector.y * coeff, mesh),
             },
         }
+        
+        enforce_strong_bcs(unknown, component, self, mesh, config);
+        
     }
 }
 
@@ -527,7 +539,7 @@ fn solve<M: MeshCore>(
             let mut result = false;
 
             let component = Component::X;
-            solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
+            solver.apply_op(&eq, equation.unknown(), &component, &fields, mesh, config, time_step, 1.);
             
             for row in solver.matrix.row_iter() {
                 println!("{:?}", row);
@@ -535,7 +547,7 @@ fn solve<M: MeshCore>(
             for value in &solver.rhs {
                 println!("{:?}", value);
             }
-
+            
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
@@ -606,7 +618,7 @@ fn solve<M: MeshCore>(
                 .clone();
 
             for component in [Component::X, Component::Y] {
-                solver.apply_op(&eq, &component, &fields, mesh, config, time_step, 1.);
+                solver.apply_op(&eq, equation.unknown(), &component, &fields, mesh, config, time_step, 1.);
 
                 // for row in solver.matrix.row_iter() {
                 //     println!("{:?}", row);
