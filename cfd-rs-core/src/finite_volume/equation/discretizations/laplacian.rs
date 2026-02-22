@@ -127,15 +127,15 @@ fn orthogonal_correction<M: MeshCore>(
                     }
                 };
                 
-                println!("areas : {:?}", areas[pair]);
+                // println!("areas : {:?}", areas[pair]);
 
                 let e_f = areas[pair] * (centers[cvs[1]] - centers[cvs[0]]).normalize();
                 let t_f = s_f - e_f;
                 let d_cf = (centers[cvs[1]] - centers[cvs[0]]).norm();
-                println!("e, t, d : {:?} {:?} {:?}", e_f, t_f, d_cf);
+                // println!("e, t, d : {:?} {:?} {:?}", e_f, t_f, d_cf);
                 
                 let flux_f = - coeff * e_f.norm() / d_cf;
-                println!("f : {:?}", flux_f);
+                // println!("f : {:?}", flux_f);
 
                 let mut row = matrix
                     .get_row_mut(cvs[0])

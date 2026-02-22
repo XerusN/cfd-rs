@@ -20,7 +20,7 @@ fn poisson() -> CaseConfig {
     //     element_size: 0.01,
     // };
     let geometry = GeometryConfig {
-        import_path: Some("../meshes/mesh_unstructured.cfd".to_string()),
+        import_path: Some("../meshes/circle_mesh.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
@@ -35,27 +35,14 @@ fn poisson() -> CaseConfig {
     
     let mut bc_fields = HashMap::new();
     let bc = vec![
-        // bot | cart: left
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
-        // right | cart: bot
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
-        // top | cart: right
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
-        // left | cart: top
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
     ];
     bc_fields.insert(t.clone(), bc);
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
     ];
     bc_fields.insert(grad_t.clone(), bc);
     let bc = vec![
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(lap.clone(), bc);
@@ -64,7 +51,7 @@ fn poisson() -> CaseConfig {
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
         t.clone(),
-        InitFunc::Scalar(custom),
+        InitFunc::Scalar(constant),
     );
     initial_fields.insert(
         lap.clone(),

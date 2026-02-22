@@ -135,7 +135,7 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
         
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
-        let rhs = Op::Scalar(0.);
+        let rhs = Op::Scalar(1.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
         

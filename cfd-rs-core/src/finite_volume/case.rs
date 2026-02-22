@@ -30,6 +30,7 @@ use super::{
 // pub mod divergence_test2;
 pub mod poisson;
 pub mod simple;
+pub mod diffusion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {

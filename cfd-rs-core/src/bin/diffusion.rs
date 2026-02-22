@@ -1,7 +1,7 @@
-use cfd_rs::finite_volume::{boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, case::{Case, poisson::PoissonCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{discretizations::{convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration}, variables::{ControlVolumeType, Dimension, Variable}}, gradients::{GradientConfig, GradientInterpConfig, GradientScheme}, mesh::mesh};
+use cfd_rs::finite_volume::{boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, case::{Case, diffusion::DiffusionCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{discretizations::{convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration}, variables::{ControlVolumeType, Dimension, Variable}}, gradients::{GradientConfig, GradientInterpConfig, GradientScheme}, mesh::mesh};
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
-use nalgebra::{Point2, Vector2};
+use nalgebra::Point2;
 
 fn poisson() -> CaseConfig {
     let schemes = Schemes {
@@ -30,49 +30,25 @@ fn poisson() -> CaseConfig {
     };
     
     let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-    let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
-    let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
     
     let mut bc_fields = HashMap::new();
     let bc = vec![
         // bot | cart: left
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
         // right | cart: bot
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         // top | cart: right
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
         // left | cart: top
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(t.clone(), bc);
-    let bc = vec![
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-    ];
-    bc_fields.insert(grad_t.clone(), bc);
-    let bc = vec![
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-    ];
-    bc_fields.insert(lap.clone(), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
     initial_fields.insert(
         t.clone(),
-        InitFunc::Scalar(custom),
-    );
-    initial_fields.insert(
-        lap.clone(),
-        InitFunc::Scalar(constant),
-    );
-    initial_fields.insert(
-        grad_t.clone(),
-        InitFunc::Vector2(constant,constant),
+        InitFunc::Scalar(gaussian),
     );
 
     CaseConfig {
@@ -92,10 +68,14 @@ pub fn custom(point: &Point2<f64>) -> f64 {
     point.x + point.y
 }
 
+pub fn gaussian(point: &Point2<f64>) -> f64 {
+    (-(point.x - 0.33).powi(2) / (2.* (0.1 as f64).powi(2))).exp()
+}
+
 fn main() {
     let config = poisson();
     let mesh = mesh(&config.geometry);
-    let mut case = PoissonCase::new(config, mesh);
+    let mut case = DiffusionCase::new(config, mesh);
 
     case.export_cell_centered().unwrap();
 

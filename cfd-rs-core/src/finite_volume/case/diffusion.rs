@@ -1,20 +1,16 @@
-use hashbrown::HashMap;
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver, Variable};
-use crate::finite_volume::{
-    base::Field,
-    case::{Case, CaseEquations, VariableFields},
-    config::{CaseConfig, GeometryConfig, Schemes},
-    discretizations::DifferentialOperator,
-    equation::{Dimension, Equation, FieldOperator, IntegrationCategory, Op},
-    mesh::mesh,
+use super::super::equation::{EquationSolver};
+use crate::{
+    finite_volume::{
+        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{Equation, FieldOperator, IntegrationCategory, discretizations::DifferentialOperator, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
+    }, gradient, laplacian, time_derivative
 };
 
-use cfd_rs_utils::{control::OutputControl, mesh::computational_mesh::*};
+use cfd_rs_utils::{mesh::{assembled_mesh::{Mesh, MeshCore}}};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DiffusionCase {
+pub struct DiffusionCase<M: MeshCore> {
     name: String,
     step: usize,
     time: f64,
@@ -22,14 +18,14 @@ pub struct DiffusionCase {
 
     config: CaseConfig,
 
-    mesh: Computational2DMesh,
+    mesh: Mesh<M>,
 
     fields: VariableFields,
     equations: CaseEquations,
-    solver: EquationSolver,
+    solvers: SolversSet,
 }
 
-impl Case for DiffusionCase {
+impl<M: MeshCore> Case<M> for DiffusionCase<M> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -86,33 +82,33 @@ impl Case for DiffusionCase {
         self.equations.map.get_mut(name)
     }
 
-    fn solver(&self) -> &EquationSolver {
-        &self.solver
+    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver {
+        &self.solvers.get_from_cvt(cvt)
     }
 
-    fn solver_mut(&mut self) -> &mut EquationSolver {
-        &mut self.solver
+    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
+        self.solvers.get_from_cvt_mut(cvt)
     }
 
     fn schemes(&self) -> &Schemes {
         &self.config.schemes
     }
 
-    fn mesh(&self) -> &Computational2DMesh {
+    fn mesh(&self) -> &Mesh<M> {
         &self.mesh
     }
 
     fn equation_solver_borrow(
         &mut self,
     ) -> (
-        &mut EquationSolver,
+        &mut SolversSet,
         &mut VariableFields,
         &CaseEquations,
-        &Computational2DMesh,
+        &Mesh<M>,
         &CaseConfig,
     ) {
         (
-            &mut self.solver,
+            &mut self.solvers,
             &mut self.fields,
             &self.equations,
             &self.mesh,
@@ -121,50 +117,41 @@ impl Case for DiffusionCase {
     }
 
     fn next_step(&mut self) {
-        //println!("NEXT {:?}", self.fields);
-
         Equation::solve(self, "Diffusion");
-
-        // println!("{:?}", self.solver.matrix());
-        // println!("{:?}", self.solver.rhs());
+        // Equation::solve(self, "Laplacian Eq");
+        // Equation::solve(self, "Gradient Eq");
 
         self.time += self.time_step;
         self.step += 1;
     }
 
-    fn new(config: CaseConfig) -> Self {
-        //let mesh = mesh_1d(&config.geometry);
-        let mesh = mesh(&config.geometry);
+    fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
 
         let mut equations = CaseEquations::new();
 
-        let phi = Variable::new("Phi".to_string(), Dimension::Scalar);
-
-        let lhs = Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::TimeDerivative(phi.clone()),
-        )) + Op::FieldOperator(FieldOperator::DifferentialOperator(
-            DifferentialOperator::Laplacian(phi, IntegrationCategory::Explicit),
-        ));
+        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+        
+        let lhs = time_derivative!(&t) + laplacian!(&t, IntegrationCategory::Explicit);
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Diffusion".to_string(), eq).unwrap();
-
+        
         let fields = VariableFields::new(&equations, &mesh, &config);
 
-        let solver = EquationSolver::new(&mesh);
+        let solvers = SolversSet::new(&mesh);
 
         Self {
-            name: "Diffusion-1D".to_string(),
+            name: "Diffusion-2D".to_string(),
 
             time: 0.,
-            time_step: 0.000001,
+            time_step: 1e-5,
             step: 0,
 
             config,
             mesh,
             fields,
-            equations,
-            solver,
+            equations: equations,
+            solvers,
         }
     }
 }

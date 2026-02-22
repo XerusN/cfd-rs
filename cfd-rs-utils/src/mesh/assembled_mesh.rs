@@ -100,10 +100,10 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
             loop {
                 let current_cell = {
-                    if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {
-                        core.face_to_neighbors(*pairs.last().unwrap())[0].clone()
-                    } else {
+                    if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {    //Change in rotation (trigonometric now)
                         core.face_to_neighbors(*pairs.last().unwrap())[1].clone()
+                    } else {
+                        core.face_to_neighbors(*pairs.last().unwrap())[0].clone()
                     }
                 };
                 cells.push(current_cell.clone());
@@ -299,7 +299,9 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 pairs_nodes_areas[abs_pair] = area;
                 let normal = - normal_1.lerp(&normal_2, area_2 / (area_1 + area_2));
                 normals.push(normal);
-                pairs_nodes_normals[abs_pair] = normal;
+                if pairs_nodes[abs_pair][0] == i_node {
+                    pairs_nodes_normals[abs_pair] = normal;
+                }
 
                 if (is_bnd) && (cv_nodes[(node + 2) % cv_nodes.len()] == nodes_centers[i_node]) {
                     node += 3;

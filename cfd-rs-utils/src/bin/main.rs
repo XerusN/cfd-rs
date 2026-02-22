@@ -23,18 +23,31 @@ fn main() {
     // println!("{:?}", assembled.boundaries);
     assembled.serialize_file("../meshes/mesh4.cfd").unwrap();
 
-    // let mesh = Computational2DMesh::deserialize_file(
-    //     "/home/xaviern/Documents/VSCode/CFD/cfd-rs-workspace/cfd-rs/target/exports/mesh.cfd",
-    // )
-    // .unwrap();
-    // let assembled = Mesh::from(mesh);
+    let mesh = Computational2DMesh::deserialize_file(
+        "/home/xaviern/Documents/VSCode/CFD/cfd-rs-workspace/cfd-rs/target/exports/mesh.cfd",
+    )
+    .unwrap();
+    let assembled = Mesh::from(mesh);
     // assembled
     //     .export_cell_centered("./out/test.vtu".to_owned())
     //     .unwrap();
     // assembled
     //     .export_node_centered("./out/test_node.vtu".to_owned())
     //     .unwrap();
-    // assembled.serialize_file("../meshes/mesh3.cfd").unwrap();
+    assembled.serialize_file("../meshes/mesh_unstructured.cfd").unwrap();
+    
+    let mesh = Computational2DMesh::deserialize_file(
+        "../meshes/circle_mesh.cfd_old",
+    )
+    .unwrap();
+    let assembled = Mesh::from(mesh);
+    // assembled
+    //     .export_cell_centered("./out/test.vtu".to_owned())
+    //     .unwrap();
+    // assembled
+    //     .export_node_centered("./out/test_node.vtu".to_owned())
+    //     .unwrap();
+    assembled.serialize_file("../meshes/circle_mesh.cfd").unwrap();
     
     let mesh = quad_square(&Vector2::new(1., 1.), &Vector2::new(5, 5));
     // for face in mesh.faces() {
