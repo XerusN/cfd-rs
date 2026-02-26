@@ -1,13 +1,23 @@
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver};
+use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{Equation, FieldOperator, IntegrationCategory, discretizations::DifferentialOperator, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
-    }, gradient, laplacian, time_derivative
+        case::{Case, CaseEquations, SolversSet, VariableFields},
+        config::{CaseConfig, Schemes},
+        equation::{
+            discretizations::DifferentialOperator,
+            operations::Op,
+            variables::{ControlVolumeType, Dimension, Variable},
+            Equation, FieldOperator, IntegrationCategory,
+        },
+        fields::Field,
+        mesh::mesh,
+    },
+    gradient, laplacian, time_derivative,
 };
 
-use cfd_rs_utils::{mesh::{assembled_mesh::{Mesh, MeshCore}}};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DiffusionCase<M: MeshCore> {
@@ -126,16 +136,15 @@ impl<M: MeshCore> Case<M> for DiffusionCase<M> {
     }
 
     fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
-
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-        
+        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+
         let lhs = time_derivative!(&t) + laplacian!(&t, IntegrationCategory::Explicit);
         let rhs = Op::Scalar(0.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Diffusion".to_string(), eq).unwrap();
-        
+
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solvers = SolversSet::new(&mesh);

@@ -1,4 +1,17 @@
-use cfd_rs::finite_volume::{boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, case::{Case, diffusion::DiffusionCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{discretizations::{convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration}, variables::{ControlVolumeType, Dimension, Variable}}, gradients::{GradientConfig, GradientInterpConfig, GradientScheme}, mesh::mesh};
+use cfd_rs::finite_volume::{
+    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
+    case::{diffusion::DiffusionCase, Case},
+    config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
+    equation::{
+        discretizations::{
+            convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
+            time_schemes::TimeIntegration,
+        },
+        variables::{ControlVolumeType, Dimension, Variable},
+    },
+    gradients::{GradientConfig, GradientInterpConfig, GradientScheme},
+    mesh::mesh,
+};
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 use nalgebra::Point2;
@@ -28,9 +41,9 @@ fn poisson() -> CaseConfig {
         control: OutputControl::Iteration(1),
         directory: "./exports".to_string(),
     };
-    
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-    
+
+    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+
     let mut bc_fields = HashMap::new();
     let bc = vec![
         // bot | cart: left
@@ -46,10 +59,7 @@ fn poisson() -> CaseConfig {
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
-    initial_fields.insert(
-        t.clone(),
-        InitFunc::Scalar(gaussian),
-    );
+    initial_fields.insert(t.clone(), InitFunc::Scalar(gaussian));
 
     CaseConfig {
         schemes,
@@ -69,7 +79,7 @@ pub fn custom(point: &Point2<f64>) -> f64 {
 }
 
 pub fn gaussian(point: &Point2<f64>) -> f64 {
-    (-(point.x - 0.33).powi(2) / (2.* (0.1 as f64).powi(2))).exp()
+    (-(point.x - 0.33).powi(2) / (2. * (0.1 as f64).powi(2))).exp()
 }
 
 fn main() {

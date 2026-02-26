@@ -1,13 +1,16 @@
 use hashbrown::HashMap;
 use log::warn;
-use nalgebra_sparse_linalg::iteratives::{Amg, IterativeSolver, gauss_seidel};
+use nalgebra_sparse_linalg::iteratives::{gauss_seidel, Amg, IterativeSolver};
 use std::{ops::Deref, vec};
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
-use crate::finite_volume::{equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi};
+use crate::finite_volume::{
+    equation::{boundaries::enforce_strong_bcs, operations::Op},
+    linalg::easy_jacobi,
+};
 
 use super::{
     case::{Case, GradRequirements, VariableFields},
@@ -19,11 +22,11 @@ use discretizations::{find_var_in_fields, DifferentialOperator};
 
 use variables::{ControlVolumeType, Dimension, Variable};
 
+pub mod boundaries;
 pub mod discretizations;
 pub mod macros;
 pub mod operations;
 pub mod variables;
-pub mod boundaries;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IntegrationCategory {
@@ -83,7 +86,7 @@ impl Equation {
     pub fn unknown(&self) -> &Variable {
         &self.unknown
     }
-    
+
     pub fn cvt(&self) -> &ControlVolumeType {
         &self.unknown.cvt()
     }
@@ -198,7 +201,14 @@ impl Equation {
             .get(name)
             .expect(&format!("This equation is not defined: {name:?}"));
 
-        solve(solvers.get_from_cvt_mut(equation.cvt()), equation, variable_fields, mesh, config, time_step)
+        solve(
+            solvers.get_from_cvt_mut(equation.cvt()),
+            equation,
+            variable_fields,
+            mesh,
+            config,
+            time_step,
+        )
     }
 }
 
@@ -498,9 +508,8 @@ impl EquationSolver {
                 Component::Y => self.add_scalar(vector.y * coeff, mesh),
             },
         }
-        
+
         enforce_strong_bcs(unknown, component, self, mesh, config);
-        
     }
 }
 
@@ -535,24 +544,32 @@ fn solve<M: MeshCore>(
 
     match equation.unknown().dim() {
         Dimension::Scalar => {
-            
             let mut result = false;
 
             let component = Component::X;
-            solver.apply_op(&eq, equation.unknown(), &component, &fields, mesh, config, time_step, 1.);
-            
+            solver.apply_op(
+                &eq,
+                equation.unknown(),
+                &component,
+                &fields,
+                mesh,
+                config,
+                time_step,
+                1.,
+            );
+
             // for row in solver.matrix.row_iter() {
             //     println!("{:?}", row);
             // }
             // for value in &solver.rhs {
             //     println!("{:?}", value);
             // }
-            
+
             let field_cell = &fields
                 .map
                 .get_mut(equation.unknown())
                 .expect("Missing field for equation");
-            
+
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
             for i in 0..1 {
                 let scalar_field = match &mut *field.0 {
@@ -564,7 +581,7 @@ fn solve<M: MeshCore>(
                 warn!("Matrix cloned for amg");
                 warn!("Hard-coded tol and max_iter for solve");
                 // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, scalar_field.values_mut(), 10000, 1e-4);
-                
+
                 // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);
                 // linalg_solver.init(
                 //     solver.matrix(),
@@ -618,7 +635,16 @@ fn solve<M: MeshCore>(
                 .clone();
 
             for component in [Component::X, Component::Y] {
-                solver.apply_op(&eq, equation.unknown(), &component, &fields, mesh, config, time_step, 1.);
+                solver.apply_op(
+                    &eq,
+                    equation.unknown(),
+                    &component,
+                    &fields,
+                    mesh,
+                    config,
+                    time_step,
+                    1.,
+                );
 
                 // for row in solver.matrix.row_iter() {
                 //     println!("{:?}", row);

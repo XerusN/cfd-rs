@@ -261,11 +261,9 @@ fn green_gauss_compact<M: MeshCore>(
                 }
             }
         }
-        
+
         // ToDo add convergence check
     }
-    
-    
 }
 
 fn averaged_corrected_interp<M: MeshCore>(
@@ -365,9 +363,9 @@ fn averaged_corrected_interp<M: MeshCore>(
                                 Patch::Cell(_) => pairs.cells_normals()[pair],
                                 Patch::Boundary(_) => -pairs.cells_normals()[pair],
                             };
-                            face_grads[pair] = -bc_value * cell_normal
-                                + face_grads[pair].dot(&pairs.nodes_normals()[pair])
-                                    * pairs.nodes_normals()[pair];
+                            face_grads[pair] = bc_value * cell_normal
+                                + face_grads[pair].dot(&pairs.vectors()[pair])
+                                    * pairs.vectors()[pair];
                         }
                     }
                 }
@@ -396,9 +394,8 @@ fn averaged_corrected_interp<M: MeshCore>(
                             Patch::Cell(_) => pairs.cells_normals()[i_face],
                             Patch::Boundary(_) => -pairs.cells_normals()[i_face],
                         };
-                        face_grads[i_face] = -bc_value * normal
-                            + grads[i_cell].dot(&pairs.nodes_normals()[i_face])
-                                * pairs.nodes_normals()[i_face];
+                        face_grads[i_face] = bc_value * normal
+                            + grads[i_cell].dot(&pairs.vectors()[i_face]) * pairs.vectors()[i_face];
                     }
                 }
             },

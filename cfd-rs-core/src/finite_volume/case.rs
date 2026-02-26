@@ -28,9 +28,9 @@ use super::{
 // pub mod diffusion_test;
 // pub mod divergence_test;
 // pub mod divergence_test2;
+pub mod diffusion;
 pub mod poisson;
 pub mod simple;
-pub mod diffusion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -150,30 +150,30 @@ impl SolversSet {
         let cell = EquationSolver::new(mesh, ControlVolumeType::Cells);
         Self { node, cell }
     }
-    
+
     pub fn get_node(&self) -> &EquationSolver {
         &self.node
     }
-    
+
     pub fn get_node_mut(&mut self) -> &mut EquationSolver {
         &mut self.node
     }
-    
+
     pub fn get_cell(&self) -> &EquationSolver {
         &self.cell
     }
-    
+
     pub fn get_cell_mut(&mut self) -> &mut EquationSolver {
         &mut self.cell
     }
-    
+
     pub fn get_from_cvt(&self, cvt: &ControlVolumeType) -> &EquationSolver {
         match cvt {
             ControlVolumeType::Cells => &self.cell,
             ControlVolumeType::Nodes => &self.node,
         }
     }
-    
+
     pub fn get_from_cvt_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
         match cvt {
             ControlVolumeType::Cells => &mut self.cell,

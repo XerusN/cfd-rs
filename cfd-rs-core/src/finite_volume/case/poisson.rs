@@ -1,13 +1,23 @@
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver};
+use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{Equation, FieldOperator, IntegrationCategory, discretizations::DifferentialOperator, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field, mesh::mesh
-    }, gradient, laplacian
+        case::{Case, CaseEquations, SolversSet, VariableFields},
+        config::{CaseConfig, Schemes},
+        equation::{
+            discretizations::DifferentialOperator,
+            operations::Op,
+            variables::{ControlVolumeType, Dimension, Variable},
+            Equation, FieldOperator, IntegrationCategory,
+        },
+        fields::Field,
+        mesh::mesh,
+    },
+    gradient, laplacian,
 };
 
-use cfd_rs_utils::{mesh::{assembled_mesh::{Mesh, MeshCore}}};
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PoissonCase<M: MeshCore> {
@@ -126,19 +136,26 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
     }
 
     fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
-
         let mut equations = CaseEquations::new();
 
         let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-        let grad_t = Variable::new("Grad T".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
-        
-        let lap = Variable::new("Laplacian".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-        
+        let grad_t = Variable::new(
+            "Grad T".to_string(),
+            Dimension::Vector2,
+            ControlVolumeType::Nodes,
+        );
+
+        let lap = Variable::new(
+            "Laplacian".to_string(),
+            Dimension::Scalar,
+            ControlVolumeType::Nodes,
+        );
+
         let lhs = laplacian!(&t, IntegrationCategory::Implicit);
         let rhs = Op::Scalar(1.);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Poisson".to_string(), eq).unwrap();
-        
+
         let lhs = Op::FieldOperator(FieldOperator::Field(
             lap.clone(),
             IntegrationCategory::Implicit,
@@ -146,7 +163,7 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let rhs = laplacian!(&t, IntegrationCategory::Explicit);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Laplacian Eq".to_string(), eq).unwrap();
-        
+
         let lhs = Op::FieldOperator(FieldOperator::Field(
             grad_t.clone(),
             IntegrationCategory::Implicit,
@@ -154,7 +171,7 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
         let rhs = gradient!(&t);
         let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
         equations.add_eq("Gradient Eq".to_string(), eq).unwrap();
-        
+
         let fields = VariableFields::new(&equations, &mesh, &config);
 
         let solvers = SolversSet::new(&mesh);

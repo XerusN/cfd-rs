@@ -58,11 +58,23 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
             ];
         }
     }
-    
-    let u = Variable::new("U".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
+
+    let u = Variable::new(
+        "U".to_string(),
+        Dimension::Vector2,
+        ControlVolumeType::Nodes,
+    );
     let p = Variable::new("P".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
-    let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-    let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
+    let div_u = Variable::new(
+        "div(U)".to_string(),
+        Dimension::Scalar,
+        ControlVolumeType::Nodes,
+    );
+    let grad_p = Variable::new(
+        "grad(P)".to_string(),
+        Dimension::Vector2,
+        ControlVolumeType::Cells,
+    );
     bc_fields.insert(u.clone(), bc);
     let bc = vec![
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
@@ -88,22 +100,10 @@ fn simple(geometry: GeometryConfig) -> CaseConfig {
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
-    initial_fields.insert(
-        u.clone(),
-        InitFunc::Vector2(constant, constant),
-    );
-    initial_fields.insert(
-        p.clone(),
-        InitFunc::Scalar(constant),
-    );
-    initial_fields.insert(
-        div_u.clone(),
-        InitFunc::Scalar(constant),
-    );
-    initial_fields.insert(
-        grad_p.clone(),
-        InitFunc::Vector2(constant, constant),
-    );
+    initial_fields.insert(u.clone(), InitFunc::Vector2(constant, constant));
+    initial_fields.insert(p.clone(), InitFunc::Scalar(constant));
+    initial_fields.insert(div_u.clone(), InitFunc::Scalar(constant));
+    initial_fields.insert(grad_p.clone(), InitFunc::Vector2(constant, constant));
 
     CaseConfig {
         schemes,
@@ -172,7 +172,7 @@ fn main() {
     //         n_elements: Vector2::new(50, 50),
     //     },
     // };
-    
+
     let config = simple(geometry);
     let mesh = mesh(&config.geometry);
     let mut case = SimpleCase::new(config, mesh);

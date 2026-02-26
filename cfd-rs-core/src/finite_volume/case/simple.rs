@@ -1,17 +1,23 @@
 use std::cell::{Ref, RefMut};
 
-use super::super::equation::{EquationSolver};
+use super::super::equation::EquationSolver;
 use crate::{
     convection, divergence,
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields}, config::{CaseConfig, Schemes}, equation::{discretizations::DifferentialOperator, Equation, FieldOperator, IntegrationCategory, operations::Op, variables::{ControlVolumeType, Dimension, Variable}}, fields::Field
+        case::{Case, CaseEquations, SolversSet, VariableFields},
+        config::{CaseConfig, Schemes},
+        equation::{
+            discretizations::DifferentialOperator,
+            operations::Op,
+            variables::{ControlVolumeType, Dimension, Variable},
+            Equation, FieldOperator, IntegrationCategory,
+        },
+        fields::Field,
     },
     gradient, laplacian, time_derivative,
 };
 
-use cfd_rs_utils::mesh::{
-        assembled_mesh::{Mesh, MeshCore},
-    };
+use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCase<T: MeshCore> {
@@ -130,7 +136,7 @@ impl<M: MeshCore> Case<M> for SimpleCase<M> {
 
         println!("Div");
         Equation::solve(self, "Div");
-        
+
         self.step += 1;
         self.export_cell_centered().unwrap();
 
@@ -138,7 +144,7 @@ impl<M: MeshCore> Case<M> for SimpleCase<M> {
         Equation::solve(self, "Poisson");
         println!("Grad");
         Equation::solve(self, "Grad");
-        
+
         self.step += 1;
         self.export_cell_centered().unwrap();
 
@@ -162,9 +168,21 @@ impl<M: MeshCore> Case<M> for SimpleCase<M> {
         let mut equations = CaseEquations::new();
 
         let p = Variable::new("P".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
-        let u = Variable::new("U".to_string(), Dimension::Vector2, ControlVolumeType::Nodes);
-        let grad_p = Variable::new("grad(P)".to_string(), Dimension::Vector2, ControlVolumeType::Cells);
-        let div_u = Variable::new("div(U)".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+        let u = Variable::new(
+            "U".to_string(),
+            Dimension::Vector2,
+            ControlVolumeType::Nodes,
+        );
+        let grad_p = Variable::new(
+            "grad(P)".to_string(),
+            Dimension::Vector2,
+            ControlVolumeType::Cells,
+        );
+        let div_u = Variable::new(
+            "div(U)".to_string(),
+            Dimension::Scalar,
+            ControlVolumeType::Nodes,
+        );
 
         let lhs = Op::FieldOperator(FieldOperator::Field(
             div_u.clone(),
