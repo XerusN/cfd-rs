@@ -57,7 +57,7 @@ fn poisson() -> CaseConfig {
     let mut bc_fields = HashMap::new();
     let bc = vec![
         // bot | cart: left
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         // right | cart: bot
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
         // top | cart: right
@@ -111,7 +111,7 @@ fn main() {
 
     case.export_cell_centered().unwrap();
 
-    for _ in 0..20 {
+    for _ in 0..10 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");

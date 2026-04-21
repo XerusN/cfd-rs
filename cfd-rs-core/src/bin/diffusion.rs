@@ -55,6 +55,16 @@ fn poisson() -> CaseConfig {
         // left | cart: top
         BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
+    // let bc = vec![
+    //     // bot | cart: left
+    //     BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+    //     // right | cart: bot
+    //     BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+    //     // top | cart: right
+    //     BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+    //     // left | cart: top
+    //     BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.)),
+    // ];
     bc_fields.insert(t.clone(), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 

@@ -238,8 +238,8 @@ fn orthogonal_correction<M: MeshCore>(
                                         }
                                     }
 
-                                    rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f);
-                                    rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f);
+                                    rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f)*coeff;
+                                    rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f)*coeff;
                                 }
                             }
                         }
@@ -278,7 +278,7 @@ fn orthogonal_correction<M: MeshCore>(
                                 }
 
                                 rhs[i_cell] += flux_b * bc_value
-                                    + sign * (field.grads_faces()[i_face].dot(&t_f));
+                                    + sign * (field.grads_faces()[i_face].dot(&t_f) * coeff);
                                 //Same
                             }
                         }
@@ -312,9 +312,9 @@ fn orthogonal_correction<M: MeshCore>(
                                     SparseEntryMut::NonZero(value) => *value += flux_f,
                                     SparseEntryMut::Zero => panic!("Bad Initialization of matrix"),
                                 }
-
+                                // Wtf sign is both in front, in t_f and in flux_fs
                                 rhs[i_cell] -= sign
-                                    * (field.grads_faces()[i_face].dot(&t_f)
+                                    * (field.grads_faces()[i_face].dot(&t_f) * coeff
                                         + flux_f * field.faces_values()[i_face]);
                             }
                         }
@@ -353,8 +353,8 @@ fn orthogonal_correction<M: MeshCore>(
                     }
                 };
 
-                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f);
-                rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f);
+                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f)*coeff;
+                rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f)*coeff;
             }
 
             for (i_bnd, _) in boundary_conditions.iter().enumerate() {
@@ -380,12 +380,18 @@ fn orthogonal_correction<M: MeshCore>(
                                 i_bnd,
                                 field.grads_faces()[pair].dot(&s_f)
                             );
+                            
+                            let sign;
+                            if let Patch::Cell(_) = pairs.neighboring_cells()[pair][0] {
+                                sign = 1.;
+                            } else {
+                                sign = -1.;
+                            }
 
                             if let Patch::Cell(cell) = cvs[0] {
-                                rhs[cell] -= field.grads_faces()[pair].dot(&s_f) * coeff;
-                            }
-                            if let Patch::Cell(cell) = cvs[1] {
-                                rhs[cell] += field.grads_faces()[pair].dot(&s_f) * coeff;
+                                rhs[cell] -= sign * field.grads_faces()[pair].dot(&s_f) * coeff;
+                            } else if let Patch::Cell(cell) = cvs[1] {
+                                rhs[cell] -= sign * field.grads_faces()[pair].dot(&s_f) * coeff;
                             }
                         }
                     }
