@@ -235,6 +235,9 @@ fn green_gauss_compact<M: MeshCore>(
                 ControlVolumeType::Cells => pairs.cells_normals()[pair],
                 ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
             };
+            
+            // println!("{normal:?}");
+            // println!("{:?}", normal.norm());
 
             match cvt {
                 ControlVolumeType::Cells => {
@@ -261,7 +264,6 @@ fn green_gauss_compact<M: MeshCore>(
                 }
             }
         }
-
         // ToDo add convergence check
     }
 }

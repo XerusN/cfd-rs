@@ -32,8 +32,12 @@ fn poisson() -> CaseConfig {
     //     import_path: Some("./target/exports/mesh.cfd".to_string()),
     //     element_size: 0.01,
     // };
+    // let geometry = GeometryConfig {
+    //     import_path: Some("../meshes/mesh_unstructured.cfd".to_string()),
+    //     meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
+    // };
     let geometry = GeometryConfig {
-        import_path: Some("../meshes/mesh_unstructured.cfd".to_string()),
+        import_path: Some("../meshes/mesh4.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
@@ -57,13 +61,13 @@ fn poisson() -> CaseConfig {
     let mut bc_fields = HashMap::new();
     let bc = vec![
         // bot | cart: left
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
         // right | cart: bot
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
         // top | cart: right
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
-        // left | cart: top
         BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
+        // left | cart: top
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
     ];
     bc_fields.insert(t.clone(), bc);
     let bc = vec![

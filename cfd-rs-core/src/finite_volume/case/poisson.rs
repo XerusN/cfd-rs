@@ -127,8 +127,11 @@ impl<M: MeshCore> Case<M> for PoissonCase<M> {
     }
 
     fn next_step(&mut self) {
+        println!("Poisson");
         Equation::solve(self, "Poisson");
+        println!("Laplacian Eq");
         Equation::solve(self, "Laplacian Eq");
+        println!("Gradient Eq");
         Equation::solve(self, "Gradient Eq");
 
         self.time += self.time_step;

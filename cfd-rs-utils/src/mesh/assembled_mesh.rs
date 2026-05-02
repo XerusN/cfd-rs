@@ -214,7 +214,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_lengths.push(length);
             let vector = (nodes[1] - nodes[0]).normalize();
             pairs_vectors.push(vector);
-            pairs_cells_normals.push(Vector2::new(vector.y, -vector.x));
+            pairs_cells_normals.push(Vector2::new(vector.y, -vector.x).normalize());
             pairs_cells_areas.push(length);
 
             pairs_nodes_areas.push(0.);
@@ -297,7 +297,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let abs_pair = nodes_neighboring_pairs[i_node][pair];   // To check
                 areas.push(area);
                 pairs_nodes_areas[abs_pair] = area;
-                let normal = - normal_1.lerp(&normal_2, area_2 / (area_1 + area_2));
+                let normal = - normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)).normalize();    // ToCheck: is normalized needed here?
                 normals.push(normal);
                 if pairs_nodes[abs_pair][0] == i_node {
                     pairs_nodes_normals[abs_pair] = normal;

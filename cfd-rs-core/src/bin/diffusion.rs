@@ -42,7 +42,7 @@ fn poisson() -> CaseConfig {
         directory: "./exports".to_string(),
     };
 
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
 
     let mut bc_fields = HashMap::new();
     let bc = vec![

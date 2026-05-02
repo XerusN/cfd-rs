@@ -42,16 +42,16 @@ fn poisson() -> CaseConfig {
         directory: "./exports".to_string(),
     };
 
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
+    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
     let grad_t = Variable::new(
         "Grad T".to_string(),
         Dimension::Vector2,
-        ControlVolumeType::Nodes,
+        ControlVolumeType::Cells,
     );
     let lap = Variable::new(
         "Laplacian".to_string(),
         Dimension::Scalar,
-        ControlVolumeType::Nodes,
+        ControlVolumeType::Cells,
     );
 
     let mut bc_fields = HashMap::new();

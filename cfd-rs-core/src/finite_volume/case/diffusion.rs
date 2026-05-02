@@ -138,7 +138,7 @@ impl<M: MeshCore> Case<M> for DiffusionCase<M> {
     fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
         let mut equations = CaseEquations::new();
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
 
         let lhs = time_derivative!(&t) + laplacian!(&t, IntegrationCategory::Explicit);
         let rhs = Op::Scalar(0.);
