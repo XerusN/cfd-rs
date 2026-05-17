@@ -4,7 +4,7 @@ use super::super::equation::EquationSolver;
 use crate::{
     convection, divergence,
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields},
+        solvers::{Case, CaseEquations, SolversSet, VariableFields},
         config::{CaseConfig, Schemes},
         equation::{
             discretizations::DifferentialOperator,

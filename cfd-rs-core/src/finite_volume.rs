@@ -1,5 +1,5 @@
 pub mod boundary;
-pub mod case;
+pub mod solvers;
 pub mod config;
 pub mod equation;
 pub mod error;

@@ -8,7 +8,7 @@ use crate::finite_volume::{
 
 use super::{
     boundary::BoundaryCondition,
-    case::GradRequirements,
+    solvers::GradRequirements,
     config::CaseConfig,
     equation::Component,
     gradients::{update_grads, GradientConfig},

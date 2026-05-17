@@ -2,11 +2,11 @@ use std::cell::RefCell;
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::equation::variables::ControlVolumeType;
+use crate::finite_volume::{boundary::FieldsBoundaryConditions, equation::variables::ControlVolumeType};
 
 use super::{
     super::{
-        case::{GradRequirements, VariableFields},
+        solvers::{GradRequirements, VariableFields},
         config::{CaseConfig, Schemes},
         fields::Field,
     },
@@ -65,20 +65,21 @@ impl DifferentialOperator {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        config: &CaseConfig,
+        schemes: &Schemes,
+        boundary_conditions: &FieldsBoundaryConditions,
         time_step: f64,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
     ) {
         match self {
             Self::Laplacian(var, integration) => {
-                config.schemes.laplacian.discretize(
+                schemes.laplacian.discretize(
                     &var,
                     component,
                     solver,
                     fields,
                     mesh,
-                    config,
+                    boundary_conditions,
                     &integration,
                     coeff,
                     equation_cvt,
@@ -88,31 +89,31 @@ impl DifferentialOperator {
                 var,
                 integration,
                 speed,
-            } => config.schemes.convection.discretize(
+            } => schemes.convection.discretize(
                 &var,
                 component,
                 &speed,
                 solver,
                 fields,
                 mesh,
-                config,
+                    boundary_conditions,
                 &integration,
                 coeff,
                 equation_cvt,
             ),
             Self::Divergence(var, integration) => {
-                config.schemes.divergence.discretize(
+                schemes.divergence.discretize(
                     &var,
                     solver,
                     fields,
                     mesh,
-                    config,
+                    boundary_conditions,
                     &integration,
                     coeff,
                     equation_cvt,
                 );
             }
-            Self::TimeDerivative(var) => config.schemes.transient.discretize(
+            Self::TimeDerivative(var) => schemes.transient.discretize(
                 &var,
                 component,
                 solver,

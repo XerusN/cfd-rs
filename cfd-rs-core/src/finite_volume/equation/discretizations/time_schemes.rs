@@ -4,7 +4,7 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    case::{GradRequirements, VariableFields},
+    solvers::{GradRequirements, VariableFields},
     equation::{variables::ControlVolumeType, Component, EquationSolver, Variable},
     fields::Field,
 };

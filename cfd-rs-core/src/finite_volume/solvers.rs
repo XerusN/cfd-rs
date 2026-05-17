@@ -10,7 +10,7 @@ use std::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::equation::Component;
+use crate::finite_volume::{boundary::FieldsBoundaryConditions, equation::Component};
 
 use super::{
     config::{CaseConfig, Schemes},
@@ -22,15 +22,17 @@ use super::{
     fields::{Field, ScalarField},
 };
 
+use plotters::prelude::*;
+
 // pub mod burger;
 // pub mod convection_diffusion_test;
 // pub mod convection_test;
 // pub mod diffusion_test;
 // pub mod divergence_test;
 // pub mod divergence_test2;
-pub mod diffusion;
+// pub mod diffusion;
 pub mod poisson;
-pub mod simple;
+// pub mod simple;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradRequirements {
@@ -65,7 +67,7 @@ pub struct VariableFields {
 
 impl VariableFields {
     pub fn new<M: MeshCore>(
-        equations: &CaseEquations,
+        equations: &EquationsSet,
         mesh: &Mesh<M>,
         config: &CaseConfig,
     ) -> Self {
@@ -92,25 +94,42 @@ impl VariableFields {
                 }
             }
         }
-        VariableFields { map: fields }
+        Self { map: fields }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CaseEquations {
-    pub map: HashMap<String, Equation>,
+pub struct Parameters {
+    pub map: HashMap<String, f64>,
 }
 
-impl CaseEquations {
+impl Parameters {
+    pub fn new(
+        parameters: Vec<(String, f64)>
+    ) -> Self {
+        let mut map = HashMap::new();
+        for (name, value) in parameters {
+            map.insert(name, value);
+        }
+        Self { map }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EquationsSet {
+    pub map: HashMap<String, (Equation, Schemes)>,
+}
+
+impl EquationsSet {
     pub fn new() -> Self {
         let map = HashMap::new();
-        CaseEquations { map }
+        Self { map }
     }
 
     /// Do not initialize fields before adding all equations here.
     /// Will throw an error if an equation with the same name is already present.
-    pub fn add_eq(&mut self, name: String, equation: Equation) -> Result<(), CfdError> {
-        if let Err(_) = self.map.try_insert(name.clone(), equation) {
+    pub fn add_eq(&mut self, name: String, equation: Equation, schemes: Schemes) -> Result<(), CfdError> {
+        if let Err(_) = self.map.try_insert(name.clone(), (equation, schemes)) {
             Err(CfdError::EquationAlreadyAdded { name: name })
         } else {
             Ok(())
@@ -120,7 +139,7 @@ impl CaseEquations {
     pub fn variables_requirements(&self) -> HashMap<Variable, GradRequirements> {
         let mut variables_glob: HashMap<Variable, GradRequirements> = HashMap::new();
 
-        for eq in self.map.values() {
+        for (eq, _) in self.map.values() {
             for (variable, grad) in eq.fields_required() {
                 //println!("{:?}, {:?}", variable, grad);
                 if variables_glob.contains_key(variable) {
@@ -139,12 +158,12 @@ impl CaseEquations {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SolversSet {
+pub struct EquationSolversSet {
     node: EquationSolver,
     cell: EquationSolver,
 }
 
-impl SolversSet {
+impl EquationSolversSet {
     pub fn new<M: MeshCore>(mesh: &Mesh<M>) -> Self {
         let node = EquationSolver::new(mesh, ControlVolumeType::Nodes);
         let cell = EquationSolver::new(mesh, ControlVolumeType::Cells);
@@ -182,24 +201,127 @@ impl SolversSet {
     }
 }
 
-pub trait Case<T: MeshCore>: Sized {
-    fn name(&self) -> &str;
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolverCore<M: MeshCore> {
+    equation_solvers: EquationSolversSet,
+    variable_fields: VariableFields,
+    equations: EquationsSet,
+    mesh: Mesh<M>,
+    parameters_set: Parameters,
+    boundary_conditions: FieldsBoundaryConditions,
+    
+    name: String,
+    step: usize,
+    time: f64,
+    time_step: f64,
+}
 
-    fn step(&self) -> usize;
+impl<M: MeshCore> SolverCore<M> {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 
-    fn time(&self) -> f64;
+    pub fn step(&self) -> usize {
+        self.step
+    }
 
-    fn time_step(&self) -> f64;
+    pub fn time(&self) -> f64 {
+        self.time
+    }
 
-    fn next_step(&mut self);
+    pub fn time_step(&self) -> f64 {
+        self.time_step
+    }
 
-    fn import_from_file(file_name: &str) -> io::Result<()>;
+    pub fn import_from_file(file_name: &str) -> std::io::Result<()> {
+        todo!()
+    }
 
+    pub fn fields_list(&self) -> Vec<&Variable> {
+        self.variable_fields.map.keys().collect()
+    }
+
+    pub fn field(&self, var: &Variable) -> Option<Ref<Field>> {
+        match self.variable_fields.map.get(var) {
+            None => None,
+            Some((field, _)) => Some(field.borrow()),
+        }
+    }
+
+    pub fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>> {
+        match self.variable_fields.map.get_mut(var) {
+            None => None,
+            Some((field, _)) => Some(field.borrow_mut()),
+        }
+    }
+
+    pub fn equations_list(&self) -> Vec<&String> {
+        self.equations.map.keys().collect()
+    }
+
+    pub fn equation(&self, name: &str) -> Option<&Equation> {
+        match self.equations.map.get(name) {
+            None => None,
+            Some(value) => Some(&value.0),
+        }
+    }
+
+    pub fn equation_mut(&mut self, name: &str) -> Option<&mut Equation> {
+        match self.equations.map.get_mut(name) {
+            None => None,
+            Some(value) => Some(&mut value.0),
+        }
+    }
+
+    pub fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver {
+        &self.equation_solvers.get_from_cvt(cvt)
+    }
+
+    pub fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
+        self.equation_solvers.get_from_cvt_mut(cvt)
+    }
+
+    pub fn mesh(&self) -> &Mesh<M> {
+        &self.mesh
+    }
+    
+    pub fn boundary_conditions(&self) -> &FieldsBoundaryConditions {
+        &self.boundary_conditions
+    }
+
+    pub fn equation_solver_borrow(
+        &mut self,
+    ) -> (
+        &mut EquationSolversSet,
+        &mut VariableFields,
+        &EquationsSet,
+        &Mesh<M>,
+        &FieldsBoundaryConditions,
+    ) {
+        (
+            &mut self.equation_solvers,
+            &mut self.variable_fields,
+            &self.equations,
+            &self.mesh,
+            &self.boundary_conditions,
+        )
+    }
+
+    pub fn init_core(config: CaseConfig, mesh: Mesh<M>) -> Self {
+        todo!()
+    }
+    
+    pub fn plot_2d(&self) {
+        for var in self.fields_list() {
+            plot_var(self, var, &(1., 2.));
+        }
+    }
+    
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
-    fn export_cell_centered(&self) -> io::Result<()> {
+    pub fn export_cell_centered(&self, output_dir: &str) -> io::Result<()> {
         let path = PathBuf::from(format!(
             "{}/{}_cells_nodes_{:06}.vtu",
-            &self.config().output.directory,
+            output_dir,
             &self.name(),
             &self.step()
         ));
@@ -251,10 +373,10 @@ pub trait Case<T: MeshCore>: Sized {
 
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
     /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
-    fn export_node_centered(&self) -> io::Result<()> {
+    pub fn export_node_centered(&self, output_dir: &str) -> io::Result<()> {
         let path = PathBuf::from(format!(
             "{}/{}_nodes_{:06}.vtu",
-            &self.config().output.directory,
+            output_dir,
             &self.name(),
             &self.step()
         ));
@@ -293,40 +415,59 @@ pub trait Case<T: MeshCore>: Sized {
 
         Ok(())
     }
+    
+}
 
-    fn config(&self) -> &CaseConfig;
 
-    fn fields_list(&self) -> Vec<&Variable>;
-
-    fn field(&self, var: &Variable) -> Option<Ref<Field>>;
-
-    fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>>;
-
-    fn equations_list(&self) -> Vec<&String>;
-
-    fn equation(&self, name: &str) -> Option<&Equation>;
-
-    fn equation_mut(&mut self, name: &str) -> Option<&mut Equation>;
-
-    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver;
-
-    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver;
-
-    fn schemes(&self) -> &Schemes;
-
-    fn mesh(&self) -> &Mesh<T>;
-
-    fn equation_solver_borrow(
-        &mut self,
-    ) -> (
-        &mut SolversSet,
-        &mut VariableFields,
-        &CaseEquations,
-        &Mesh<T>,
-        &CaseConfig,
-    );
-
-    fn new(config: CaseConfig, mesh: Mesh<T>) -> Self;
+fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(f64, f64)) {
+    let path = "../figures/poisson_".to_string() + var.name() + ".jpeg";
+    let root = BitMapBackend::new(&path, (1920, 1080)).into_drawing_area();
+    
+    root.fill(&WHITE).unwrap();
+    
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Test", ("sans-serif", 80))
+        .margin(5)
+        .x_label_area_size(40)
+        .y_label_area_size(40)
+        .build_cartesian_2d(0f64..1f64, 0f64..1f64).unwrap();
+    
+    chart
+        .configure_mesh()
+        .x_labels(5)
+        .y_labels(5)
+        .max_light_lines(4)
+        .x_label_offset(35)
+        .y_label_offset(25)
+        .label_style(("sans-serif", 20))
+        .draw().unwrap();
+    
+    let field = solver_core.field(var).unwrap();
+    let values = match field.deref() {
+        Field::Scalar(scalar_field) => scalar_field.values(),
+        Field::Vector2(vector_field) => vector_field.x.values(),
+    };
+    
+    if let ControlVolumeType::Nodes = var.cvt() {
+        chart.draw_series(
+            values.iter().zip(0..).map(|(v, i)| {
+                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
+                    solver_core.mesh().nodes.cv_nodes()[i].iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
+                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
+                )
+            })
+        ).unwrap();
+    } else {
+        chart.draw_series(
+            values.iter().zip(0..).map(|(v, i)| {
+                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
+                    solver_core.mesh().cells.neighboring_nodes()[i].iter().map(|node| (solver_core.mesh().nodes.centers()[*node].x, solver_core.mesh().nodes.centers()[*node].y)).collect::<Vec<_>>(),
+                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
+                )
+            })
+        ).unwrap();
+    }
+    root.present().unwrap();
 }
 
 fn export_mesh<M: MeshCore>(
@@ -502,16 +643,16 @@ fn export_vector(file: &mut File, data: &[Vector2<f64>], name: &str) -> io::Resu
     Ok(())
 }
 
-fn export_variables<M: MeshCore, T: Case<M>>(
+fn export_variables<M: MeshCore>(
     file: &mut File,
-    case: &T,
+    solver_core: &SolverCore<M>,
     cvt: &ControlVolumeType,
 ) -> io::Result<()> {
-    for var in case.fields_list() {
+    for var in solver_core.fields_list() {
         if var.cvt() != cvt {
             continue;
         }
-        let temp = case
+        let temp = solver_core
             .field(var)
             .expect("Incoherence between variable list and fields");
         match temp.deref() {

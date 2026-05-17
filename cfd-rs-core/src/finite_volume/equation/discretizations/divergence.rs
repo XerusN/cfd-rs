@@ -3,10 +3,7 @@ use std::cell::RefCell;
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 
 use crate::finite_volume::{
-    case::{GradRequirements, VariableFields},
-    config::CaseConfig,
-    equation::{variables::ControlVolumeType, EquationSolver, IntegrationCategory, Variable},
-    fields::Field,
+    boundary::FieldsBoundaryConditions, config::CaseConfig, equation::{EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType}, fields::Field, solvers::{GradRequirements, VariableFields}
 };
 
 use super::find_var_in_fields;
@@ -30,7 +27,7 @@ impl DivergenceScheme {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        _config: &CaseConfig,
+        _config: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         coeff: f64,
         equation_cvt: &ControlVolumeType,

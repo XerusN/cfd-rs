@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use cfd_rs::finite_volume::{
-    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, case::{Case, poisson::PoissonCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{
+    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, solvers::{Case, poisson::PoissonCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{
         discretizations::{
             convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
             time_schemes::TimeIntegration,
@@ -131,63 +131,5 @@ fn main() {
         println!("{:?}", case.time());
     }
     
-    plot(&case)
-}
-
-
-fn plot<M: MeshCore>(case: &PoissonCase<M>) {
-    for var in case.fields_list() {
-        plot_var(case, var, &(1., 2.));
-    }
-}
-
-fn plot_var<M: MeshCore>(case: &PoissonCase<M>, var: &Variable, limits: &(f64, f64)) {
-    let path = "../figures/poisson_".to_string() + var.name() + ".jpeg";
-    let root = BitMapBackend::new(&path, (1920, 1080)).into_drawing_area();
-    
-    root.fill(&WHITE).unwrap();
-    
-    let mut chart = ChartBuilder::on(&root)
-        .caption("Test", ("sans-serif", 80))
-        .margin(5)
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(0f64..1f64, 0f64..1f64).unwrap();
-    
-    chart
-        .configure_mesh()
-        .x_labels(5)
-        .y_labels(5)
-        .max_light_lines(4)
-        .x_label_offset(35)
-        .y_label_offset(25)
-        .label_style(("sans-serif", 20))
-        .draw().unwrap();
-    
-    let field = case.field(var).unwrap();
-    let values = match field.deref() {
-        Field::Scalar(scalar_field) => scalar_field.values(),
-        Field::Vector2(vector_field) => vector_field.x.values(),
-    };
-    
-    if let ControlVolumeType::Nodes = var.cvt() {
-        chart.draw_series(
-            values.iter().zip(0..).map(|(v, i)| {
-                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    case.mesh().nodes.cv_nodes()[i].iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
-                )
-            })
-        ).unwrap();
-    } else {
-        chart.draw_series(
-            values.iter().zip(0..).map(|(v, i)| {
-                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    case.mesh().cells.neighboring_nodes()[i].iter().map(|node| (case.mesh().nodes.centers()[*node].x, case.mesh().nodes.centers()[*node].y)).collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
-                )
-            })
-        ).unwrap();
-    }
-    root.present().unwrap();
+    case.plot2d()
 }

@@ -4,7 +4,7 @@ use crate::finite_volume::equation::variables::ControlVolumeType;
 
 use super::{
     boundary::BoundaryCondition,
-    case::GradRequirements,
+    solvers::GradRequirements,
     equation::Component,
     fields::{Field, ScalarField},
 };

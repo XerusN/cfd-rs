@@ -1,6 +1,6 @@
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
-    case::{diffusion::DiffusionCase, Case},
+    solvers::{diffusion::DiffusionCase, Case},
     config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
     equation::{
         discretizations::{

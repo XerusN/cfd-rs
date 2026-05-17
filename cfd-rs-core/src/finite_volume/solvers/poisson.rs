@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields},
+        solvers::{SolverCore, EquationsSet, EquationSolversSet, VariableFields},
         config::{CaseConfig, Schemes},
         equation::{
             discretizations::DifferentialOperator,
@@ -19,8 +19,12 @@ use crate::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
+pub enum VarPoisson {
+    
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase<M: MeshCore> {
+pub struct Poisson<M: MeshCore> {
     name: String,
     step: usize,
     time: f64,
@@ -28,14 +32,10 @@ pub struct PoissonCase<M: MeshCore> {
 
     config: CaseConfig,
 
-    mesh: Mesh<M>,
-
-    fields: VariableFields,
-    equations: CaseEquations,
-    solvers: SolversSet,
+    core: SolverCore<M>,
 }
 
-impl<M: MeshCore> Case<M> for PoissonCase<M> {
+impl<M: MeshCore> Poisson<M> {
     fn name(&self) -> &str {
         &self.name
     }

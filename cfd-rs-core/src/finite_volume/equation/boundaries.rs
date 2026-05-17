@@ -1,16 +1,12 @@
-use std::cell::RefCell;
-
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    boundary::BoundaryCondition,
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
     config::CaseConfig,
     equation::{
-        variables::{ControlVolumeType, Variable},
-        Component, EquationSolver,
+        Component, EquationSolver, variables::{ControlVolumeType, Variable}
     },
-    fields::Field,
 };
 
 pub fn enforce_strong_bcs<M: MeshCore>(
@@ -18,10 +14,9 @@ pub fn enforce_strong_bcs<M: MeshCore>(
     component: &Component,
     solver: &mut EquationSolver,
     mesh: &Mesh<M>,
-    config: &CaseConfig,
+    boundary_conditions: &FieldsBoundaryConditions,
 ) {
-    let boundary_conditions = config
-        .bc
+    let boundary_conditions = boundary_conditions
         .map
         .get(unknown)
         .expect("Missing boundary condition for field");

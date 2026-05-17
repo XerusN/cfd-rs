@@ -1,20 +1,18 @@
+use std::ops::Deref;
+
 use cfd_rs::finite_volume::{
-    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
-    solvers::{poisson::PoissonCase, Case},
-    config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
-    equation::{
+    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, case::{Case, poisson::PoissonCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{
         discretizations::{
             convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
             time_schemes::TimeIntegration,
         },
         variables::{ControlVolumeType, Dimension, Variable},
-    },
-    gradients::{GradientConfig, GradientInterpConfig, GradientScheme},
-    mesh::mesh,
+    }, fields::Field, gradients::{GradientConfig, GradientInterpConfig, GradientScheme}, mesh::mesh
 };
-use cfd_rs_utils::control::OutputControl;
+use cfd_rs_utils::{control::OutputControl, mesh::assembled_mesh::MeshCore};
 use hashbrown::HashMap;
 use nalgebra::{Point2, Vector2};
+use plotters::prelude::*;
 
 fn poisson() -> CaseConfig {
     let schemes = Schemes {
@@ -32,8 +30,12 @@ fn poisson() -> CaseConfig {
     //     import_path: Some("./target/exports/mesh.cfd".to_string()),
     //     element_size: 0.01,
     // };
+    // let geometry = GeometryConfig {
+    //     import_path: Some("../meshes/mesh_unstructured.cfd".to_string()),
+    //     meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
+    // };
     let geometry = GeometryConfig {
-        import_path: Some("../meshes/circle_mesh.cfd".to_string()),
+        import_path: Some("../meshes/mesh4.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
@@ -42,31 +44,48 @@ fn poisson() -> CaseConfig {
         directory: "./exports".to_string(),
     };
 
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Cells);
+    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
     let grad_t = Variable::new(
         "Grad T".to_string(),
         Dimension::Vector2,
-        ControlVolumeType::Cells,
+        ControlVolumeType::Nodes,
     );
     let lap = Variable::new(
         "Laplacian".to_string(),
         Dimension::Scalar,
-        ControlVolumeType::Cells,
+        ControlVolumeType::Nodes,
     );
 
     let mut bc_fields = HashMap::new();
-    let bc = vec![BoundaryCondition::Dirichlet(BoundaryValue::Scalar(0.))];
+    let bc = vec![
+        // bot | cart: left
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+        // right | cart: bot
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        // top | cart: right
+        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
+        // left | cart: top
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+    ];
     bc_fields.insert(t.clone(), bc);
-    let bc = vec![BoundaryCondition::Neumann(BoundaryValue::Vector2(
-        Vector2::new(0., 0.),
-    ))];
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+    ];
     bc_fields.insert(grad_t.clone(), bc);
-    let bc = vec![BoundaryCondition::Neumann(BoundaryValue::Scalar(0.))];
+    let bc = vec![
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+    ];
     bc_fields.insert(lap.clone(), bc);
     let bc_fields = FieldsBoundaryConditions::new(bc_fields);
 
     let mut initial_fields = HashMap::new();
-    initial_fields.insert(t.clone(), InitFunc::Scalar(constant));
+    initial_fields.insert(t.clone(), InitFunc::Scalar(custom));
     initial_fields.insert(lap.clone(), InitFunc::Scalar(constant));
     initial_fields.insert(grad_t.clone(), InitFunc::Vector2(constant, constant));
 
@@ -94,7 +113,7 @@ fn main() {
 
     case.export_cell_centered().unwrap();
 
-    for _ in 0..20 {
+    for _ in 0..10 {
         case.next_step();
         // {
         //     let temp = case.field(&Variable::new("Phi".to_string(), Dimension::Scalar)).expect("");
@@ -111,4 +130,6 @@ fn main() {
         case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
+    
+    case.plot2d()
 }

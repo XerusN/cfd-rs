@@ -8,12 +8,11 @@ use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use crate::finite_volume::{
-    equation::{boundaries::enforce_strong_bcs, operations::Op},
-    linalg::easy_jacobi,
+    boundary::FieldsBoundaryConditions, equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi
 };
 
 use super::{
-    case::{Case, GradRequirements, VariableFields},
+    solvers::{SolverCore, GradRequirements, VariableFields},
     config::{CaseConfig, Schemes},
     error::CfdError,
     fields::Field,
@@ -192,9 +191,9 @@ impl Equation {
         }
     }
 
-    pub fn solve<M: MeshCore, T: Case<M>>(case: &mut T, name: &str) -> usize {
-        let time_step = case.time_step();
-        let (solvers, variable_fields, equations, mesh, config) = case.equation_solver_borrow();
+    pub fn solve<M: MeshCore>(solver_core: &mut SolverCore<M>, name: &str) -> usize {
+        let time_step = solver_core.time_step();
+        let (solvers, variable_fields, equations, mesh, boundary_conditions) = solver_core.equation_solver_borrow();
 
         let equation = equations
             .map
@@ -202,11 +201,12 @@ impl Equation {
             .expect(&format!("This equation is not defined: {name:?}"));
 
         solve(
-            solvers.get_from_cvt_mut(equation.cvt()),
-            equation,
+            solvers.get_from_cvt_mut(equation.0.cvt()),
+            &equation.0,
             variable_fields,
             mesh,
-            config,
+            &equation.1,
+            boundary_conditions,
             time_step,
         )
     }
@@ -392,7 +392,8 @@ impl EquationSolver {
         component: &Component,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        config: &CaseConfig,
+        schemes: &Schemes,
+        boundary_conditions: &FieldsBoundaryConditions,
         time_step: f64,
         coeff: f64,
     ) {
@@ -404,7 +405,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -414,7 +416,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -426,7 +429,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -436,7 +440,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     -coeff,
                 );
@@ -448,7 +453,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff * scalar,
                 );
@@ -460,7 +466,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff / scalar,
                 );
@@ -477,7 +484,8 @@ impl EquationSolver {
                     component,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff * value,
                 );
@@ -488,7 +496,8 @@ impl EquationSolver {
                     self,
                     fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     coeff,
                     &self.cvt().clone(),
@@ -509,7 +518,7 @@ impl EquationSolver {
             },
         }
 
-        enforce_strong_bcs(unknown, component, self, mesh, config);
+        enforce_strong_bcs(unknown, component, self, mesh, boundary_conditions);
     }
 }
 
@@ -518,7 +527,8 @@ fn solve<M: MeshCore>(
     equation: &Equation,
     fields: &mut VariableFields,
     mesh: &Mesh<M>,
-    config: &CaseConfig,
+    schemes: &Schemes,
+    boundary_conditions: &FieldsBoundaryConditions,
     time_step: f64,
 ) -> usize {
     solver.clear();
@@ -533,9 +543,8 @@ fn solve<M: MeshCore>(
         field.0.borrow_mut().update_grads(
             &field.1,
             mesh,
-            &config.schemes.gradients,
-            config
-                .bc
+            &schemes.gradients,
+            boundary_conditions
                 .map
                 .get(var)
                 .expect("Boundary Condition missing for field"),
@@ -553,7 +562,8 @@ fn solve<M: MeshCore>(
                 &component,
                 &fields,
                 mesh,
-                config,
+                schemes,
+                    boundary_conditions,
                 time_step,
                 1.,
             );
@@ -599,9 +609,8 @@ fn solve<M: MeshCore>(
                     field.0.update_grads(
                         &field.1,
                         mesh,
-                        &config.schemes.gradients,
-                        config
-                            .bc
+                        &schemes.gradients,
+                        boundary_conditions
                             .map
                             .get(equation.unknown())
                             .expect("Boundary Condition missing for field"),
@@ -641,7 +650,8 @@ fn solve<M: MeshCore>(
                     &component,
                     &fields,
                     mesh,
-                    config,
+                    schemes,
+                    boundary_conditions,
                     time_step,
                     1.,
                 );

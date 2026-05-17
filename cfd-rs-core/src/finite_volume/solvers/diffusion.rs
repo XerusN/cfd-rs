@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        case::{Case, CaseEquations, SolversSet, VariableFields},
+        solvers::{Case, CaseEquations, SolversSet, VariableFields},
         config::{CaseConfig, Schemes},
         equation::{
             discretizations::DifferentialOperator,

@@ -4,13 +4,9 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 use nalgebra::Vector2;
 
 use crate::finite_volume::{
-    boundary::BoundaryCondition,
-    case::{GradRequirements, VariableFields},
-    config::CaseConfig,
-    equation::{
-        variables::ControlVolumeType, Component, EquationSolver, IntegrationCategory, Variable,
-    },
-    fields::Field,
+    boundary::{BoundaryCondition, FieldsBoundaryConditions}, config::CaseConfig, equation::{
+        Component, EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType
+    }, fields::Field, solvers::{GradRequirements, VariableFields}
 };
 
 use super::find_var_in_fields;
@@ -35,13 +31,12 @@ impl ConvectionScheme {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        config: &CaseConfig,
+        boundary_conditions: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
     ) {
-        let bc = config
-            .bc
+        let bc = boundary_conditions
             .map
             .get(var)
             .expect("Missing boundary condition for field");
