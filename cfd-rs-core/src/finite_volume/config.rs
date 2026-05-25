@@ -2,6 +2,8 @@ use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 use nalgebra::{Point2, Vector2};
 
+use crate::finite_volume::gradients::{GradientInterp, GradientScheme};
+
 use super::{
     boundary::FieldsBoundaryConditions,
     equation::{
@@ -11,18 +13,14 @@ use super::{
         },
         variables::Variable,
     },
-    gradients::GradientConfig,
 };
 
-/// Switch to private fields
-#[derive(Clone, PartialEq, Debug)]
-pub struct CaseConfig {
-    pub schemes: Schemes,
-    pub initial_fields: HashMap<Variable, InitFunc>,
-    pub geometry: GeometryConfig,
-    pub bc: FieldsBoundaryConditions,
-    pub output: OutputConfig,
-}
+// /// Switch to private fields
+// #[derive(Clone, Debug, PartialEq)]
+// pub struct CaseConfig {
+//     pub geometry: GeometryConfig,
+//     pub output: OutputConfig,
+// }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct GeometryConfig {
@@ -48,10 +46,23 @@ pub enum MeshingConfig {
 #[derive(Clone, PartialEq, Debug)]
 pub struct Schemes {
     pub transient: TimeIntegration,
-    pub gradients: GradientConfig,
     pub laplacian: LaplacianScheme,
     pub convection: ConvectionScheme,
     pub divergence: DivergenceScheme,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct SchemesConfig {
+    pub transient: Option<TimeIntegration>,
+    pub laplacian: Option<LaplacianScheme>,
+    pub convection: Option<ConvectionScheme>,
+    pub divergence: Option<DivergenceScheme>,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct GradientConfig {
+    pub scheme: Option<GradientScheme>,
+    pub interp: Option<GradientInterp>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -60,8 +71,8 @@ pub struct OutputConfig {
     pub directory: String,
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum InitFunc {
-    Scalar(fn(&Point2<f64>) -> f64),
-    Vector2(fn(&Point2<f64>) -> f64, fn(&Point2<f64>) -> f64),
+#[derive(Clone)]
+pub enum InitFunc<'a> {
+    Scalar(&'a dyn Fn(&Point2<f64>) -> f64),
+    Vector2(&'a dyn Fn(&Point2<f64>) -> f64, &'a dyn Fn(&Point2<f64>) -> f64),
 }

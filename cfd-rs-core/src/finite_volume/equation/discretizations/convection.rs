@@ -6,10 +6,8 @@ use nalgebra::Vector2;
 use crate::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions}, config::CaseConfig, equation::{
         Component, EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType
-    }, fields::Field, solvers::{GradRequirements, VariableFields}
+    }, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
 };
-
-use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConvectionScheme {
@@ -31,15 +29,10 @@ impl ConvectionScheme {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        boundary_conditions: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
     ) {
-        let bc = boundary_conditions
-            .map
-            .get(var)
-            .expect("Missing boundary condition for field");
         let speed = find_var_in_fields(speed, fields);
 
         let var = find_var_in_fields(var, fields);
@@ -51,7 +44,6 @@ impl ConvectionScheme {
                 speed,
                 solver,
                 mesh,
-                bc,
                 integration,
                 coeff,
                 equation_cvt,
@@ -67,25 +59,24 @@ fn upwind_second_order<M: MeshCore>(
     speed: &RefCell<Field>,
     solver: &mut EquationSolver,
     mesh: &Mesh<M>,
-    boundary_conditions: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
     equation_cvt: &ControlVolumeType,
 ) {
     let speed = speed.borrow();
     let speed = match *speed {
-        Field::Scalar(_) => panic!("Speed has to be a vector"),
-        Field::Vector2(ref values) => values,
+        Field::Scalar(_, _) => panic!("Speed has to be a vector"),
+        Field::Vector2(ref values, _) => values,
     };
 
     let (_, rhs) = solver.solver_borrow_mut();
 
     let field = field.borrow();
-    let field = match *field {
-        Field::Scalar(ref value) => value,
-        Field::Vector2(ref value) => match *component {
-            Component::X => &value.x,
-            Component::Y => &value.y,
+    let (field, boundary_conditions) = match *field {
+        Field::Scalar(ref value, ref boundary_conditions) => (value, boundary_conditions),
+        Field::Vector2(ref value, ref boundary_conditions) => match *component {
+            Component::X => (&value.x, boundary_conditions),
+            Component::Y => (&value.y, boundary_conditions),
         },
     };
     let field_cvt = field.cvt();

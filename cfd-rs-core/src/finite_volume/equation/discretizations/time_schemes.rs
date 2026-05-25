@@ -4,12 +4,8 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    solvers::{GradRequirements, VariableFields},
-    equation::{variables::ControlVolumeType, Component, EquationSolver, Variable},
-    fields::Field,
+    equation::{Component, EquationSolver, Variable, variables::ControlVolumeType}, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
 };
-
-use super::find_var_in_fields;
 
 /// Only explicit time schemes are usable for now
 #[derive(Clone, Debug, PartialEq)]
@@ -63,8 +59,8 @@ fn forward_euler<M: MeshCore>(
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
     let field = match field.deref() {
-        Field::Scalar(value) => &value,
-        Field::Vector2(value) => match *component {
+        Field::Scalar(value, _) => &value,
+        Field::Vector2(value, _) => match *component {
             Component::X => &value.x,
             Component::Y => &value.y,
         },

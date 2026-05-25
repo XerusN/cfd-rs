@@ -6,7 +6,7 @@ use crate::finite_volume::{
     config::CaseConfig,
     equation::{
         Component, EquationSolver, variables::{ControlVolumeType, Variable}
-    },
+    }, solvers::{VariableFields, find_var_in_fields},
 };
 
 pub fn enforce_strong_bcs<M: MeshCore>(
@@ -14,12 +14,11 @@ pub fn enforce_strong_bcs<M: MeshCore>(
     component: &Component,
     solver: &mut EquationSolver,
     mesh: &Mesh<M>,
-    boundary_conditions: &FieldsBoundaryConditions,
+    fields: &VariableFields,
 ) {
-    let boundary_conditions = boundary_conditions
-        .map
-        .get(unknown)
-        .expect("Missing boundary condition for field");
+    let field = find_var_in_fields(unknown, &fields);
+    let field = field.borrow();
+    let boundary_conditions = field.boundary_condition();
 
     let cvt = unknown.cvt();
     let (matrix, rhs) = solver.solver_borrow_mut();

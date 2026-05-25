@@ -10,7 +10,7 @@ use std::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::{boundary::FieldsBoundaryConditions, equation::Component};
+use crate::finite_volume::{boundary::{BoundaryCondition, FieldsBoundaryConditions}, config::{GradientConfig, InitFunc, SchemesConfig}, equation::{Component, operations::Op}, gradients::{GradientMethods}};
 
 use super::{
     config::{CaseConfig, Schemes},
@@ -21,6 +21,9 @@ use super::{
     error::CfdError,
     fields::{Field, ScalarField},
 };
+
+use std::hash::Hash;
+use std::fmt::Debug;
 
 use plotters::prelude::*;
 
@@ -66,11 +69,12 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new<M: MeshCore>(
+    pub fn new<'a, M: MeshCore>(
         equations: &EquationsSet,
         mesh: &Mesh<M>,
-        config: &CaseConfig,
+        variables_hashmaps: VariablesHashMaps<'a>,
     ) -> Self {
+        let (mut gradient_methods, mut initial_fields, mut boundary_conditions) = variables_hashmaps.deconstruct_mut();
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
@@ -81,21 +85,30 @@ impl VariableFields {
                         &grad_req,
                         &var,
                         Component::X,
-                        config,
-                    )));
+                        &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")),
+                        gradient_methods.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}"))
+                    ), boundary_conditions.remove(&var).expect(&format!("A boundary condition should be defined for var {var:?}"))));
                     fields.insert(var, (values, grad_req));
                 }
                 Dimension::Vector2 => {
                     let values = RefCell::new(Field::Vector2(Vector2::new(
-                        ScalarField::new(mesh, &grad_req, &var, Component::X, config),
-                        ScalarField::new(mesh, &grad_req, &var, Component::Y, config),
-                    )));
+                        ScalarField::new(mesh, &grad_req, &var, Component::X, &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")), gradient_methods.remove(&var).expect(&format!("A gradient config should be defined for var {var:?}"))),
+                        ScalarField::new(mesh, &grad_req, &var, Component::Y, &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")), gradient_methods.remove(&var).expect(&format!("A gradient config should be defined for var {var:?}"))),
+                    ), boundary_conditions.remove(&var).expect(&format!("A boundary condition should be defined for var {var:?}"))));
                     fields.insert(var, (values, grad_req));
                 }
             }
         }
         Self { map: fields }
     }
+}
+
+pub fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
+    &fields
+        .map
+        .get(var)
+        .expect(&format!("Missing variable {var:?} in fields",))
+        .0
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -117,7 +130,7 @@ impl Parameters {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EquationsSet {
-    pub map: HashMap<String, (Equation, Schemes)>,
+    pub map: HashMap<String, Equation>,
 }
 
 impl EquationsSet {
@@ -128,9 +141,20 @@ impl EquationsSet {
 
     /// Do not initialize fields before adding all equations here.
     /// Will throw an error if an equation with the same name is already present.
-    pub fn add_eq(&mut self, name: String, equation: Equation, schemes: Schemes) -> Result<(), CfdError> {
-        if let Err(_) = self.map.try_insert(name.clone(), (equation, schemes)) {
+    pub fn add_eq(&mut self, name: String, equation: Equation) -> Result<(), CfdError> {
+        if let Err(_) = self.map.try_insert(name.clone(), equation) {
             Err(CfdError::EquationAlreadyAdded { name: name })
+        } else {
+            Ok(())
+        }
+    }
+    
+    pub fn add_eq_from_enum<E: EquationsEnum>(&mut self, enum_variant: &E, schemes_config: &dyn Fn(&E) -> SchemesConfig) -> Result<(), CfdError> {
+        let name = enum_variant.name();
+        let lhs = enum_variant.lhs();
+        let equation = Equation::new(enum_variant.lhs(), enum_variant.rhs(), enum_variant.schemes(schemes_config(enum_variant)))?;
+        if let Err(_) = self.map.try_insert(name.to_owned(), equation) {
+            Err(CfdError::EquationAlreadyAdded { name: name.to_owned() })
         } else {
             Ok(())
         }
@@ -139,7 +163,7 @@ impl EquationsSet {
     pub fn variables_requirements(&self) -> HashMap<Variable, GradRequirements> {
         let mut variables_glob: HashMap<Variable, GradRequirements> = HashMap::new();
 
-        for (eq, _) in self.map.values() {
+        for eq in self.map.values() {
             for (variable, grad) in eq.fields_required() {
                 //println!("{:?}, {:?}", variable, grad);
                 if variables_glob.contains_key(variable) {
@@ -208,7 +232,6 @@ pub struct SolverCore<M: MeshCore> {
     equations: EquationsSet,
     mesh: Mesh<M>,
     parameters_set: Parameters,
-    boundary_conditions: FieldsBoundaryConditions,
     
     name: String,
     step: usize,
@@ -231,6 +254,14 @@ impl<M: MeshCore> SolverCore<M> {
 
     pub fn time_step(&self) -> f64 {
         self.time_step
+    }
+    pub fn set_time_step(&mut self, time_step: f64) {
+        self.time_step = time_step
+    }
+    
+    pub fn increment(&mut self) {
+        self.time += self.time_step;
+        self.step += 1;
     }
 
     pub fn import_from_file(file_name: &str) -> std::io::Result<()> {
@@ -262,14 +293,14 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn equation(&self, name: &str) -> Option<&Equation> {
         match self.equations.map.get(name) {
             None => None,
-            Some(value) => Some(&value.0),
+            Some(value) => Some(&value),
         }
     }
 
     pub fn equation_mut(&mut self, name: &str) -> Option<&mut Equation> {
         match self.equations.map.get_mut(name) {
             None => None,
-            Some(value) => Some(&mut value.0),
+            Some(value) => Some(value),
         }
     }
 
@@ -284,10 +315,6 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn mesh(&self) -> &Mesh<M> {
         &self.mesh
     }
-    
-    pub fn boundary_conditions(&self) -> &FieldsBoundaryConditions {
-        &self.boundary_conditions
-    }
 
     pub fn equation_solver_borrow(
         &mut self,
@@ -296,14 +323,12 @@ impl<M: MeshCore> SolverCore<M> {
         &mut VariableFields,
         &EquationsSet,
         &Mesh<M>,
-        &FieldsBoundaryConditions,
     ) {
         (
             &mut self.equation_solvers,
             &mut self.variable_fields,
             &self.equations,
             &self.mesh,
-            &self.boundary_conditions,
         )
     }
 
@@ -444,8 +469,8 @@ fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(
     
     let field = solver_core.field(var).unwrap();
     let values = match field.deref() {
-        Field::Scalar(scalar_field) => scalar_field.values(),
-        Field::Vector2(vector_field) => vector_field.x.values(),
+        Field::Scalar(scalar_field, _) => scalar_field.values(),
+        Field::Vector2(vector_field, _) => vector_field.x.values(),
     };
     
     if let ControlVolumeType::Nodes = var.cvt() {
@@ -656,7 +681,7 @@ fn export_variables<M: MeshCore>(
             .field(var)
             .expect("Incoherence between variable list and fields");
         match temp.deref() {
-            Field::Scalar(scalar_field) => {
+            Field::Scalar(scalar_field, _) => {
                 writeln!(
                     file,
                     "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">",
@@ -668,7 +693,7 @@ fn export_variables<M: MeshCore>(
                     write!(file, "{} ", value)?;
                 }
             }
-            Field::Vector2(fields) => {
+            Field::Vector2(fields, _) => {
                 writeln!(
                     file,
                     "        <DataArray NumberOfComponents=\"2\" type=\"Float64\" Name=\"{}\" format=\"ascii\">",
@@ -687,4 +712,190 @@ fn export_variables<M: MeshCore>(
         writeln!(file, "        </DataArray>")?;
     }
     Ok(())
+}
+
+// pub trait VariablesEnum: Eq + Hash + Clone + Debug {
+//     fn name(&self) -> &'static str;
+//     fn dim(&self) -> Dimension;
+//     fn cvt(&self) -> ControlVolumeType;
+//     fn var(&self) -> Variable;
+// }
+
+pub trait VariablesEnum: Clone + Debug + Eq + PartialEq + Hash {
+    fn name(&self) -> &'static str;
+    fn dim(&self) -> Dimension;
+    fn cvt(&self) -> ControlVolumeType;
+    fn var(&self) -> Variable;
+    fn default_gradient_method(&self) -> GradientMethods;
+    fn gradient_method(&self, gradient_config: GradientConfig) -> GradientMethods {
+        let mut method = self.default_gradient_method();
+        gradient_config.interp.is_some().then(|| method.interp = gradient_config.interp.unwrap());
+        gradient_config.scheme.is_some().then(|| method.scheme = gradient_config.scheme.unwrap());
+        method
+    }
+}
+
+pub struct VariablesEnumConfig<'a, 'b, V: VariablesEnum> {
+    pub gradient_configs: &'b dyn Fn(&V) -> GradientConfig,
+    pub initial_fields: &'b dyn Fn(&V) -> InitFunc<'a>,
+    pub boundary_conditions: &'b dyn Fn(&V) -> Vec<BoundaryCondition>,
+}
+
+impl<'a, 'b, V: VariablesEnum> VariablesEnumConfig<'a, 'b, V> {
+    pub fn new(
+        gradient_configs: &'b dyn Fn(&V) -> GradientConfig,
+        initial_fields: &'b dyn Fn(&V) -> InitFunc<'a>,
+        boundary_conditions: &'b dyn Fn(&V) -> Vec<BoundaryCondition>,
+    ) -> Self {
+        Self {gradient_configs, initial_fields, boundary_conditions}
+    }
+}
+
+pub struct VariablesHashMaps<'a> {
+    pub gradient_methods: HashMap<Variable, GradientMethods>,
+    pub initial_fields: HashMap<Variable, InitFunc<'a>>,
+    pub boundary_conditions: HashMap<Variable, Vec<BoundaryCondition>>,
+}
+
+impl<'a> VariablesHashMaps<'a> {
+    pub fn new() -> Self {
+        Self {
+            gradient_methods: HashMap::new(),
+            initial_fields: HashMap::new(),
+            boundary_conditions: HashMap::new(),
+        }
+    }
+    
+    pub fn add_var_from_enum<'b, V: VariablesEnum>(&mut self, enum_variant: &V, var_enum_config: &VariablesEnumConfig<'a, 'b, V>) {
+        self.gradient_methods.insert(enum_variant.var(), enum_variant.gradient_method((var_enum_config.gradient_configs)(enum_variant)));
+        self.initial_fields.insert(enum_variant.var(), (var_enum_config.initial_fields)(enum_variant));
+        self.boundary_conditions.insert(enum_variant.var(), (var_enum_config.boundary_conditions)(enum_variant));
+    }
+    
+    pub fn deconstruct_mut(self) -> (HashMap<Variable, GradientMethods>, HashMap<Variable, InitFunc<'a>>, HashMap<Variable, Vec<BoundaryCondition>>) {
+        (self.gradient_methods, self.initial_fields, self.boundary_conditions)
+    }
+}
+
+// Macro to generate getter functions for solver specific variables
+#[macro_export] macro_rules! generate_solver_variables {
+    (
+        $T:ty,
+        $(
+            $variant:ident => {
+                name: $name:expr,
+                dim: $dim:expr,
+                cvt: $cvt:expr,
+                default_gradient_config: $default_gradient_config:expr,
+            }
+        ),+ $(,)?
+    ) => {
+        impl VariablesEnum for $T {
+            fn name(&self) -> &'static str {
+                match self {
+                    $(
+                        Self::$variant => $name,
+                    )+
+                }
+            }
+
+            fn dim(&self) -> Dimension {
+                match self {
+                    $(
+                        Self::$variant => $dim,
+                    )+
+                }
+            }
+
+            fn cvt(&self) -> ControlVolumeType {
+                match self {
+                    $(
+                        Self::$variant => $cvt,
+                    )+
+                }
+            }
+            
+            fn var(&self) -> Variable {
+                match self {
+                    $(
+                        Self::$variant => Variable::new($name.to_owned(), $dim, $cvt),
+                    )+
+                }
+            }
+            
+            fn default_gradient_method(&self) -> GradientMethods {
+                match self {
+                    $(
+                        Self::$variant => $default_gradient_config,
+                    )+
+                }
+            }
+        }
+    };
+}
+
+pub trait EquationsEnum: Clone + Debug + Eq + PartialEq + Hash {
+    fn name(&self) -> &'static str;
+    fn lhs(&self) -> Op;
+    fn rhs(&self) -> Op;
+    fn default_schemes(&self) -> Schemes;
+    fn schemes(&self, schemes_config: SchemesConfig) -> Schemes {
+        let mut schemes = self.default_schemes();
+        schemes_config.transient.is_some().then(|| schemes.transient = schemes_config.transient.unwrap());
+        schemes_config.convection.is_some().then(|| schemes.convection = schemes_config.convection.unwrap());
+        schemes_config.laplacian.is_some().then(|| schemes.laplacian = schemes_config.laplacian.unwrap());
+        schemes_config.divergence.is_some().then(|| schemes.divergence = schemes_config.divergence.unwrap());
+        schemes
+    }
+}
+
+// Macro to generate getter functions for solver specific variables
+#[macro_export] macro_rules! generate_solver_equations {
+    (
+        $T:ty,
+        $(
+            $variant:ident => {
+                name: $name:expr,
+                lhs: $lhs:expr,
+                rhs: $rhs:expr,
+                default_schemes: $default_schemes:expr,
+            }
+        ),+ $(,)?
+    ) => {
+        impl EquationsEnum for $T {
+            fn name(&self) -> &'static str {
+                match self {
+                    $(
+                        Self::$variant => $name,
+                    )+
+                }
+            }
+
+            fn lhs(&self) -> Op {
+                match self {
+                    $(
+                        Self::$variant => $lhs,
+                    )+
+                }
+            }
+            
+            fn rhs(&self) -> Op {
+                match self {
+                    $(
+                        Self::$variant => $rhs,
+                    )+
+                }
+            }
+            
+            fn default_schemes(&self) -> Schemes {
+                match self {
+                    $(
+                        Self::$variant => $default_schemes,
+                    )+
+                }
+            }
+            
+            
+        }
+    };
 }

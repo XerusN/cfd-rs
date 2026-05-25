@@ -6,10 +6,8 @@ use nalgebra_sparse::SparseEntryMut;
 use crate::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions}, equation::{
         Component, EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType
-    }, fields::Field, solvers::{GradRequirements, VariableFields}
+    }, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
 };
-
-use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LaplacianScheme {
@@ -30,23 +28,17 @@ impl LaplacianScheme {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        boundary_conditions: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
     ) {
         let field = find_var_in_fields(var, fields);
-        let bc = boundary_conditions
-            .map
-            .get(var)
-            .expect("Missing boundary condition for field");
         match *self {
             Self::OrthogonalCorrection => orthogonal_correction(
                 component,
                 solver,
                 field,
                 mesh,
-                bc,
                 integration,
                 coeff,
                 equation_cvt,
@@ -60,18 +52,17 @@ fn orthogonal_correction<M: MeshCore>(
     solver: &mut EquationSolver,
     field: &RefCell<Field>,
     mesh: &Mesh<M>,
-    boundary_conditions: &Vec<BoundaryCondition>,
     integration: &IntegrationCategory,
     coeff: f64,
     equation_cvt: &ControlVolumeType,
 ) {
     let (matrix, rhs) = solver.solver_borrow_mut();
     let field = field.borrow();
-    let field = match field.deref() {
-        Field::Scalar(value) => value,
-        Field::Vector2(value) => match *component {
-            Component::X => &value.x,
-            Component::Y => &value.y,
+    let (field, boundary_conditions) = match *field {
+        Field::Scalar(ref value, ref boundary_conditions) => (value, boundary_conditions),
+        Field::Vector2(ref value, ref boundary_conditions) => match *component {
+            Component::X => (&value.x, boundary_conditions),
+            Component::Y => (&value.y, boundary_conditions),
         },
     };
 

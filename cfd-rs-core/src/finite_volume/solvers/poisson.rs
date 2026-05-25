@@ -3,194 +3,148 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        solvers::{SolverCore, EquationsSet, EquationSolversSet, VariableFields},
-        config::{CaseConfig, Schemes},
-        equation::{
-            discretizations::DifferentialOperator,
-            operations::Op,
-            variables::{ControlVolumeType, Dimension, Variable},
-            Equation, FieldOperator, IntegrationCategory,
-        },
-        fields::Field,
-        mesh::mesh,
+        boundary::BoundaryCondition, config::{GeometryConfig, GradientConfig, InitFunc, OutputConfig, Schemes, SchemesConfig}, equation::{
+            Equation, FieldOperator, IntegrationCategory, discretizations::{DifferentialOperator, convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration}, operations::Op, variables::{ControlVolumeType, Dimension, Variable}
+        }, fields::Field, gradients::{GradientInterp, GradientMethods, GradientScheme}, mesh::mesh, solvers::{EquationSolversSet, EquationsEnum, EquationsSet, Parameters, SolverCore, VariableFields, VariablesEnum, VariablesEnumConfig, VariablesHashMaps}
     },
     gradient, laplacian,
 };
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
+use hashbrown::HashMap;
 
-pub enum VarPoisson {
-    
+const CVT: ControlVolumeType = ControlVolumeType::Nodes;
+const MAIN_SCHEMES: Schemes = Schemes {
+    transient: TimeIntegration::ForwardEuler,
+    convection: ConvectionScheme::UpwindSecondOrder,
+    laplacian: LaplacianScheme::OrthogonalCorrection,
+    divergence: DivergenceScheme::Basic,
+};
+const MAIN_GRADIENT_CONFIG: GradientMethods = GradientMethods {
+    scheme: GradientScheme::GreenGaussCompact,
+    interp: GradientInterp::AveragedCorrected,
+};
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum MainVariables {
+    T,
+    Grad,
+    Laplacian,
+}
+
+crate::generate_solver_variables! {
+    MainVariables,
+    T => {
+        name: "T",
+        dim: Dimension::Scalar,
+        cvt: CVT,
+        default_gradient_config: MAIN_GRADIENT_CONFIG,
+    },
+    Grad => {
+        name: "Grad_T",
+        dim: Dimension::Vector2,
+        cvt: CVT,
+        default_gradient_config: MAIN_GRADIENT_CONFIG,
+    },
+    Laplacian => {
+        name: "Laplacian_T",
+        dim: Dimension::Scalar,
+        cvt: CVT,
+        default_gradient_config: MAIN_GRADIENT_CONFIG,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum MainEquations {
+    Poisson,
+    Laplacian,
+    Gradient,
+}
+
+crate::generate_solver_equations! {
+    MainEquations,
+    Poisson => {
+        name: "Poisson",
+        lhs: laplacian!(MainVariables::T.var(), IntegrationCategory::Implicit),
+        rhs: Op::Scalar(1.),
+        default_schemes: MAIN_SCHEMES,
+    },
+    Gradient => {
+        name: "Gradient",
+        lhs: Op::FieldOperator(FieldOperator::Field(
+            MainVariables::Grad.var(),
+            IntegrationCategory::Implicit,
+        )),
+        rhs: gradient!(MainVariables::T.var()),
+        default_schemes: MAIN_SCHEMES,
+    },
+    Laplacian => {
+        name: "Laplacian",
+        lhs: Op::FieldOperator(FieldOperator::Field(
+            MainVariables::Laplacian.var(),
+            IntegrationCategory::Implicit,
+        )),
+        rhs: laplacian!(MainVariables::T.var(), IntegrationCategory::Explicit),
+        default_schemes: MAIN_SCHEMES,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Config {
+    pub run_name: String,
+    pub geometry: GeometryConfig,
+    pub output: OutputConfig,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Poisson<M: MeshCore> {
-    name: String,
-    step: usize,
-    time: f64,
-    time_step: f64,
-
-    config: CaseConfig,
+    config: Config,
 
     core: SolverCore<M>,
 }
 
 impl<M: MeshCore> Poisson<M> {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn step(&self) -> usize {
-        self.step
-    }
-
-    fn time(&self) -> f64 {
-        self.time
-    }
-
-    fn time_step(&self) -> f64 {
-        self.time_step
-    }
-
-    fn import_from_file(file_name: &str) -> std::io::Result<()> {
-        todo!()
-    }
-
-    fn config(&self) -> &CaseConfig {
-        &self.config
-    }
-
-    fn fields_list(&self) -> Vec<&Variable> {
-        self.fields.map.keys().collect()
-    }
-
-    #[inline]
-    fn field(&self, var: &Variable) -> Option<Ref<Field>> {
-        match self.fields.map.get(var) {
-            None => None,
-            Some((field, _)) => Some(field.borrow()),
-        }
-    }
-
-    #[inline]
-    fn field_mut(&mut self, var: &Variable) -> Option<RefMut<Field>> {
-        match self.fields.map.get_mut(var) {
-            None => None,
-            Some((field, _)) => Some(field.borrow_mut()),
-        }
-    }
-
-    fn equations_list(&self) -> Vec<&String> {
-        self.equations.map.keys().collect()
-    }
-
-    fn equation(&self, name: &str) -> Option<&Equation> {
-        self.equations.map.get(name)
-    }
-
-    fn equation_mut(&mut self, name: &str) -> Option<&mut Equation> {
-        self.equations.map.get_mut(name)
-    }
-
-    fn solver(&self, cvt: &ControlVolumeType) -> &EquationSolver {
-        &self.solvers.get_from_cvt(cvt)
-    }
-
-    fn solver_mut(&mut self, cvt: &ControlVolumeType) -> &mut EquationSolver {
-        self.solvers.get_from_cvt_mut(cvt)
-    }
-
-    fn schemes(&self) -> &Schemes {
-        &self.config.schemes
-    }
-
-    fn mesh(&self) -> &Mesh<M> {
-        &self.mesh
-    }
-
-    fn equation_solver_borrow(
-        &mut self,
-    ) -> (
-        &mut SolversSet,
-        &mut VariableFields,
-        &CaseEquations,
-        &Mesh<M>,
-        &CaseConfig,
-    ) {
-        (
-            &mut self.solvers,
-            &mut self.fields,
-            &self.equations,
-            &self.mesh,
-            &self.config,
-        )
-    }
-
     fn next_step(&mut self) {
         println!("Poisson");
-        Equation::solve(self, "Poisson");
+        Equation::solve(&mut self.core, MainEquations::Poisson.name());
         println!("Laplacian Eq");
-        Equation::solve(self, "Laplacian Eq");
+        Equation::solve(&mut self.core, MainEquations::Laplacian.name());
         println!("Gradient Eq");
-        Equation::solve(self, "Gradient Eq");
+        Equation::solve(&mut self.core, MainEquations::Gradient.name());
 
-        self.time += self.time_step;
-        self.step += 1;
+        self.core.increment();
     }
 
-    fn new(config: CaseConfig, mesh: Mesh<M>) -> Self {
-        let mut equations = CaseEquations::new();
+    fn new<'a>(config: Config, mesh: Mesh<M>, schemes_config: &dyn Fn(&MainEquations) -> SchemesConfig, main_var_config: VariablesEnumConfig<'a, 'a, MainVariables>) -> Self {
+        
+        let mut equations = EquationsSet::new();
+        
+        equations.add_eq_from_enum(&MainEquations::Poisson, schemes_config).unwrap();
+        equations.add_eq_from_enum(&MainEquations::Laplacian, schemes_config).unwrap();
+        equations.add_eq_from_enum(&MainEquations::Gradient, schemes_config).unwrap();
+        
+        // ---------
+        
+        let mut var_hashmaps = VariablesHashMaps::new();
+        
+        let var = MainVariables::T;
+        var_hashmaps.add_var_from_enum(&var, &main_var_config);
+        
+        let var = MainVariables::Grad;
+        var_hashmaps.add_var_from_enum(&var, &main_var_config);
+        
+        let var = MainVariables::Laplacian;
+        var_hashmaps.add_var_from_enum(&var, &main_var_config);
+        
+        let fields = VariableFields::new(&equations, &mesh, var_hashmaps);
+        
+        // ---------
 
-        let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-        let grad_t = Variable::new(
-            "Grad T".to_string(),
-            Dimension::Vector2,
-            ControlVolumeType::Nodes,
-        );
-
-        let lap = Variable::new(
-            "Laplacian".to_string(),
-            Dimension::Scalar,
-            ControlVolumeType::Nodes,
-        );
-
-        let lhs = laplacian!(&t, IntegrationCategory::Implicit);
-        let rhs = Op::Scalar(1.);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Poisson".to_string(), eq).unwrap();
-
-        let lhs = Op::FieldOperator(FieldOperator::Field(
-            lap.clone(),
-            IntegrationCategory::Implicit,
-        ));
-        let rhs = laplacian!(&t, IntegrationCategory::Explicit);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Laplacian Eq".to_string(), eq).unwrap();
-
-        let lhs = Op::FieldOperator(FieldOperator::Field(
-            grad_t.clone(),
-            IntegrationCategory::Implicit,
-        ));
-        let rhs = gradient!(&t);
-        let eq = Equation::new(lhs, rhs, &config.schemes).expect("Equation not valid");
-        equations.add_eq("Gradient Eq".to_string(), eq).unwrap();
-
-        let fields = VariableFields::new(&equations, &mesh, &config);
-
-        let solvers = SolversSet::new(&mesh);
+        let solvers = EquationSolversSet::new(&mesh);
 
         Self {
-            name: "Poisson-2D".to_string(),
-
-            time: 0.,
-            time_step: 1.,
-            step: 0,
-
             config,
-            mesh,
-            fields,
-            equations: equations,
-            solvers,
+            core: SolverCore { equation_solvers: solvers, variable_fields: fields, equations, mesh, parameters_set: Parameters::new(vec![]), name: "Poisson-2D".to_string(), step: 0, time: 0., time_step: 0. }
         }
     }
 }

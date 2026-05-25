@@ -3,25 +3,34 @@ use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
     config::InitFunc,
-    equation::variables::{ControlVolumeType, Variable},
+    equation::variables::{ControlVolumeType, Variable}, gradients::GradientScheme,
 };
+
+use hashbrown::HashMap;
 
 use super::{
     boundary::BoundaryCondition,
     solvers::GradRequirements,
     config::CaseConfig,
     equation::Component,
-    gradients::{update_grads, GradientConfig},
+    gradients::{update_grads, GradientMethods},
 };
 
 /// For now only support of scalar fields
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
-    Scalar(ScalarField),
-    Vector2(Vector2<ScalarField>),
+    Scalar(ScalarField, Vec<BoundaryCondition>),
+    Vector2(Vector2<ScalarField>, Vec<BoundaryCondition>),
 }
 
-impl Field {}
+impl Field {
+    pub fn boundary_condition(&self) -> &[BoundaryCondition] {
+        match self {
+            Field::Scalar(_, bc) => bc,
+            Field::Vector2(_, bc) => bc,
+        }
+    }
+}
 
 /// The grads will only be allocated if necessary
 #[derive(Debug, PartialEq, Clone)]
@@ -32,20 +41,19 @@ pub struct ScalarField {
     grads_faces: DVector<Vector2<f64>>,
     gradients_up_to_date: bool,
     cvt: ControlVolumeType,
+    gradient_config: GradientMethods,
 }
 
 impl ScalarField {
-    pub fn new<M: MeshCore>(
+    pub fn new<'a, M: MeshCore>(
         mesh: &Mesh<M>,
         grads_required: &GradRequirements,
         variable: &Variable,
         component: Component,
-        config: &CaseConfig,
+        initial_fields: &InitFunc<'a>,
+        gradient_config: GradientMethods,
     ) -> Self {
-        let init = match *config.initial_fields.get(variable).expect(&format![
-            "No initialization defined for field {:?}",
-            variable
-        ]) {
+        let init = match initial_fields {
             InitFunc::Scalar(func) => {
                 if let Component::X = component {
                     func
@@ -109,6 +117,7 @@ impl ScalarField {
             grads_faces,
             gradients_up_to_date: false,
             cvt: cvt.clone(),
+            gradient_config,
         }
     }
 
@@ -146,6 +155,10 @@ impl ScalarField {
     /// Will not set the gradients as up to date
     pub fn grads_faces_mut(&mut self) -> &mut DVector<Vector2<f64>> {
         &mut self.grads_faces
+    }
+    
+    pub fn gradient_config(&self) -> &GradientMethods {
+        &self.gradient_config
     }
 
     pub fn cvt(&self) -> &ControlVolumeType {
@@ -186,14 +199,12 @@ impl Field {
         &mut self,
         grad_requirements: &GradRequirements,
         mesh: &Mesh<M>,
-        config: &GradientConfig,
-        bc: &Vec<BoundaryCondition>,
     ) {
-        update_grads(self, grad_requirements, mesh, config, bc);
+        update_grads(self, grad_requirements, mesh);
         unsafe {
             match self {
-                Field::Scalar(field) => field.gradients_updated(),
-                Field::Vector2(fields) => {
+                Field::Scalar(field, _) => field.gradients_updated(),
+                Field::Vector2(fields, _) => {
                     fields.x.gradients_updated();
                     fields.y.gradients_updated();
                 }

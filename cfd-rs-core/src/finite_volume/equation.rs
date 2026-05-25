@@ -8,7 +8,7 @@ use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use crate::finite_volume::{
-    boundary::FieldsBoundaryConditions, equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi
+    boundary::FieldsBoundaryConditions, equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi, solvers::find_var_in_fields
 };
 
 use super::{
@@ -17,7 +17,7 @@ use super::{
     error::CfdError,
     fields::Field,
 };
-use discretizations::{find_var_in_fields, DifferentialOperator};
+use discretizations::{DifferentialOperator};
 
 use variables::{ControlVolumeType, Dimension, Variable};
 
@@ -71,6 +71,7 @@ pub struct Equation {
     rhs: Op,
     unknown: Variable,
     variables_requirements: HashMap<Variable, GradRequirements>,
+    schemes: Schemes,
 }
 
 impl Equation {
@@ -101,7 +102,7 @@ impl Equation {
         collector
     }
 
-    pub fn new(lhs: Op, rhs: Op, schemes: &Schemes) -> Result<Equation, CfdError> {
+    pub fn new(lhs: Op, rhs: Op, schemes: Schemes) -> Result<Equation, CfdError> {
         let mut unknown_var = None;
 
         let mut variables_requirements = HashMap::new();
@@ -171,7 +172,7 @@ impl Equation {
 
         for f_op in &collector {
             let var = f_op.variable();
-            let (_, required_grad) = f_op.required_grads(schemes);
+            let (_, required_grad) = f_op.required_grads(&schemes);
             variables_requirements
                 .entry(var.clone())
                 .and_modify(|current: &mut GradRequirements| {
@@ -187,13 +188,14 @@ impl Equation {
                 rhs,
                 unknown: var.clone(),
                 variables_requirements,
+                schemes,
             }),
         }
     }
 
     pub fn solve<M: MeshCore>(solver_core: &mut SolverCore<M>, name: &str) -> usize {
         let time_step = solver_core.time_step();
-        let (solvers, variable_fields, equations, mesh, boundary_conditions) = solver_core.equation_solver_borrow();
+        let (solvers, variable_fields, equations, mesh) = solver_core.equation_solver_borrow();
 
         let equation = equations
             .map
@@ -201,12 +203,10 @@ impl Equation {
             .expect(&format!("This equation is not defined: {name:?}"));
 
         solve(
-            solvers.get_from_cvt_mut(equation.0.cvt()),
-            &equation.0,
+            solvers.get_from_cvt_mut(equation.cvt()),
+            &equation,
             variable_fields,
             mesh,
-            &equation.1,
-            boundary_conditions,
             time_step,
         )
     }
@@ -299,8 +299,8 @@ impl EquationSolver {
         let field = find_var_in_fields(var, fields);
         let field = field.borrow();
         let field = match *field {
-            Field::Scalar(ref values) => values,
-            Field::Vector2(_) => panic!("Can't add the gradient of a vector field"),
+            Field::Scalar(ref values, _) => values,
+            Field::Vector2(_, _) => panic!("Can't add the gradient of a vector field"),
         };
         let grads = match self.cvt {
             ControlVolumeType::Cells => match var.cvt() {
@@ -347,8 +347,8 @@ impl EquationSolver {
                 let field = find_var_in_fields(var, fields);
                 let field = field.borrow();
                 let field = match field.deref() {
-                    Field::Scalar(value) => value,
-                    Field::Vector2(value) => match *component {
+                    Field::Scalar(value, _) => &value,
+                    Field::Vector2(value, _) => match *component {
                         Component::X => &value.x,
                         Component::Y => &value.y,
                     },
@@ -393,7 +393,6 @@ impl EquationSolver {
         fields: &VariableFields,
         mesh: &Mesh<M>,
         schemes: &Schemes,
-        boundary_conditions: &FieldsBoundaryConditions,
         time_step: f64,
         coeff: f64,
     ) {
@@ -406,7 +405,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -417,7 +415,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -430,7 +427,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff,
                 );
@@ -441,7 +437,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     -coeff,
                 );
@@ -454,7 +449,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff * scalar,
                 );
@@ -467,7 +461,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff / scalar,
                 );
@@ -485,7 +478,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff * value,
                 );
@@ -497,7 +489,6 @@ impl EquationSolver {
                     fields,
                     mesh,
                     schemes,
-                    boundary_conditions,
                     time_step,
                     coeff,
                     &self.cvt().clone(),
@@ -518,7 +509,7 @@ impl EquationSolver {
             },
         }
 
-        enforce_strong_bcs(unknown, component, self, mesh, boundary_conditions);
+        enforce_strong_bcs(unknown, component, self, mesh, fields);
     }
 }
 
@@ -527,8 +518,6 @@ fn solve<M: MeshCore>(
     equation: &Equation,
     fields: &mut VariableFields,
     mesh: &Mesh<M>,
-    schemes: &Schemes,
-    boundary_conditions: &FieldsBoundaryConditions,
     time_step: f64,
 ) -> usize {
     solver.clear();
@@ -543,11 +532,6 @@ fn solve<M: MeshCore>(
         field.0.borrow_mut().update_grads(
             &field.1,
             mesh,
-            &schemes.gradients,
-            boundary_conditions
-                .map
-                .get(var)
-                .expect("Boundary Condition missing for field"),
         );
     }
 
@@ -562,8 +546,7 @@ fn solve<M: MeshCore>(
                 &component,
                 &fields,
                 mesh,
-                schemes,
-                    boundary_conditions,
+                &equation.schemes,
                 time_step,
                 1.,
             );
@@ -583,7 +566,7 @@ fn solve<M: MeshCore>(
             let mut field = (field_cell.0.borrow_mut(), field_cell.1.clone());
             for i in 0..1 {
                 let scalar_field = match &mut *field.0 {
-                    Field::Scalar(ref mut scalar_field) => scalar_field,
+                    Field::Scalar(ref mut scalar_field, _) => scalar_field,
                     _ => panic!("Unknown should be scalar"),
                 };
 
@@ -609,11 +592,6 @@ fn solve<M: MeshCore>(
                     field.0.update_grads(
                         &field.1,
                         mesh,
-                        &schemes.gradients,
-                        boundary_conditions
-                            .map
-                            .get(equation.unknown())
-                            .expect("Boundary Condition missing for field"),
                     );
                 } else {
                     break;
@@ -650,8 +628,7 @@ fn solve<M: MeshCore>(
                     &component,
                     &fields,
                     mesh,
-                    schemes,
-                    boundary_conditions,
+                    &equation.schemes,
                     time_step,
                     1.,
                 );
@@ -669,7 +646,7 @@ fn solve<M: MeshCore>(
                 let mut buffer = buffer_cell.borrow_mut();
 
                 let buffer = match &mut *buffer {
-                    Field::Vector2(ref mut scalar_field) => match component {
+                    Field::Vector2(ref mut scalar_field, _) => match component {
                         Component::X => &mut scalar_field.x,
                         Component::Y => &mut scalar_field.y,
                     },

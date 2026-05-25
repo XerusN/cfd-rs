@@ -21,35 +21,32 @@ pub enum GradientScheme {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub enum GradientInterpConfig {
+pub enum GradientInterp {
     Averaged,
     #[default]
     AveragedCorrected,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct GradientConfig {
+pub struct GradientMethods {
     pub scheme: GradientScheme,
-    pub interp: GradientInterpConfig,
+    pub interp: GradientInterp,
 }
 
 pub fn update_grads<M: MeshCore>(
     field: &mut Field,
     grad_requirements: &GradRequirements,
     mesh: &Mesh<M>,
-    config: &GradientConfig,
-    bc: &Vec<BoundaryCondition>,
 ) {
     match field {
-        Field::Scalar(field) => {
-            update_grad_scalar(field, grad_requirements, mesh, config, bc, &Component::X)
+        Field::Scalar(field, bc) => {
+            update_grad_scalar(field, grad_requirements, mesh, bc, &Component::X)
         }
-        Field::Vector2(field) => {
+        Field::Vector2(field, bc) => {
             update_grad_scalar(
                 &mut field.x,
                 grad_requirements,
                 mesh,
-                config,
                 bc,
                 &Component::X,
             );
@@ -57,7 +54,6 @@ pub fn update_grads<M: MeshCore>(
                 &mut field.y,
                 grad_requirements,
                 mesh,
-                config,
                 bc,
                 &Component::Y,
             );
@@ -69,27 +65,26 @@ fn update_grad_scalar<M: MeshCore>(
     field: &mut ScalarField,
     grad_requirements: &GradRequirements,
     mesh: &Mesh<M>,
-    config: &GradientConfig,
-    bc: &Vec<BoundaryCondition>,
+    bc: &[BoundaryCondition],
     component: &Component,
 ) {
     if !field.gradients_up_to_date() {
         println!("Updating");
         if grad_requirements.cell() | grad_requirements.face() {
-            match config.scheme {
+            match field.gradient_config().scheme {
                 GradientScheme::GreenGaussCompact => {
                     green_gauss_compact(field, mesh, bc, component)
                 }
-                _ => todo!("GradientScheme not implemented for {:?}", config.scheme),
+                _ => todo!("GradientScheme not implemented for {:?}", field.gradient_config().scheme),
             }
         }
 
         if grad_requirements.face() {
-            match config.interp {
-                GradientInterpConfig::AveragedCorrected => {
+            match field.gradient_config().interp {
+                GradientInterp::AveragedCorrected => {
                     averaged_corrected_interp(field, mesh, bc, component)
                 }
-                _ => todo!("GradientInterp not implemented for {:?}", config.interp),
+                _ => todo!("GradientInterp not implemented for {:?}", field.gradient_config().interp),
             }
         }
     }
@@ -98,7 +93,7 @@ fn update_grad_scalar<M: MeshCore>(
 fn green_gauss_compact<M: MeshCore>(
     field: &mut ScalarField,
     mesh: &Mesh<M>,
-    boundary_conditions: &Vec<BoundaryCondition>,
+    boundary_conditions: &[BoundaryCondition],
     component: &Component,
 ) {
     let (values, face_values, grads, _, cvt) = field.get_deconstructed_field_mut();
@@ -271,7 +266,7 @@ fn green_gauss_compact<M: MeshCore>(
 fn averaged_corrected_interp<M: MeshCore>(
     field: &mut ScalarField,
     mesh: &Mesh<M>,
-    boundary_conditions: &Vec<BoundaryCondition>,
+    boundary_conditions: &[BoundaryCondition],
     component: &Component,
 ) {
     let (values, _, grads, face_grads, cvt) = field.get_deconstructed_field_mut();

@@ -66,7 +66,6 @@ impl DifferentialOperator {
         fields: &VariableFields,
         mesh: &Mesh<M>,
         schemes: &Schemes,
-        boundary_conditions: &FieldsBoundaryConditions,
         time_step: f64,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
@@ -79,7 +78,6 @@ impl DifferentialOperator {
                     solver,
                     fields,
                     mesh,
-                    boundary_conditions,
                     &integration,
                     coeff,
                     equation_cvt,
@@ -96,7 +94,6 @@ impl DifferentialOperator {
                 solver,
                 fields,
                 mesh,
-                    boundary_conditions,
                 &integration,
                 coeff,
                 equation_cvt,
@@ -107,7 +104,6 @@ impl DifferentialOperator {
                     solver,
                     fields,
                     mesh,
-                    boundary_conditions,
                     &integration,
                     coeff,
                     equation_cvt,
@@ -125,12 +121,4 @@ impl DifferentialOperator {
             ),
         }
     }
-}
-
-pub fn find_var_in_fields<'a>(var: &'a Variable, fields: &'a VariableFields) -> &'a RefCell<Field> {
-    &fields
-        .map
-        .get(var)
-        .expect(&format!("Missing variable {var:?} in fields",))
-        .0
 }

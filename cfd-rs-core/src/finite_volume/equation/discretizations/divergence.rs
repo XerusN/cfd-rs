@@ -3,10 +3,8 @@ use std::cell::RefCell;
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 
 use crate::finite_volume::{
-    boundary::FieldsBoundaryConditions, config::CaseConfig, equation::{EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType}, fields::Field, solvers::{GradRequirements, VariableFields}
+    boundary::FieldsBoundaryConditions, config::CaseConfig, equation::{EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType}, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
 };
-
-use super::find_var_in_fields;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DivergenceScheme {
@@ -27,7 +25,6 @@ impl DivergenceScheme {
         solver: &mut EquationSolver,
         fields: &VariableFields,
         mesh: &Mesh<M>,
-        _config: &FieldsBoundaryConditions,
         integration: &IntegrationCategory,
         coeff: f64,
         equation_cvt: &ControlVolumeType,
@@ -50,8 +47,8 @@ fn basic<M: MeshCore>(
 ) {
     let field = field.borrow();
     let field = match *field {
-        Field::Scalar(_) => panic!("No implemtation of divergence for a scalar field"),
-        Field::Vector2(ref values) => values,
+        Field::Scalar(_, _) => panic!("No implemtation of divergence for a scalar field"),
+        Field::Vector2(ref values, _) => values,
     };
 
     let (_, rhs) = solver.solver_borrow_mut();
