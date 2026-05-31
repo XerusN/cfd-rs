@@ -3,9 +3,24 @@ use std::cell::{Ref, RefMut};
 use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
-        boundary::BoundaryCondition, config::{GeometryConfig, GradientConfig, InitFunc, OutputConfig, Schemes, SchemesConfig}, equation::{
-            Equation, FieldOperator, IntegrationCategory, discretizations::{DifferentialOperator, convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration}, operations::Op, variables::{ControlVolumeType, Dimension, Variable}
-        }, fields::Field, gradients::{GradientInterp, GradientMethods, GradientScheme}, mesh::mesh, solvers::{EquationSolversSet, EquationsEnum, EquationsSet, Parameters, SolverCore, VariableFields, VariablesEnum, VariablesEnumConfig, VariablesHashMaps}
+        boundary::BoundaryCondition,
+        config::{GeometryConfig, GradientConfig, InitFunc, OutputConfig, Schemes, SchemesConfig},
+        equation::{
+            discretizations::{
+                convection::ConvectionScheme, divergence::DivergenceScheme,
+                laplacian::LaplacianScheme, time_schemes::TimeIntegration, DifferentialOperator,
+            },
+            operations::Op,
+            variables::{ControlVolumeType, Dimension, Variable},
+            Equation, FieldOperator, IntegrationCategory,
+        },
+        fields::Field,
+        gradients::{GradientInterp, GradientMethods, GradientScheme},
+        mesh::mesh,
+        solvers::{
+            EquationSolversSet, EquationsEnum, EquationsSet, Parameters, SolverCore,
+            VariableFields, VariablesEnum, VariablesEnumConfig, VariablesHashMaps,
+        },
     },
     gradient, laplacian,
 };
@@ -115,36 +130,56 @@ impl<M: MeshCore> Poisson<M> {
         self.core.increment();
     }
 
-    fn new<'a>(config: Config, mesh: Mesh<M>, schemes_config: &dyn Fn(&MainEquations) -> SchemesConfig, main_var_config: VariablesEnumConfig<'a, 'a, MainVariables>) -> Self {
-        
+    fn new<'a>(
+        config: Config,
+        mesh: Mesh<M>,
+        schemes_config: &dyn Fn(&MainEquations) -> SchemesConfig,
+        main_var_config: VariablesEnumConfig<'a, 'a, MainVariables>,
+    ) -> Self {
         let mut equations = EquationsSet::new();
-        
-        equations.add_eq_from_enum(&MainEquations::Poisson, schemes_config).unwrap();
-        equations.add_eq_from_enum(&MainEquations::Laplacian, schemes_config).unwrap();
-        equations.add_eq_from_enum(&MainEquations::Gradient, schemes_config).unwrap();
-        
+
+        equations
+            .add_eq_from_enum(&MainEquations::Poisson, schemes_config)
+            .unwrap();
+        equations
+            .add_eq_from_enum(&MainEquations::Laplacian, schemes_config)
+            .unwrap();
+        equations
+            .add_eq_from_enum(&MainEquations::Gradient, schemes_config)
+            .unwrap();
+
         // ---------
-        
+
         let mut var_hashmaps = VariablesHashMaps::new();
-        
+
         let var = MainVariables::T;
         var_hashmaps.add_var_from_enum(&var, &main_var_config);
-        
+
         let var = MainVariables::Grad;
         var_hashmaps.add_var_from_enum(&var, &main_var_config);
-        
+
         let var = MainVariables::Laplacian;
         var_hashmaps.add_var_from_enum(&var, &main_var_config);
-        
+
         let fields = VariableFields::new(&equations, &mesh, var_hashmaps);
-        
+
         // ---------
 
         let solvers = EquationSolversSet::new(&mesh);
 
         Self {
             config,
-            core: SolverCore { equation_solvers: solvers, variable_fields: fields, equations, mesh, parameters_set: Parameters::new(vec![]), name: "Poisson-2D".to_string(), step: 0, time: 0., time_step: 0. }
+            core: SolverCore {
+                equation_solvers: solvers,
+                variable_fields: fields,
+                equations,
+                mesh,
+                parameters_set: Parameters::new(vec![]),
+                name: "Poisson-2D".to_string(),
+                step: 0,
+                time: 0.,
+                time_step: 0.,
+            },
         }
     }
 }

@@ -1,6 +1,5 @@
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
-    solvers::{diffusion::DiffusionCase, Case},
     config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
     equation::{
         discretizations::{
@@ -11,6 +10,7 @@ use cfd_rs::finite_volume::{
     },
     gradients::{GradientConfig, GradientInterpConfig, GradientScheme},
     mesh::mesh,
+    solvers::{diffusion::DiffusionCase, Case},
 };
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;

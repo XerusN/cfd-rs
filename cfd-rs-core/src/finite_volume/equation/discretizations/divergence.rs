@@ -3,7 +3,10 @@ use std::cell::RefCell;
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 
 use crate::finite_volume::{
-    boundary::FieldsBoundaryConditions, config::CaseConfig, equation::{EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType}, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
+    boundary::FieldsBoundaryConditions,
+    equation::{variables::ControlVolumeType, EquationSolver, IntegrationCategory, Variable},
+    fields::Field,
+    solvers::{find_var_in_fields, GradRequirements, VariableFields},
 };
 
 #[derive(Clone, Debug, PartialEq)]

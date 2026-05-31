@@ -1,23 +1,23 @@
 use core::f64;
 
 use cfd_rs::finite_volume::boundary::BoundaryValue;
-use cfd_rs::finite_volume::solvers::simple::SimpleCase;
 use cfd_rs::finite_volume::config::{InitFunc, OutputConfig};
 use cfd_rs::finite_volume::equation::variables::{ControlVolumeType, Dimension, Variable};
 use cfd_rs::finite_volume::gradients::GradientInterpConfig;
 use cfd_rs::finite_volume::mesh::mesh;
+use cfd_rs::finite_volume::solvers::simple::SimpleCase;
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    solvers::Case,
     config::{CaseConfig, GeometryConfig, MeshingConfig, Schemes},
     equation::discretizations::{
         convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
         time_schemes::TimeIntegration,
     },
     gradients::{GradientConfig, GradientScheme},
+    solvers::Case,
 };
 use nalgebra::{Point2, Vector2};
 

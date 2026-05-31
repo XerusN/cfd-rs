@@ -3,10 +3,11 @@ use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
     boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    config::CaseConfig,
     equation::{
-        Component, EquationSolver, variables::{ControlVolumeType, Variable}
-    }, solvers::{VariableFields, find_var_in_fields},
+        variables::{ControlVolumeType, Variable},
+        Component, EquationSolver,
+    },
+    solvers::{find_var_in_fields, VariableFields},
 };
 
 pub fn enforce_strong_bcs<M: MeshCore>(

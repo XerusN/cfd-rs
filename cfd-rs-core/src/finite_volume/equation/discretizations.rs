@@ -2,13 +2,15 @@ use std::cell::RefCell;
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::{boundary::FieldsBoundaryConditions, equation::variables::ControlVolumeType};
+use crate::finite_volume::{
+    boundary::FieldsBoundaryConditions, equation::variables::ControlVolumeType,
+};
 
 use super::{
     super::{
-        solvers::{GradRequirements, VariableFields},
-        config::{CaseConfig, Schemes},
+        config::Schemes,
         fields::Field,
+        solvers::{GradRequirements, VariableFields},
     },
     Component, EquationSolver, IntegrationCategory, Variable,
 };

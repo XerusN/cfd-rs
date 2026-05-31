@@ -74,5 +74,8 @@ pub struct OutputConfig {
 #[derive(Clone)]
 pub enum InitFunc<'a> {
     Scalar(&'a dyn Fn(&Point2<f64>) -> f64),
-    Vector2(&'a dyn Fn(&Point2<f64>) -> f64, &'a dyn Fn(&Point2<f64>) -> f64),
+    Vector2(
+        &'a dyn Fn(&Point2<f64>) -> f64,
+        &'a dyn Fn(&Point2<f64>) -> f64,
+    ),
 }

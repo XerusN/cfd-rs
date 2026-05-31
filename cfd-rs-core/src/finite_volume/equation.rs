@@ -8,16 +8,19 @@ use nalgebra::DVector;
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
 use crate::finite_volume::{
-    boundary::FieldsBoundaryConditions, equation::{boundaries::enforce_strong_bcs, operations::Op}, linalg::easy_jacobi, solvers::find_var_in_fields
+    boundary::FieldsBoundaryConditions,
+    equation::{boundaries::enforce_strong_bcs, operations::Op},
+    linalg::easy_jacobi,
+    solvers::find_var_in_fields,
 };
 
 use super::{
-    solvers::{SolverCore, GradRequirements, VariableFields},
-    config::{CaseConfig, Schemes},
+    config::Schemes,
     error::CfdError,
     fields::Field,
+    solvers::{GradRequirements, SolverCore, VariableFields},
 };
-use discretizations::{DifferentialOperator};
+use discretizations::DifferentialOperator;
 
 use variables::{ControlVolumeType, Dimension, Variable};
 
@@ -529,10 +532,7 @@ fn solve<M: MeshCore>(
 
     for (var, field) in &fields.map {
         println!("Update grads: {:?}", var);
-        field.0.borrow_mut().update_grads(
-            &field.1,
-            mesh,
-        );
+        field.0.borrow_mut().update_grads(&field.1, mesh);
     }
 
     match equation.unknown().dim() {
@@ -589,10 +589,7 @@ fn solve<M: MeshCore>(
 
                 if !result {
                     println!("Update Grads");
-                    field.0.update_grads(
-                        &field.1,
-                        mesh,
-                    );
+                    field.0.update_grads(&field.1, mesh);
                 } else {
                     break;
                 }

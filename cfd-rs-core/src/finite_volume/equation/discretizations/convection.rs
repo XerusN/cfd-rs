@@ -4,9 +4,12 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 use nalgebra::Vector2;
 
 use crate::finite_volume::{
-    boundary::{BoundaryCondition, FieldsBoundaryConditions}, config::CaseConfig, equation::{
-        Component, EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType
-    }, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    equation::{
+        variables::ControlVolumeType, Component, EquationSolver, IntegrationCategory, Variable,
+    },
+    fields::Field,
+    solvers::{find_var_in_fields, GradRequirements, VariableFields},
 };
 
 #[derive(Clone, Debug, PartialEq)]

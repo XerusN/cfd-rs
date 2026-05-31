@@ -4,9 +4,9 @@ use crate::finite_volume::equation::variables::ControlVolumeType;
 
 use super::{
     boundary::BoundaryCondition,
-    solvers::GradRequirements,
     equation::Component,
     fields::{Field, ScalarField},
+    solvers::GradRequirements,
 };
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 
@@ -43,20 +43,8 @@ pub fn update_grads<M: MeshCore>(
             update_grad_scalar(field, grad_requirements, mesh, bc, &Component::X)
         }
         Field::Vector2(field, bc) => {
-            update_grad_scalar(
-                &mut field.x,
-                grad_requirements,
-                mesh,
-                bc,
-                &Component::X,
-            );
-            update_grad_scalar(
-                &mut field.y,
-                grad_requirements,
-                mesh,
-                bc,
-                &Component::Y,
-            );
+            update_grad_scalar(&mut field.x, grad_requirements, mesh, bc, &Component::X);
+            update_grad_scalar(&mut field.y, grad_requirements, mesh, bc, &Component::Y);
         }
     }
 }
@@ -75,7 +63,10 @@ fn update_grad_scalar<M: MeshCore>(
                 GradientScheme::GreenGaussCompact => {
                     green_gauss_compact(field, mesh, bc, component)
                 }
-                _ => todo!("GradientScheme not implemented for {:?}", field.gradient_config().scheme),
+                _ => todo!(
+                    "GradientScheme not implemented for {:?}",
+                    field.gradient_config().scheme
+                ),
             }
         }
 
@@ -84,7 +75,10 @@ fn update_grad_scalar<M: MeshCore>(
                 GradientInterp::AveragedCorrected => {
                     averaged_corrected_interp(field, mesh, bc, component)
                 }
-                _ => todo!("GradientInterp not implemented for {:?}", field.gradient_config().interp),
+                _ => todo!(
+                    "GradientInterp not implemented for {:?}",
+                    field.gradient_config().interp
+                ),
             }
         }
     }
@@ -230,7 +224,7 @@ fn green_gauss_compact<M: MeshCore>(
                 ControlVolumeType::Cells => pairs.cells_normals()[pair],
                 ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
             };
-            
+
             // println!("{normal:?}");
             // println!("{:?}", normal.norm());
 

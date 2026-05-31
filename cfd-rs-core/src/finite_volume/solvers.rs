@@ -10,10 +10,15 @@ use std::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::{boundary::{BoundaryCondition, FieldsBoundaryConditions}, config::{GradientConfig, InitFunc, SchemesConfig}, equation::{Component, operations::Op}, gradients::{GradientMethods}};
+use crate::finite_volume::{
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    config::{GradientConfig, InitFunc, SchemesConfig},
+    equation::{operations::Op, Component},
+    gradients::GradientMethods,
+};
 
 use super::{
-    config::{CaseConfig, Schemes},
+    config::Schemes,
     equation::{
         variables::{ControlVolumeType, Dimension, Variable},
         Equation, EquationSolver,
@@ -22,8 +27,8 @@ use super::{
     fields::{Field, ScalarField},
 };
 
-use std::hash::Hash;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 use plotters::prelude::*;
 
@@ -74,27 +79,64 @@ impl VariableFields {
         mesh: &Mesh<M>,
         variables_hashmaps: VariablesHashMaps<'a>,
     ) -> Self {
-        let (mut gradient_methods, mut initial_fields, mut boundary_conditions) = variables_hashmaps.deconstruct_mut();
+        let (mut gradient_methods, mut initial_fields, mut boundary_conditions) =
+            variables_hashmaps.deconstruct_mut();
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
             match *var.dim() {
                 Dimension::Scalar => {
-                    let values = RefCell::new(Field::Scalar(ScalarField::new(
-                        mesh,
-                        &grad_req,
-                        &var,
-                        Component::X,
-                        &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")),
-                        gradient_methods.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}"))
-                    ), boundary_conditions.remove(&var).expect(&format!("A boundary condition should be defined for var {var:?}"))));
+                    let values = RefCell::new(Field::Scalar(
+                        ScalarField::new(
+                            mesh,
+                            &grad_req,
+                            &var,
+                            Component::X,
+                            &initial_fields.remove(&var).expect(&format!(
+                                "An initial field function should be defined for var {var:?}"
+                            )),
+                            gradient_methods.remove(&var).expect(&format!(
+                                "An initial field function should be defined for var {var:?}"
+                            )),
+                        ),
+                        boundary_conditions.remove(&var).expect(&format!(
+                            "A boundary condition should be defined for var {var:?}"
+                        )),
+                    ));
                     fields.insert(var, (values, grad_req));
                 }
                 Dimension::Vector2 => {
-                    let values = RefCell::new(Field::Vector2(Vector2::new(
-                        ScalarField::new(mesh, &grad_req, &var, Component::X, &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")), gradient_methods.remove(&var).expect(&format!("A gradient config should be defined for var {var:?}"))),
-                        ScalarField::new(mesh, &grad_req, &var, Component::Y, &initial_fields.remove(&var).expect(&format!("An initial field function should be defined for var {var:?}")), gradient_methods.remove(&var).expect(&format!("A gradient config should be defined for var {var:?}"))),
-                    ), boundary_conditions.remove(&var).expect(&format!("A boundary condition should be defined for var {var:?}"))));
+                    let values = RefCell::new(Field::Vector2(
+                        Vector2::new(
+                            ScalarField::new(
+                                mesh,
+                                &grad_req,
+                                &var,
+                                Component::X,
+                                &initial_fields.remove(&var).expect(&format!(
+                                    "An initial field function should be defined for var {var:?}"
+                                )),
+                                gradient_methods.remove(&var).expect(&format!(
+                                    "A gradient config should be defined for var {var:?}"
+                                )),
+                            ),
+                            ScalarField::new(
+                                mesh,
+                                &grad_req,
+                                &var,
+                                Component::Y,
+                                &initial_fields.remove(&var).expect(&format!(
+                                    "An initial field function should be defined for var {var:?}"
+                                )),
+                                gradient_methods.remove(&var).expect(&format!(
+                                    "A gradient config should be defined for var {var:?}"
+                                )),
+                            ),
+                        ),
+                        boundary_conditions.remove(&var).expect(&format!(
+                            "A boundary condition should be defined for var {var:?}"
+                        )),
+                    ));
                     fields.insert(var, (values, grad_req));
                 }
             }
@@ -117,9 +159,7 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    pub fn new(
-        parameters: Vec<(String, f64)>
-    ) -> Self {
+    pub fn new(parameters: Vec<(String, f64)>) -> Self {
         let mut map = HashMap::new();
         for (name, value) in parameters {
             map.insert(name, value);
@@ -148,13 +188,23 @@ impl EquationsSet {
             Ok(())
         }
     }
-    
-    pub fn add_eq_from_enum<E: EquationsEnum>(&mut self, enum_variant: &E, schemes_config: &dyn Fn(&E) -> SchemesConfig) -> Result<(), CfdError> {
+
+    pub fn add_eq_from_enum<E: EquationsEnum>(
+        &mut self,
+        enum_variant: &E,
+        schemes_config: &dyn Fn(&E) -> SchemesConfig,
+    ) -> Result<(), CfdError> {
         let name = enum_variant.name();
         let lhs = enum_variant.lhs();
-        let equation = Equation::new(enum_variant.lhs(), enum_variant.rhs(), enum_variant.schemes(schemes_config(enum_variant)))?;
+        let equation = Equation::new(
+            enum_variant.lhs(),
+            enum_variant.rhs(),
+            enum_variant.schemes(schemes_config(enum_variant)),
+        )?;
         if let Err(_) = self.map.try_insert(name.to_owned(), equation) {
-            Err(CfdError::EquationAlreadyAdded { name: name.to_owned() })
+            Err(CfdError::EquationAlreadyAdded {
+                name: name.to_owned(),
+            })
         } else {
             Ok(())
         }
@@ -232,7 +282,7 @@ pub struct SolverCore<M: MeshCore> {
     equations: EquationsSet,
     mesh: Mesh<M>,
     parameters_set: Parameters,
-    
+
     name: String,
     step: usize,
     time: f64,
@@ -258,7 +308,7 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn set_time_step(&mut self, time_step: f64) {
         self.time_step = time_step
     }
-    
+
     pub fn increment(&mut self) {
         self.time += self.time_step;
         self.step += 1;
@@ -332,16 +382,16 @@ impl<M: MeshCore> SolverCore<M> {
         )
     }
 
-    pub fn init_core(config: CaseConfig, mesh: Mesh<M>) -> Self {
-        todo!()
-    }
-    
+    // pub fn init_core(config: CaseConfig, mesh: Mesh<M>) -> Self {
+    //     todo!()
+    // }
+
     pub fn plot_2d(&self) {
         for var in self.fields_list() {
             plot_var(self, var, &(1., 2.));
         }
     }
-    
+
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
     pub fn export_cell_centered(&self, output_dir: &str) -> io::Result<()> {
         let path = PathBuf::from(format!(
@@ -440,23 +490,22 @@ impl<M: MeshCore> SolverCore<M> {
 
         Ok(())
     }
-    
 }
-
 
 fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(f64, f64)) {
     let path = "../figures/poisson_".to_string() + var.name() + ".jpeg";
     let root = BitMapBackend::new(&path, (1920, 1080)).into_drawing_area();
-    
+
     root.fill(&WHITE).unwrap();
-    
+
     let mut chart = ChartBuilder::on(&root)
         .caption("Test", ("sans-serif", 80))
         .margin(5)
         .x_label_area_size(40)
         .y_label_area_size(40)
-        .build_cartesian_2d(0f64..1f64, 0f64..1f64).unwrap();
-    
+        .build_cartesian_2d(0f64..1f64, 0f64..1f64)
+        .unwrap();
+
     chart
         .configure_mesh()
         .x_labels(5)
@@ -465,32 +514,44 @@ fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(
         .x_label_offset(35)
         .y_label_offset(25)
         .label_style(("sans-serif", 20))
-        .draw().unwrap();
-    
+        .draw()
+        .unwrap();
+
     let field = solver_core.field(var).unwrap();
     let values = match field.deref() {
         Field::Scalar(scalar_field, _) => scalar_field.values(),
         Field::Vector2(vector_field, _) => vector_field.x.values(),
     };
-    
+
     if let ControlVolumeType::Nodes = var.cvt() {
-        chart.draw_series(
-            values.iter().zip(0..).map(|(v, i)| {
+        chart
+            .draw_series(values.iter().zip(0..).map(|(v, i)| {
                 Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    solver_core.mesh().nodes.cv_nodes()[i].iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
+                    solver_core.mesh().nodes.cv_nodes()[i]
+                        .iter()
+                        .map(|p| (p.x, p.y))
+                        .collect::<Vec<_>>(),
+                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into(),
                 )
-            })
-        ).unwrap();
+            }))
+            .unwrap();
     } else {
-        chart.draw_series(
-            values.iter().zip(0..).map(|(v, i)| {
+        chart
+            .draw_series(values.iter().zip(0..).map(|(v, i)| {
                 Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    solver_core.mesh().cells.neighboring_nodes()[i].iter().map(|node| (solver_core.mesh().nodes.centers()[*node].x, solver_core.mesh().nodes.centers()[*node].y)).collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into()
+                    solver_core.mesh().cells.neighboring_nodes()[i]
+                        .iter()
+                        .map(|node| {
+                            (
+                                solver_core.mesh().nodes.centers()[*node].x,
+                                solver_core.mesh().nodes.centers()[*node].y,
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into(),
                 )
-            })
-        ).unwrap();
+            }))
+            .unwrap();
     }
     root.present().unwrap();
 }
@@ -729,8 +790,14 @@ pub trait VariablesEnum: Clone + Debug + Eq + PartialEq + Hash {
     fn default_gradient_method(&self) -> GradientMethods;
     fn gradient_method(&self, gradient_config: GradientConfig) -> GradientMethods {
         let mut method = self.default_gradient_method();
-        gradient_config.interp.is_some().then(|| method.interp = gradient_config.interp.unwrap());
-        gradient_config.scheme.is_some().then(|| method.scheme = gradient_config.scheme.unwrap());
+        gradient_config
+            .interp
+            .is_some()
+            .then(|| method.interp = gradient_config.interp.unwrap());
+        gradient_config
+            .scheme
+            .is_some()
+            .then(|| method.scheme = gradient_config.scheme.unwrap());
         method
     }
 }
@@ -747,7 +814,11 @@ impl<'a, 'b, V: VariablesEnum> VariablesEnumConfig<'a, 'b, V> {
         initial_fields: &'b dyn Fn(&V) -> InitFunc<'a>,
         boundary_conditions: &'b dyn Fn(&V) -> Vec<BoundaryCondition>,
     ) -> Self {
-        Self {gradient_configs, initial_fields, boundary_conditions}
+        Self {
+            gradient_configs,
+            initial_fields,
+            boundary_conditions,
+        }
     }
 }
 
@@ -765,20 +836,44 @@ impl<'a> VariablesHashMaps<'a> {
             boundary_conditions: HashMap::new(),
         }
     }
-    
-    pub fn add_var_from_enum<'b, V: VariablesEnum>(&mut self, enum_variant: &V, var_enum_config: &VariablesEnumConfig<'a, 'b, V>) {
-        self.gradient_methods.insert(enum_variant.var(), enum_variant.gradient_method((var_enum_config.gradient_configs)(enum_variant)));
-        self.initial_fields.insert(enum_variant.var(), (var_enum_config.initial_fields)(enum_variant));
-        self.boundary_conditions.insert(enum_variant.var(), (var_enum_config.boundary_conditions)(enum_variant));
+
+    pub fn add_var_from_enum<'b, V: VariablesEnum>(
+        &mut self,
+        enum_variant: &V,
+        var_enum_config: &VariablesEnumConfig<'a, 'b, V>,
+    ) {
+        self.gradient_methods.insert(
+            enum_variant.var(),
+            enum_variant.gradient_method((var_enum_config.gradient_configs)(enum_variant)),
+        );
+        self.initial_fields.insert(
+            enum_variant.var(),
+            (var_enum_config.initial_fields)(enum_variant),
+        );
+        self.boundary_conditions.insert(
+            enum_variant.var(),
+            (var_enum_config.boundary_conditions)(enum_variant),
+        );
     }
-    
-    pub fn deconstruct_mut(self) -> (HashMap<Variable, GradientMethods>, HashMap<Variable, InitFunc<'a>>, HashMap<Variable, Vec<BoundaryCondition>>) {
-        (self.gradient_methods, self.initial_fields, self.boundary_conditions)
+
+    pub fn deconstruct_mut(
+        self,
+    ) -> (
+        HashMap<Variable, GradientMethods>,
+        HashMap<Variable, InitFunc<'a>>,
+        HashMap<Variable, Vec<BoundaryCondition>>,
+    ) {
+        (
+            self.gradient_methods,
+            self.initial_fields,
+            self.boundary_conditions,
+        )
     }
 }
 
 // Macro to generate getter functions for solver specific variables
-#[macro_export] macro_rules! generate_solver_variables {
+#[macro_export]
+macro_rules! generate_solver_variables {
     (
         $T:ty,
         $(
@@ -814,7 +909,7 @@ impl<'a> VariablesHashMaps<'a> {
                     )+
                 }
             }
-            
+
             fn var(&self) -> Variable {
                 match self {
                     $(
@@ -822,7 +917,7 @@ impl<'a> VariablesHashMaps<'a> {
                     )+
                 }
             }
-            
+
             fn default_gradient_method(&self) -> GradientMethods {
                 match self {
                     $(
@@ -841,16 +936,29 @@ pub trait EquationsEnum: Clone + Debug + Eq + PartialEq + Hash {
     fn default_schemes(&self) -> Schemes;
     fn schemes(&self, schemes_config: SchemesConfig) -> Schemes {
         let mut schemes = self.default_schemes();
-        schemes_config.transient.is_some().then(|| schemes.transient = schemes_config.transient.unwrap());
-        schemes_config.convection.is_some().then(|| schemes.convection = schemes_config.convection.unwrap());
-        schemes_config.laplacian.is_some().then(|| schemes.laplacian = schemes_config.laplacian.unwrap());
-        schemes_config.divergence.is_some().then(|| schemes.divergence = schemes_config.divergence.unwrap());
+        schemes_config
+            .transient
+            .is_some()
+            .then(|| schemes.transient = schemes_config.transient.unwrap());
+        schemes_config
+            .convection
+            .is_some()
+            .then(|| schemes.convection = schemes_config.convection.unwrap());
+        schemes_config
+            .laplacian
+            .is_some()
+            .then(|| schemes.laplacian = schemes_config.laplacian.unwrap());
+        schemes_config
+            .divergence
+            .is_some()
+            .then(|| schemes.divergence = schemes_config.divergence.unwrap());
         schemes
     }
 }
 
 // Macro to generate getter functions for solver specific variables
-#[macro_export] macro_rules! generate_solver_equations {
+#[macro_export]
+macro_rules! generate_solver_equations {
     (
         $T:ty,
         $(
@@ -878,7 +986,7 @@ pub trait EquationsEnum: Clone + Debug + Eq + PartialEq + Hash {
                     )+
                 }
             }
-            
+
             fn rhs(&self) -> Op {
                 match self {
                     $(
@@ -886,7 +994,7 @@ pub trait EquationsEnum: Clone + Debug + Eq + PartialEq + Hash {
                     )+
                 }
             }
-            
+
             fn default_schemes(&self) -> Schemes {
                 match self {
                     $(
@@ -894,8 +1002,8 @@ pub trait EquationsEnum: Clone + Debug + Eq + PartialEq + Hash {
                     )+
                 }
             }
-            
-            
+
+
         }
     };
 }

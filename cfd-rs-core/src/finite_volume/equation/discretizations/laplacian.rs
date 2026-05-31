@@ -4,9 +4,12 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore, Patch};
 use nalgebra_sparse::SparseEntryMut;
 
 use crate::finite_volume::{
-    boundary::{BoundaryCondition, FieldsBoundaryConditions}, equation::{
-        Component, EquationSolver, IntegrationCategory, Variable, variables::ControlVolumeType
-    }, fields::Field, solvers::{GradRequirements, VariableFields, find_var_in_fields}
+    boundary::{BoundaryCondition, FieldsBoundaryConditions},
+    equation::{
+        variables::ControlVolumeType, Component, EquationSolver, IntegrationCategory, Variable,
+    },
+    fields::Field,
+    solvers::{find_var_in_fields, GradRequirements, VariableFields},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -224,8 +227,8 @@ fn orthogonal_correction<M: MeshCore>(
                                         }
                                     }
 
-                                    rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f)*coeff;
-                                    rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f)*coeff;
+                                    rhs[cvs[0]] -= field.grads_faces()[pair].dot(&t_f) * coeff;
+                                    rhs[cvs[1]] += field.grads_faces()[pair].dot(&t_f) * coeff;
                                 }
                             }
                         }
@@ -339,8 +342,8 @@ fn orthogonal_correction<M: MeshCore>(
                     }
                 };
 
-                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f)*coeff;
-                rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f)*coeff;
+                rhs[cvs[0]] -= field.grads_faces()[pair].dot(&s_f) * coeff;
+                rhs[cvs[1]] += field.grads_faces()[pair].dot(&s_f) * coeff;
             }
 
             for (i_bnd, _) in boundary_conditions.iter().enumerate() {
@@ -366,7 +369,7 @@ fn orthogonal_correction<M: MeshCore>(
                                 i_bnd,
                                 field.grads_faces()[pair].dot(&s_f)
                             );
-                            
+
                             let sign;
                             if let Patch::Cell(_) = pairs.neighboring_cells()[pair][0] {
                                 sign = 1.;

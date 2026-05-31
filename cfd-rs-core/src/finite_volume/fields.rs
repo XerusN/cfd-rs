@@ -3,17 +3,17 @@ use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
     config::InitFunc,
-    equation::variables::{ControlVolumeType, Variable}, gradients::GradientScheme,
+    equation::variables::{ControlVolumeType, Variable},
+    gradients::GradientScheme,
 };
 
 use hashbrown::HashMap;
 
 use super::{
     boundary::BoundaryCondition,
-    solvers::GradRequirements,
-    config::CaseConfig,
     equation::Component,
     gradients::{update_grads, GradientMethods},
+    solvers::GradRequirements,
 };
 
 /// For now only support of scalar fields
@@ -156,7 +156,7 @@ impl ScalarField {
     pub fn grads_faces_mut(&mut self) -> &mut DVector<Vector2<f64>> {
         &mut self.grads_faces
     }
-    
+
     pub fn gradient_config(&self) -> &GradientMethods {
         &self.gradient_config
     }

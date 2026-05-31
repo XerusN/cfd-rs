@@ -1,5 +1,4 @@
 pub mod boundary;
-pub mod solvers;
 pub mod config;
 pub mod equation;
 pub mod error;
@@ -7,3 +6,4 @@ pub mod fields;
 pub mod gradients;
 pub mod linalg;
 pub mod mesh;
+pub mod solvers;

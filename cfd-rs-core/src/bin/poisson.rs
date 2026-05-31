@@ -1,13 +1,19 @@
 use std::ops::Deref;
 
 use cfd_rs::finite_volume::{
-    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions}, solvers::{Case, poisson::PoissonCase}, config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes}, equation::{
+    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
+    config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
+    equation::{
         discretizations::{
             convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
             time_schemes::TimeIntegration,
         },
         variables::{ControlVolumeType, Dimension, Variable},
-    }, fields::Field, gradients::{GradientConfig, GradientInterpConfig, GradientScheme}, mesh::mesh
+    },
+    fields::Field,
+    gradients::{GradientConfig, GradientInterpConfig, GradientScheme},
+    mesh::mesh,
+    solvers::{poisson::PoissonCase, Case},
 };
 use cfd_rs_utils::{control::OutputControl, mesh::assembled_mesh::MeshCore};
 use hashbrown::HashMap;
@@ -130,6 +136,6 @@ fn main() {
         case.export_cell_centered().unwrap();
         println!("{:?}", case.time());
     }
-    
+
     case.plot2d()
 }
