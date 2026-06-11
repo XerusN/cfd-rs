@@ -240,10 +240,10 @@ impl Cell {
 
     pub fn neighboring_patches<'a>(
         &self,
-        cells_glob: &[Cell],
+        cells_glob: &'a [Cell],
         faces_glob: &'a [Face],
     ) -> Vec<&'a Patch> {
-        let faces = self.faces(faces_glob);
+        let faces: Vec<&Face> = self.faces(faces_glob);
 
         faces
             .iter()
@@ -256,7 +256,7 @@ impl Cell {
 
     pub fn neighboring_patches_and_faces<'a>(
         &self,
-        cells_glob: &[Cell],
+        cells_glob: &'a [Cell],
         faces_glob: &'a [Face],
     ) -> Vec<(&'a Patch, &'a Face, FaceIndex)> {
         let faces = self.faces(faces_glob);

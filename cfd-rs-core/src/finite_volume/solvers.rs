@@ -11,9 +11,9 @@ use std::{
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 use crate::finite_volume::{
-    boundary::{BoundaryCondition, FieldsBoundaryConditions},
-    config::{GradientConfig, InitFunc, SchemesConfig},
-    equation::{operations::Op, Component},
+    boundary::{BoundaryCondition},
+    config::{GradientConfig, InitFunctionsTrait, SchemesConfig},
+    equation::{Component, operations::Op},
     gradients::GradientMethods,
 };
 
@@ -74,10 +74,10 @@ pub struct VariableFields {
 }
 
 impl VariableFields {
-    pub fn new<'a, M: MeshCore>(
+    pub fn new<M: MeshCore, I: InitFunctionsTrait>(
         equations: &EquationsSet,
         mesh: &Mesh<M>,
-        variables_hashmaps: VariablesHashMaps<'a>,
+        variables_hashmaps: VariablesHashMaps<I>,
     ) -> Self {
         let (mut gradient_methods, mut initial_fields, mut boundary_conditions) =
             variables_hashmaps.deconstruct_mut();
@@ -189,17 +189,16 @@ impl EquationsSet {
         }
     }
 
-    pub fn add_eq_from_enum<E: EquationsEnum>(
+    pub fn add_eq_from_enum<E: EquationsEnum, EC: EquationsEnumConfigTrait<E>>(
         &mut self,
         enum_variant: &E,
-        schemes_config: &dyn Fn(&E) -> SchemesConfig,
+        equations_config: &EC,
     ) -> Result<(), CfdError> {
         let name = enum_variant.name();
-        let lhs = enum_variant.lhs();
         let equation = Equation::new(
             enum_variant.lhs(),
             enum_variant.rhs(),
-            enum_variant.schemes(schemes_config(enum_variant)),
+            enum_variant.schemes(equations_config.schemes_configs(enum_variant)),
         )?;
         if let Err(_) = self.map.try_insert(name.to_owned(), equation) {
             Err(CfdError::EquationAlreadyAdded {
@@ -314,7 +313,7 @@ impl<M: MeshCore> SolverCore<M> {
         self.step += 1;
     }
 
-    pub fn import_from_file(file_name: &str) -> std::io::Result<()> {
+    pub fn import_from_file(_file_name: &str) -> std::io::Result<()> {
         todo!()
     }
 
@@ -802,33 +801,23 @@ pub trait VariablesEnum: Clone + Debug + Eq + PartialEq + Hash {
     }
 }
 
-pub struct VariablesEnumConfig<'a, 'b, V: VariablesEnum> {
-    pub gradient_configs: &'b dyn Fn(&V) -> GradientConfig,
-    pub initial_fields: &'b dyn Fn(&V) -> InitFunc<'a>,
-    pub boundary_conditions: &'b dyn Fn(&V) -> Vec<BoundaryCondition>,
+pub trait VariablesEnumConfigTrait<V: VariablesEnum, I: InitFunctionsTrait> {
+    fn gradient_configs(&self, variable_enum: &V) -> GradientConfig;
+    fn initial_fields(&self, variable_enum: &V) -> I;
+    fn boundary_conditions(&self, variable_enum: &V) -> Vec<BoundaryCondition>;
 }
 
-impl<'a, 'b, V: VariablesEnum> VariablesEnumConfig<'a, 'b, V> {
-    pub fn new(
-        gradient_configs: &'b dyn Fn(&V) -> GradientConfig,
-        initial_fields: &'b dyn Fn(&V) -> InitFunc<'a>,
-        boundary_conditions: &'b dyn Fn(&V) -> Vec<BoundaryCondition>,
-    ) -> Self {
-        Self {
-            gradient_configs,
-            initial_fields,
-            boundary_conditions,
-        }
-    }
+pub trait EquationsEnumConfigTrait<E: EquationsEnum> {
+    fn schemes_configs(&self, equations_enum: &E) -> SchemesConfig;
 }
 
-pub struct VariablesHashMaps<'a> {
+pub struct VariablesHashMaps<I: InitFunctionsTrait> {
     pub gradient_methods: HashMap<Variable, GradientMethods>,
-    pub initial_fields: HashMap<Variable, InitFunc<'a>>,
+    pub initial_fields: HashMap<Variable, I>,
     pub boundary_conditions: HashMap<Variable, Vec<BoundaryCondition>>,
 }
 
-impl<'a> VariablesHashMaps<'a> {
+impl<I: InitFunctionsTrait> VariablesHashMaps<I> {
     pub fn new() -> Self {
         Self {
             gradient_methods: HashMap::new(),
@@ -837,22 +826,22 @@ impl<'a> VariablesHashMaps<'a> {
         }
     }
 
-    pub fn add_var_from_enum<'b, V: VariablesEnum>(
+    pub fn add_var_from_enum<V: VariablesEnum, VC: VariablesEnumConfigTrait<V, I>>(
         &mut self,
         enum_variant: &V,
-        var_enum_config: &VariablesEnumConfig<'a, 'b, V>,
+        var_enum_config: &VC,
     ) {
         self.gradient_methods.insert(
             enum_variant.var(),
-            enum_variant.gradient_method((var_enum_config.gradient_configs)(enum_variant)),
+            enum_variant.gradient_method(var_enum_config.gradient_configs(enum_variant)),
         );
         self.initial_fields.insert(
             enum_variant.var(),
-            (var_enum_config.initial_fields)(enum_variant),
+            var_enum_config.initial_fields(enum_variant),
         );
         self.boundary_conditions.insert(
             enum_variant.var(),
-            (var_enum_config.boundary_conditions)(enum_variant),
+            var_enum_config.boundary_conditions(enum_variant),
         );
     }
 
@@ -860,7 +849,7 @@ impl<'a> VariablesHashMaps<'a> {
         self,
     ) -> (
         HashMap<Variable, GradientMethods>,
-        HashMap<Variable, InitFunc<'a>>,
+        HashMap<Variable, I>,
         HashMap<Variable, Vec<BoundaryCondition>>,
     ) {
         (

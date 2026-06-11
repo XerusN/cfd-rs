@@ -71,11 +71,12 @@ pub struct OutputConfig {
     pub directory: String,
 }
 
-#[derive(Clone)]
-pub enum InitFunc<'a> {
-    Scalar(&'a dyn Fn(&Point2<f64>) -> f64),
-    Vector2(
-        &'a dyn Fn(&Point2<f64>) -> f64,
-        &'a dyn Fn(&Point2<f64>) -> f64,
-    ),
+pub trait InitFunctionsTrait {
+    fn init_x(&self, _point: &Point2<f64>) -> f64 {
+        0.
+    }
+    
+    fn init_y(&self, _point: &Point2<f64>) -> f64 {
+        0.
+    }
 }

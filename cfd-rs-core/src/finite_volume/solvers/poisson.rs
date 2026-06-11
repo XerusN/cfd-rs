@@ -4,22 +4,17 @@ use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
         boundary::BoundaryCondition,
-        config::{GeometryConfig, GradientConfig, InitFunc, OutputConfig, Schemes, SchemesConfig},
+        config::{GeometryConfig, GradientConfig, InitFunctionsTrait, OutputConfig, Schemes, SchemesConfig},
         equation::{
-            discretizations::{
-                convection::ConvectionScheme, divergence::DivergenceScheme,
-                laplacian::LaplacianScheme, time_schemes::TimeIntegration, DifferentialOperator,
-            },
-            operations::Op,
-            variables::{ControlVolumeType, Dimension, Variable},
-            Equation, FieldOperator, IntegrationCategory,
+            Equation, FieldOperator, IntegrationCategory, discretizations::{
+                DifferentialOperator, convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration
+            }, operations::Op, variables::{ControlVolumeType, Dimension, Variable}
         },
         fields::Field,
         gradients::{GradientInterp, GradientMethods, GradientScheme},
         mesh::mesh,
         solvers::{
-            EquationSolversSet, EquationsEnum, EquationsSet, Parameters, SolverCore,
-            VariableFields, VariablesEnum, VariablesEnumConfig, VariablesHashMaps,
+            EquationSolversSet, EquationsEnum, EquationsEnumConfigTrait, EquationsSet, Parameters, SolverCore, VariableFields, VariablesEnum, VariablesEnumConfigTrait, VariablesHashMaps
         },
     },
     gradient, laplacian,
@@ -111,15 +106,21 @@ pub struct Config {
     pub output: OutputConfig,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Poisson<M: MeshCore> {
-    config: Config,
-
-    core: SolverCore<M>,
+pub trait PoissonUserFunctions {
+    
 }
 
-impl<M: MeshCore> Poisson<M> {
-    fn next_step(&mut self) {
+#[derive(Clone, Debug, PartialEq)]
+pub struct PoissonCase<M: MeshCore, U: PoissonUserFunctions> {
+    pub config: Config,
+
+    pub core: SolverCore<M>,
+    
+    pub user_functions: U
+}
+
+impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
+    pub fn next_step(&mut self) {
         println!("Poisson");
         Equation::solve(&mut self.core, MainEquations::Poisson.name());
         println!("Laplacian Eq");
@@ -130,22 +131,23 @@ impl<M: MeshCore> Poisson<M> {
         self.core.increment();
     }
 
-    fn new<'a>(
+    pub fn new<I: InitFunctionsTrait, VC: VariablesEnumConfigTrait<MainVariables, I>, EC: EquationsEnumConfigTrait<MainEquations>>(
         config: Config,
         mesh: Mesh<M>,
-        schemes_config: &dyn Fn(&MainEquations) -> SchemesConfig,
-        main_var_config: VariablesEnumConfig<'a, 'a, MainVariables>,
+        main_eq_config: EC,
+        main_var_config: VC,
+        user_functions: U,
     ) -> Self {
         let mut equations = EquationsSet::new();
 
         equations
-            .add_eq_from_enum(&MainEquations::Poisson, schemes_config)
+            .add_eq_from_enum(&MainEquations::Poisson, &main_eq_config)
             .unwrap();
         equations
-            .add_eq_from_enum(&MainEquations::Laplacian, schemes_config)
+            .add_eq_from_enum(&MainEquations::Laplacian, &main_eq_config)
             .unwrap();
         equations
-            .add_eq_from_enum(&MainEquations::Gradient, schemes_config)
+            .add_eq_from_enum(&MainEquations::Gradient, &main_eq_config)
             .unwrap();
 
         // ---------
@@ -180,6 +182,7 @@ impl<M: MeshCore> Poisson<M> {
                 time: 0.,
                 time_step: 0.,
             },
+            user_functions
         }
     }
 }

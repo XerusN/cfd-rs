@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
-    config::{CaseConfig, GeometryConfig, InitFunc, MeshingConfig, OutputConfig, Schemes},
+    config::{GeometryConfig, GradientConfig, InitFunctionsTrait, MeshingConfig, OutputConfig, Schemes, SchemesConfig},
     equation::{
         discretizations::{
             convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
@@ -11,35 +11,92 @@ use cfd_rs::finite_volume::{
         variables::{ControlVolumeType, Dimension, Variable},
     },
     fields::Field,
-    gradients::{GradientConfig, GradientInterpConfig, GradientScheme},
+    gradients::GradientScheme,
     mesh::mesh,
-    solvers::{poisson::PoissonCase, Case},
+    solvers::{EquationsEnumConfigTrait, VariablesEnumConfigTrait, poisson::{Config, MainEquations, MainVariables, PoissonCase, PoissonUserFunctions}},
 };
 use cfd_rs_utils::{control::OutputControl, mesh::assembled_mesh::MeshCore};
 use hashbrown::HashMap;
 use nalgebra::{Point2, Vector2};
-use plotters::prelude::*;
 
-fn poisson() -> CaseConfig {
-    let schemes = Schemes {
-        transient: TimeIntegration::ForwardEuler,
-        convection: ConvectionScheme::UpwindSecondOrder,
-        laplacian: LaplacianScheme::OrthogonalCorrection,
-        divergence: DivergenceScheme::Basic,
-        gradients: GradientConfig {
-            scheme: GradientScheme::GreenGaussCompact,
-            interp: GradientInterpConfig::AveragedCorrected,
-        },
-    };
+struct InitFunctions {
+    var: MainVariables
+}
 
-    // let geometry = GeometryConfig {
-    //     import_path: Some("./target/exports/mesh.cfd".to_string()),
-    //     element_size: 0.01,
-    // };
-    // let geometry = GeometryConfig {
-    //     import_path: Some("../meshes/mesh_unstructured.cfd".to_string()),
-    //     meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
-    // };
+impl InitFunctionsTrait for InitFunctions {
+    fn init_x(&self, point: &Point2<f64>) -> f64 {
+        match &self.var {
+            &MainVariables::T => point.x + point.y,
+            _ => 0.,
+        }
+    }
+}
+
+struct VariablesEnumConfig;
+
+impl VariablesEnumConfigTrait<MainVariables, InitFunctions> for VariablesEnumConfig {
+    fn gradient_configs(&self, variable_enum: &MainVariables) -> GradientConfig {
+        match variable_enum {
+            _ => GradientConfig::default(),
+        }
+    }
+    
+    fn initial_fields(&self, variable_enum: &MainVariables) -> InitFunctions {
+        InitFunctions { var: variable_enum.clone() }
+    }
+    
+    fn boundary_conditions(&self, variable_enum: &MainVariables) -> Vec<BoundaryCondition> {
+        match variable_enum {
+            MainVariables::T => {
+                vec![
+                    // bot | cart: left
+                    BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
+                    // right | cart: bot
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                    // top | cart: right
+                    BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
+                    // left | cart: top
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                ]
+            },
+            MainVariables::Laplacian => {
+                vec![
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                    BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
+                ]
+            },
+            MainVariables::Grad => {
+                vec![
+                    BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+                    BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+                    BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+                    BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
+                ]
+            },
+        }
+    }
+}
+
+struct EquationsEnumConfig;
+
+impl EquationsEnumConfigTrait<MainEquations> for EquationsEnumConfig {
+    fn schemes_configs(&self, equations_enum: &MainEquations) -> SchemesConfig {
+        match equations_enum {
+            _ => SchemesConfig::default(),
+        }
+    }
+}
+
+struct UserFunctions;
+
+impl PoissonUserFunctions for UserFunctions {
+    
+}
+
+fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
+
     let geometry = GeometryConfig {
         import_path: Some("../meshes/mesh4.cfd".to_string()),
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
@@ -49,75 +106,26 @@ fn poisson() -> CaseConfig {
         control: OutputControl::Iteration(1),
         directory: "./exports".to_string(),
     };
+    
+    let schemes = EquationsEnumConfig{};
 
-    let t = Variable::new("T".to_string(), Dimension::Scalar, ControlVolumeType::Nodes);
-    let grad_t = Variable::new(
-        "Grad T".to_string(),
-        Dimension::Vector2,
-        ControlVolumeType::Nodes,
-    );
-    let lap = Variable::new(
-        "Laplacian".to_string(),
-        Dimension::Scalar,
-        ControlVolumeType::Nodes,
-    );
+    let variables_config = VariablesEnumConfig{};
 
-    let mut bc_fields = HashMap::new();
-    let bc = vec![
-        // bot | cart: left
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(1.)),
-        // right | cart: bot
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        // top | cart: right
-        BoundaryCondition::Dirichlet(BoundaryValue::Scalar(2.)),
-        // left | cart: top
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-    ];
-    bc_fields.insert(t.clone(), bc);
-    let bc = vec![
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-        BoundaryCondition::Neumann(BoundaryValue::Vector2(Vector2::new(0., 0.))),
-    ];
-    bc_fields.insert(grad_t.clone(), bc);
-    let bc = vec![
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-        BoundaryCondition::Neumann(BoundaryValue::Scalar(0.)),
-    ];
-    bc_fields.insert(lap.clone(), bc);
-    let bc_fields = FieldsBoundaryConditions::new(bc_fields);
-
-    let mut initial_fields = HashMap::new();
-    initial_fields.insert(t.clone(), InitFunc::Scalar(custom));
-    initial_fields.insert(lap.clone(), InitFunc::Scalar(constant));
-    initial_fields.insert(grad_t.clone(), InitFunc::Vector2(constant, constant));
-
-    CaseConfig {
-        schemes,
+    let main_config = Config {
+        run_name: "Poisson-test_1".to_owned(),
         geometry,
-        bc: bc_fields,
         output,
-        initial_fields,
-    }
-}
-
-pub fn constant(_point: &Point2<f64>) -> f64 {
-    0.
-}
-
-pub fn custom(point: &Point2<f64>) -> f64 {
-    point.x + point.y
+    };
+    
+    (main_config, schemes, variables_config)
 }
 
 fn main() {
-    let config = poisson();
+    let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
-    let mut case = PoissonCase::new(config, mesh);
+    let mut case = PoissonCase::new(config, mesh, schemes, variables_config, UserFunctions{});
 
-    case.export_cell_centered().unwrap();
+    case.core.export_cell_centered("./exports").unwrap();
 
     for _ in 0..10 {
         case.next_step();
@@ -133,9 +141,9 @@ fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        case.export_cell_centered().unwrap();
-        println!("{:?}", case.time());
+        case.core.export_cell_centered("./exports").unwrap();
+        println!("{:?}", case.core.time());
     }
 
-    case.plot2d()
+    case.core.plot_2d()
 }

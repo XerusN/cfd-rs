@@ -2,8 +2,8 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::{DVector, Vector2};
 
 use crate::finite_volume::{
-    config::InitFunc,
-    equation::variables::{ControlVolumeType, Variable},
+    config::InitFunctionsTrait,
+    equation::variables::{ControlVolumeType, Dimension, Variable},
     gradients::GradientScheme,
 };
 
@@ -45,28 +45,25 @@ pub struct ScalarField {
 }
 
 impl ScalarField {
-    pub fn new<'a, M: MeshCore>(
+    pub fn new<M: MeshCore, I: InitFunctionsTrait>(
         mesh: &Mesh<M>,
         grads_required: &GradRequirements,
         variable: &Variable,
         component: Component,
-        initial_fields: &InitFunc<'a>,
+        initial_fields: &I,
         gradient_config: GradientMethods,
     ) -> Self {
-        let init = match initial_fields {
-            InitFunc::Scalar(func) => {
-                if let Component::X = component {
-                    func
-                } else {
-                    panic!("Trying to initialize scalar with vec function")
+        
+        let init = match variable.dim() {
+            Dimension::Scalar => I::init_x,
+            Dimension::Vector2 => {
+                match component {
+                    Component::X => I::init_x,
+                    Component::Y => I::init_y,
                 }
-            }
-            InitFunc::Vector2(func_x, func_y) => match component {
-                Component::X => func_x,
-                Component::Y => func_y,
             },
         };
-
+        
         let cvt = variable.cvt();
         let n_values = match cvt {
             ControlVolumeType::Cells => mesh.cells.n,
@@ -75,13 +72,13 @@ impl ScalarField {
         let mut values = DVector::zeros(n_values);
         match cvt {
             ControlVolumeType::Cells => {
-                for (i, centers) in mesh.cells.centers().iter().enumerate() {
-                    values[i] = init(centers);
+                for (i, center) in mesh.cells.centers().iter().enumerate() {
+                    values[i] = init(initial_fields, center);
                 }
             }
             ControlVolumeType::Nodes => {
-                for (i, centers) in mesh.nodes.centers().iter().enumerate() {
-                    values[i] = init(centers);
+                for (i, center) in mesh.nodes.centers().iter().enumerate() {
+                    values[i] = init(initial_fields, center);
                 }
             }
         }
