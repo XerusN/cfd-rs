@@ -1,24 +1,14 @@
-use std::ops::Deref;
-
 use cfd_rs::finite_volume::{
-    boundary::{BoundaryCondition, BoundaryValue, FieldsBoundaryConditions},
-    config::{GeometryConfig, GradientConfig, InitFunctionsTrait, MeshingConfig, OutputConfig, Schemes, SchemesConfig},
-    equation::{
-        discretizations::{
-            convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme,
-            time_schemes::TimeIntegration,
-        },
-        variables::{ControlVolumeType, Dimension, Variable},
-    },
-    fields::Field,
-    gradients::GradientScheme,
+    boundary::{BoundaryCondition, BoundaryValue},
+    config::{GeometryConfig, GradientConfig, InitFunctionsTrait, MeshingConfig, OutputConfig, SchemesConfig},
+    solvers::{EquationsEnumConfigTrait, VariablesEnumConfigTrait, poisson::{Config, MainEquations, MainVariables, PoissonUserFunctions, PoissonCase}},
     mesh::mesh,
-    solvers::{EquationsEnumConfigTrait, VariablesEnumConfigTrait, poisson::{Config, MainEquations, MainVariables, PoissonCase, PoissonUserFunctions}},
 };
-use cfd_rs_utils::{control::OutputControl, mesh::assembled_mesh::MeshCore};
-use hashbrown::HashMap;
+use cfd_rs_utils::{control::OutputControl};
 use nalgebra::{Point2, Vector2};
 
+#[allow(dead_code)]
+#[derive(Debug)]
 struct InitFunctions {
     var: MainVariables
 }
@@ -32,6 +22,7 @@ impl InitFunctionsTrait for InitFunctions {
     }
 }
 
+#[allow(dead_code)]
 struct VariablesEnumConfig;
 
 impl VariablesEnumConfigTrait<MainVariables, InitFunctions> for VariablesEnumConfig {
@@ -79,6 +70,7 @@ impl VariablesEnumConfigTrait<MainVariables, InitFunctions> for VariablesEnumCon
     }
 }
 
+#[allow(dead_code)]
 struct EquationsEnumConfig;
 
 impl EquationsEnumConfigTrait<MainEquations> for EquationsEnumConfig {
@@ -89,12 +81,14 @@ impl EquationsEnumConfigTrait<MainEquations> for EquationsEnumConfig {
     }
 }
 
+#[allow(dead_code)]
 struct UserFunctions;
 
 impl PoissonUserFunctions for UserFunctions {
     
 }
 
+#[allow(dead_code)]
 fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
 
     let geometry = GeometryConfig {
@@ -120,11 +114,12 @@ fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
     (main_config, schemes, variables_config)
 }
 
-fn main() {
+#[test]
+pub fn main() {
     let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
     let mut case = PoissonCase::new(config, mesh, schemes, variables_config, UserFunctions{});
-
+    
     case.core.export_cell_centered("./exports").unwrap();
 
     for _ in 0..10 {
@@ -141,7 +136,8 @@ fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        case.core.export_cell_centered("./exports").unwrap();
+        // panic!("{}", format!("{}/dump", file!()));
+        case.core.export_cell_centered(&format!("./{}/dump", file!())).unwrap();
         println!("{:?}", case.core.time());
     }
 

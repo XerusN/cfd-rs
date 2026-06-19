@@ -1,6 +1,7 @@
 use cfd_rs_utils::control::OutputControl;
 use hashbrown::HashMap;
 use nalgebra::{Point2, Vector2};
+use std::fmt::Debug;
 
 use crate::finite_volume::gradients::{GradientInterp, GradientScheme};
 
@@ -71,7 +72,7 @@ pub struct OutputConfig {
     pub directory: String,
 }
 
-pub trait InitFunctionsTrait {
+pub trait InitFunctionsTrait : Debug {
     fn init_x(&self, _point: &Point2<f64>) -> f64 {
         0.
     }

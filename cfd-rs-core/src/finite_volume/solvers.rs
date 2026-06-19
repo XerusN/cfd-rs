@@ -81,6 +81,7 @@ impl VariableFields {
     ) -> Self {
         let (mut gradient_methods, mut initial_fields, mut boundary_conditions) =
             variables_hashmaps.deconstruct_mut();
+        // println!("{:?}", &initial_fields);
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
@@ -113,19 +114,19 @@ impl VariableFields {
                                 &grad_req,
                                 &var,
                                 Component::X,
-                                &initial_fields.remove(&var).expect(&format!(
+                                initial_fields.get(&var).expect(&format!(
                                     "An initial field function should be defined for var {var:?}"
                                 )),
-                                gradient_methods.remove(&var).expect(&format!(
+                                gradient_methods.get(&var).expect(&format!(
                                     "A gradient config should be defined for var {var:?}"
-                                )),
+                                )).clone(),
                             ),
                             ScalarField::new(
                                 mesh,
                                 &grad_req,
                                 &var,
                                 Component::Y,
-                                &initial_fields.remove(&var).expect(&format!(
+                                initial_fields.get(&var).expect(&format!(
                                     "An initial field function should be defined for var {var:?}"
                                 )),
                                 gradient_methods.remove(&var).expect(&format!(
@@ -399,6 +400,7 @@ impl<M: MeshCore> SolverCore<M> {
             &self.name(),
             &self.step()
         ));
+        println!("{:?}", &path);
         let mesh = self.mesh();
 
         let mut file = File::create(path)?;
