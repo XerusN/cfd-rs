@@ -393,13 +393,12 @@ impl<M: MeshCore> SolverCore<M> {
     }
 
     /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
-    pub fn export_cell_centered(&self, output_dir: &str) -> io::Result<()> {
-        let path = PathBuf::from(format!(
-            "{}/{}_cells_nodes_{:06}.vtu",
-            output_dir,
+    pub fn export_cell_centered(&self, output_dir: &PathBuf) -> io::Result<()> {
+        let path = output_dir.join(PathBuf::from(format!(
+            "{}_cells_nodes_{:06}.vtu",
             &self.name(),
             &self.step()
-        ));
+        )));
         println!("{:?}", &path);
         let mesh = self.mesh();
 

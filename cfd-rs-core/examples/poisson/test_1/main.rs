@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use cfd_rs::finite_volume::{
     boundary::{BoundaryCondition, BoundaryValue},
     config::{GeometryConfig, GradientConfig, InitFunctionsTrait, MeshingConfig, OutputConfig, SchemesConfig},
@@ -6,6 +8,14 @@ use cfd_rs::finite_volume::{
 };
 use cfd_rs_utils::{control::OutputControl};
 use nalgebra::{Point2, Vector2};
+
+fn file_directory() -> PathBuf {
+    let mut directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    directory.pop();
+    directory.push(file!());
+    directory.pop();
+    directory
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -116,11 +126,14 @@ fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
 
 #[test]
 pub fn main() {
+    let directory = file_directory();
+    let dump = directory.join("dump");
+    
     let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
     let mut case = PoissonCase::new(config, mesh, schemes, variables_config, UserFunctions{});
     
-    case.core.export_cell_centered("./exports").unwrap();
+    case.core.export_cell_centered(&dump).unwrap();
 
     for _ in 0..10 {
         case.next_step();
@@ -136,8 +149,7 @@ pub fn main() {
         // if case.step() % 10 == 0 {
         //     case.export().unwrap();
         // }
-        // panic!("{}", format!("{}/dump", file!()));
-        case.core.export_cell_centered(&format!("./{}/dump", file!())).unwrap();
+        case.core.export_cell_centered(&dump).unwrap();
         println!("{:?}", case.core.time());
     }
 
