@@ -19,3 +19,4 @@ hashbrown = "0.15.3"
 log = "0.4.27"
 serde = { version = "1.0.219", features = ["derive"] }
 plotters = "0.3.7"
+fern = "0.7.1"

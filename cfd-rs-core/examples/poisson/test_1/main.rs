@@ -9,6 +9,8 @@ use cfd_rs::finite_volume::{
 use cfd_rs_utils::{control::OutputControl};
 use nalgebra::{Point2, Vector2};
 
+use crate::examples_default_logger;
+
 fn file_directory() -> PathBuf {
     let mut directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     directory.pop();
@@ -126,8 +128,12 @@ fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
 
 #[test]
 pub fn main() {
+    
+    
     let directory = file_directory();
     let dump = directory.join("dump");
+    
+    examples_default_logger(&directory.join("logs").join("main.log"));
     
     let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
