@@ -98,7 +98,7 @@ fn main() {
     // let mut mesh = simple_mesh();
     // let element_size = 0.01;
     let (mut mesh, element_size) = circle_mesh();
-    advancing_front(&mut mesh, element_size, OutputControl::Final).unwrap();
+    advancing_front(&mut mesh, element_size, OutputControl::new(false, true, Frequency::None)).unwrap();
     // println!("{:?}", mesh);
     Computational2DMesh::new_from_he(mesh.0).serialize_file("../meshes/circle_mesh.cfd_old").unwrap();
 }

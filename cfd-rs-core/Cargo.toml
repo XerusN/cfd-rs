@@ -6,8 +6,6 @@ edition = "2021"
 description = "A lib for computing fluid dynamics, using finite volume method (WIP)."
 license = "MIT OR Apache-2.0"
 
-[lib]
-
 [dependencies]
 cfd-rs-utils = { path = "../cfd-rs-utils" }
 cfd-rs-mesh = { path = "../cfd-rs-mesh" }

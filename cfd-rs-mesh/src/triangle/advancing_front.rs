@@ -1,3 +1,4 @@
+use cfd_rs_utils::control::Frequency;
 use cfd_rs_utils::control::OutputControl;
 use cfd_rs_utils::*;
 use errors::MeshError;
@@ -46,14 +47,14 @@ pub fn advancing_front(
     refine_boundary(mesh, element_size);
 
     let mut i = 0;
-    if let OutputControl::Iteration(_) = output_control {
+    if let Frequency::Iteration(_) = output_control.frequency() {
         fs::remove_dir_all("./output").unwrap();
         fs::create_dir("output").unwrap();
         mesh.0
             .export_vtk(format!("./output/advancing_{}.vtk", i).as_str())
             .expect("");
     }
-    if let OutputControl::Final = output_control {
+    if output_control.final_output() {
         fs::remove_dir_all("./output").unwrap();
         fs::create_dir("output").unwrap();
     }
@@ -110,7 +111,7 @@ pub fn advancing_front(
 
         println!();
 
-        if let OutputControl::Iteration(step) = output_control {
+        if let Frequency::Iteration(step) = output_control.frequency() {
             if i % step == 0 {
                 mesh.0
                     .export_vtk(format!("./output/advancing_{}.vtk", i).as_str())
@@ -124,7 +125,7 @@ pub fn advancing_front(
         }
     }
 
-    if let OutputControl::Final = output_control {
+    if output_control.final_output() {
         mesh.0
             .export_vtk(format!("./output/advancing_{}.vtk", i).as_str())
             .expect("");

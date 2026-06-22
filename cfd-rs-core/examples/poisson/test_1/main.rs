@@ -8,6 +8,7 @@ use cfd_rs::finite_volume::{
 };
 use cfd_rs_utils::{control::OutputControl};
 use nalgebra::{Point2, Vector2};
+use log::{LevelFilter, debug, info, trace, warn};
 
 use crate::examples_default_logger;
 
@@ -133,7 +134,7 @@ pub fn main() {
     let directory = file_directory();
     let dump = directory.join("dump");
     
-    examples_default_logger(&directory.join("logs").join("main.log"));
+    examples_default_logger(&directory.join("logs").join("main.log"), LevelFilter::Info).unwrap();
     
     let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
@@ -156,7 +157,7 @@ pub fn main() {
         //     case.export().unwrap();
         // }
         case.core.export_cell_centered(&dump).unwrap();
-        println!("{:?}", case.core.time());
+        info!("Time: {:?}", case.core.time());
     }
 
     case.core.plot_2d()

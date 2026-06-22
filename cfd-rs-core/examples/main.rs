@@ -4,7 +4,7 @@ use std::path::Path;
 // mod test
 mod poisson;
 
-fn examples_default_logger(log_path: &Path) -> Result<(), fern::InitError> {
+fn examples_default_logger(log_path: &Path, level: log::LevelFilter) -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -14,9 +14,13 @@ fn examples_default_logger(log_path: &Path) -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Warn)
-        .chain(std::io::stdout())
-        .chain(fern::log_file(log_path)?)
+        .level(level)
+        // .chain(std::io::stdout())
+        .chain(std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(log_path)?)
         .apply()?;
     Ok(())
 }
