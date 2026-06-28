@@ -4,7 +4,7 @@ use super::super::equation::EquationSolver;
 use crate::{
     finite_volume::{
         boundary::BoundaryCondition,
-        config::{GeometryConfig, GradientConfig, InitFunctionsTrait, OutputConfig, Schemes, SchemesConfig},
+        config::{GeometryConfig, GradientConfig, InitFunctionsTrait, Schemes, SchemesConfig},
         equation::{
             Equation, FieldOperator, IntegrationCategory, discretizations::{
                 DifferentialOperator, convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration
@@ -17,11 +17,12 @@ use crate::{
             EquationSolversSet, EquationsEnum, EquationsEnumConfigTrait, EquationsSet, Parameters, SolverCore, VariableFields, VariablesEnum, VariablesEnumConfigTrait, VariablesHashMaps
         },
     },
-    gradient, laplacian,
+    gradient, laplacian, post_processing::OutputConfig,
 };
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use hashbrown::HashMap;
+use log::warn;
 
 const CVT: ControlVolumeType = ControlVolumeType::Nodes;
 const MAIN_SCHEMES: Schemes = Schemes {
@@ -103,7 +104,7 @@ crate::generate_solver_equations! {
 pub struct Config {
     pub run_name: String,
     pub geometry: GeometryConfig,
-    pub output: OutputConfig,
+    pub output: Vec<OutputConfig>,
 }
 
 pub trait PoissonUserFunctions {
@@ -127,7 +128,9 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         Equation::solve(&mut self.core, MainEquations::Laplacian.name());
         println!("Gradient Eq");
         Equation::solve(&mut self.core, MainEquations::Gradient.name());
-
+        
+        warn!("Add User functions capability");
+        
         self.core.increment();
     }
 
@@ -168,7 +171,9 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         // ---------
 
         let solvers = EquationSolversSet::new(&mesh);
-
+        
+        let core_output = config.output.clone();
+        
         Self {
             config,
             core: SolverCore {
@@ -181,8 +186,10 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
                 step: 0,
                 time: 0.,
                 time_step: 0.,
+                postproc: core_output,
+                is_final_iter: false
             },
-            user_functions
+            user_functions,
         }
     }
 }

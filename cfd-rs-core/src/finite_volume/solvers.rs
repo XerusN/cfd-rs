@@ -10,12 +10,12 @@ use std::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::finite_volume::{
-    boundary::{BoundaryCondition},
+use crate::{finite_volume::{
+    boundary::BoundaryCondition,
     config::{GradientConfig, InitFunctionsTrait, SchemesConfig},
     equation::{Component, operations::Op},
     gradients::GradientMethods,
-};
+}, post_processing::OutputConfig};
 
 use super::{
     config::Schemes,
@@ -282,11 +282,13 @@ pub struct SolverCore<M: MeshCore> {
     equations: EquationsSet,
     mesh: Mesh<M>,
     parameters_set: Parameters,
+    postproc: Vec<OutputConfig>,
 
     name: String,
     step: usize,
     time: f64,
     time_step: f64,
+    is_final_iter: bool,
 }
 
 impl<M: MeshCore> SolverCore<M> {
@@ -305,8 +307,17 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn time_step(&self) -> f64 {
         self.time_step
     }
+    
     pub fn set_time_step(&mut self, time_step: f64) {
         self.time_step = time_step
+    }
+    
+    pub fn is_final_iter(&self) -> bool {
+        self.is_final_iter
+    }
+    
+    pub fn final_iter(&mut self) {
+        self.is_final_iter = true
     }
 
     pub fn increment(&mut self) {
@@ -392,7 +403,13 @@ impl<M: MeshCore> SolverCore<M> {
         }
     }
 
-    
+    pub fn try_output(&self) {
+        for post in &self.postproc {
+            match post {
+                OutputConfig::Grid(config) => config.try_output(self).unwrap(),
+            }
+        }
+    }
 }
 
 fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(f64, f64)) {

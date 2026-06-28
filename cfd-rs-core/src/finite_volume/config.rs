@@ -66,11 +66,11 @@ pub struct GradientConfig {
     pub interp: Option<GradientInterp>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct OutputConfig {
-    pub control: OutputControl,
-    pub directory: String,
-}
+// #[derive(Clone, PartialEq, Debug)]
+// pub struct OutputConfig {
+//     pub control: OutputControl,
+//     pub directory: String,
+// }
 
 pub trait InitFunctionsTrait : Debug {
     fn init_x(&self, _point: &Point2<f64>) -> f64 {

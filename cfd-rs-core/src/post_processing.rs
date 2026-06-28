@@ -1,9 +1,10 @@
 use cfd_rs_utils::mesh::assembled_mesh::MeshCore;
 
-use crate::finite_volume::solvers::SolverCore;
+use crate::{finite_volume::solvers::SolverCore, post_processing::grid::GridPostprocConfig};
 
 pub mod grid;
 
-pub trait OutputConfig: Sized {
-    fn try_output<M: MeshCore>(&mut self, solver: &SolverCore<M>);
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputConfig {
+    Grid(GridPostprocConfig),
 }

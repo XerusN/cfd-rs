@@ -1,10 +1,10 @@
 use std::{cell::{Ref, RefCell}, fs::File, io::{self, Write}, ops::Deref, path::{Path, PathBuf}};
 
-use cfd_rs_utils::{control::OutputControl, mesh::assembled_mesh::{Mesh, MeshCore}};
+use cfd_rs_utils::{control::{Frequency, OutputControl}, mesh::assembled_mesh::{Mesh, MeshCore}};
 use log::warn;
 use nalgebra::Vector2;
 
-use crate::finite_volume::{equation::variables::{ControlVolumeType, Variable}, fields::Field, solvers::SolverCore};
+use crate::{finite_volume::{equation::variables::{ControlVolumeType, Variable}, fields::Field, solvers::SolverCore}, post_processing::OutputConfig};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariablesExtracted {
@@ -27,15 +27,17 @@ pub struct GridPostprocConfig {
     name: String,
     postproc_type: GridPostprocType,
     directory: PathBuf,
-    export_count: RefCell<Option<usize>>,
     variables: VariablesExtracted,
     output_control: OutputControl,
+    export_count: RefCell<Option<usize>>,
+    last_export_step: RefCell<Option<usize>>,
+    last_export_time: RefCell<Option<f64>>,
 }
 
 impl GridPostprocConfig {
     
     pub fn new(name: String, postproc_type: GridPostprocType, directory: PathBuf, variables: VariablesExtracted, output_control: OutputControl) -> Self {
-        GridPostprocConfig { name, postproc_type, directory, export_count: RefCell::new(None), variables, output_control }
+        GridPostprocConfig { name, postproc_type, directory, export_count: RefCell::new(None), variables, output_control, last_export_step: RefCell::new(None), last_export_time: RefCell::new(None) }
     }
     
     pub fn name(&self) -> &str {
@@ -75,6 +77,24 @@ impl GridPostprocConfig {
                 count = value;
             }
         }
+        let mut last_export_time = self.last_export_time.borrow_mut();
+        match *last_export_time {
+            None => {
+                *last_export_time = Some(core.time());
+            },
+            Some(mut value) => {
+                value = core.time();
+            }
+        }
+        let mut last_export_step = self.last_export_step.borrow_mut();
+        match *last_export_step {
+            None => {
+                *last_export_step = Some(core.step());
+            },
+            Some(mut value) => {
+                value = core.step();
+            }
+        }
         
         let path = self.directory().join(PathBuf::from(format!(
             "{}_{:06}.vtu",
@@ -89,6 +109,45 @@ impl GridPostprocConfig {
         
         Ok(())
         
+    }
+
+    pub fn try_output<M: MeshCore>(&self, core: &SolverCore<M>) -> io::Result<()> {
+        
+        let mut export = false;
+        
+        if (core.step() == 0) & self.output_control().initial_output() {
+            export = true;
+        }
+        
+        if core.is_final_iter() & self.output_control().final_output() {
+            export = true;
+        }
+        
+        match self.output_control().frequency() {
+            Frequency::None => (),
+            Frequency::Iteration(it) => {
+                if core.step() % it == 0 {
+                    export = true;
+                }
+            }
+            Frequency::TimeStep(dt) => {
+                let quotient = core.time().div_euclid(*dt);
+                match *self.last_export_time.borrow() {
+                    None => export = true,
+                    Some(last_time) => {
+                        if quotient*dt > last_time {
+                            export = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if export {
+            self.new_file(core)
+        } else {
+            Ok(())
+        }
     }
 }
 
