@@ -9,7 +9,7 @@ use cfd_rs::{
         },
         mesh::mesh,
         solvers::{
-            poisson::{Config, MainEquations, MainVariables, PoissonCase, PoissonUserFunctions},
+            poisson::{Config, MainEquations, MainVariables, PoissonSolver, PoissonUserFunctions},
             EquationsEnumConfigTrait, VariablesEnumConfigTrait,
         },
     },
@@ -148,11 +148,11 @@ pub fn main() {
     let dump = directory.join("dump");
     clear_dump_folder(&dump);
 
-    examples_default_logger(&directory.join("logs").join("main.log"), LevelFilter::Debug).unwrap();
+    examples_default_logger(&directory.join("logs").join("main.log"), LevelFilter::Trace).unwrap();
 
     let (config, schemes, variables_config) = poisson();
     let mesh = mesh(&config.geometry);
-    let mut case = PoissonCase::new(config, mesh, schemes, variables_config, UserFunctions {});
+    let mut case = PoissonSolver::new(config, mesh, schemes, variables_config, UserFunctions {});
 
     for _ in 0..10 {
         case.next_step();

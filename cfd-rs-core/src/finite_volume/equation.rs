@@ -224,6 +224,7 @@ pub struct EquationSolver {
 
 impl EquationSolver {
     pub fn new<M: MeshCore>(mesh: &Mesh<M>, cvt: ControlVolumeType) -> Self {
+        warn!("Hard-coded tol and max_iter for equation solver");
         let n = match cvt {
             ControlVolumeType::Cells => mesh.cells.n,
             ControlVolumeType::Nodes => mesh.nodes.n,
@@ -531,7 +532,6 @@ fn solve<M: MeshCore>(
     let eq = lhs - rhs;
 
     for (var, field) in &fields.map {
-        trace!("Update grads: {:?}", var);
         field.0.borrow_mut().update_grads(&field.1, mesh);
     }
 
@@ -564,8 +564,8 @@ fn solve<M: MeshCore>(
                 };
 
                 // To change
-                warn!("Matrix cloned for amg");
-                warn!("Hard-coded tol and max_iter for solve");
+                // warn!("Matrix cloned for amg");
+                // warn!("Hard-coded tol and max_iter for solve");
                 // let result = gauss_seidel::solve_with_initial_guess(&solver.matrix, &solver.rhs, scalar_field.values_mut(), 10000, 1e-4);
 
                 // let mut linalg_solver = Amg::with_smoothing(1e-4, 0.8, 100, 4, 4);

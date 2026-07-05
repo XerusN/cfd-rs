@@ -28,7 +28,7 @@ use crate::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use hashbrown::HashMap;
-use log::{trace, warn};
+use log::{debug, info, trace, warn};
 
 const CVT: ControlVolumeType = ControlVolumeType::Nodes;
 const MAIN_SCHEMES: Schemes = Schemes {
@@ -116,7 +116,7 @@ pub struct Config {
 pub trait PoissonUserFunctions {}
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoissonCase<M: MeshCore, U: PoissonUserFunctions> {
+pub struct PoissonSolver<M: MeshCore, U: PoissonUserFunctions> {
     pub config: Config,
 
     pub core: SolverCore<M>,
@@ -124,13 +124,13 @@ pub struct PoissonCase<M: MeshCore, U: PoissonUserFunctions> {
     pub user_functions: U,
 }
 
-impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
+impl<M: MeshCore, U: PoissonUserFunctions> PoissonSolver<M, U> {
     pub fn next_step(&mut self) {
-        trace!("Poisson");
+        info!("Solving Poisson equation");
         Equation::solve(&mut self.core, MainEquations::Poisson.name());
-        trace!("Laplacian Eq");
+        info!("Solving Laplacian equation");
         Equation::solve(&mut self.core, MainEquations::Laplacian.name());
-        trace!("Gradient Eq");
+        info!("Solving gradient equation");
         Equation::solve(&mut self.core, MainEquations::Gradient.name());
 
         warn!("Add User functions capability");
@@ -149,6 +149,8 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         main_var_config: VC,
         user_functions: U,
     ) -> Self {
+        info!("In PoissonSolver init");
+        
         let mut equations = EquationsSet::new();
 
         equations
@@ -160,7 +162,8 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         equations
             .add_eq_from_enum(&MainEquations::Gradient, &main_eq_config)
             .unwrap();
-
+        
+        debug!("Equations built");
         // ---------
 
         let mut var_hashmaps = VariablesHashMaps::new();
@@ -175,6 +178,8 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         var_hashmaps.add_var_from_enum(&var, &main_var_config);
 
         let fields = VariableFields::new(&equations, &mesh, var_hashmaps);
+        
+        debug!("Fields built");
 
         // ---------
 
@@ -199,6 +204,7 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
             },
             user_functions,
         };
+        debug!("Core constructed");
         solver.core.try_output();
         solver
     }

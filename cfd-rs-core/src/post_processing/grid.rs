@@ -10,7 +10,7 @@ use cfd_rs_utils::{
     control::{Frequency, OutputControl},
     mesh::assembled_mesh::{Mesh, MeshCore},
 };
-use log::{debug, warn};
+use log::{debug, info, trace, warn};
 use nalgebra::Vector2;
 
 use crate::{
@@ -128,7 +128,7 @@ impl GridPostprocConfig {
             self.directory()
                 .join(PathBuf::from(format!("{}_{:06}.vtu", &self.name(), count)));
         
-        debug!("{:?}", path);
+        debug!("Output of {:?} at {:?}", self.name(), path);
 
         match self.postproc_type() {
             GridPostprocType::CellCentered => export_cell_centered(core, &path, self.variables())?,
@@ -143,10 +143,12 @@ impl GridPostprocConfig {
 
         if (core.step() == 0) & self.output_control().initial_output() {
             export = true;
+            debug!("Initial output")
         }
 
         if core.is_final_iter() & self.output_control().final_output() {
             export = true;
+            debug!("Final output")
         }
 
         match self.output_control().frequency() {
@@ -159,6 +161,7 @@ impl GridPostprocConfig {
                             ()
                         } else if (core.step() - last_step) % it == 0 {
                             export = true;
+                            debug!("Frequency output")
                         }
                     }
                 }
@@ -172,14 +175,13 @@ impl GridPostprocConfig {
                             ()
                         } else if quotient * dt > last_time {
                             export = true;
+                            debug!("Frequency output")
                         }
                     }
                 }
             }
         }
         
-        debug!("export: {:?}", export);
-
         if export {
             self.new_file(core)
         } else {
@@ -195,6 +197,8 @@ fn export_cell_centered<M: MeshCore>(
     vars: &VariablesExtracted,
 ) -> io::Result<()> {
     let mesh = core.mesh();
+    
+    trace!("Cell centered output");
 
     let (vars_cells, vars_nodes) = match vars {
         VariablesExtracted::None => (vec![], vec![]),
@@ -223,6 +227,10 @@ fn export_cell_centered<M: MeshCore>(
             (temp_cell, temp_node)
         }
     };
+    
+    trace!("Output cells variables: {:?}", vars_cells);
+    trace!("Output cells variables: {:?}", vars_nodes);
+    
 
     let mut file = File::create(output_path)?;
 
