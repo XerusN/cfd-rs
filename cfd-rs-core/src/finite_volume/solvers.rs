@@ -10,12 +10,15 @@ use std::{
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
-use crate::{finite_volume::{
-    boundary::BoundaryCondition,
-    config::{GradientConfig, InitFunctionsTrait, SchemesConfig},
-    equation::{Component, operations::Op},
-    gradients::GradientMethods,
-}, post_processing::OutputConfig};
+use crate::{
+    finite_volume::{
+        boundary::BoundaryCondition,
+        config::{GradientConfig, InitFunctionsTrait, SchemesConfig},
+        equation::{operations::Op, Component},
+        gradients::GradientMethods,
+    },
+    post_processing::OutputConfig,
+};
 
 use super::{
     config::Schemes,
@@ -81,7 +84,6 @@ impl VariableFields {
     ) -> Self {
         let (mut gradient_methods, mut initial_fields, mut boundary_conditions) =
             variables_hashmaps.deconstruct_mut();
-        // println!("{:?}", &initial_fields);
         let mut fields = HashMap::new();
         for (var, grad_req) in equations.variables_requirements() {
             // print!("Field init for {}: ", var.name());
@@ -117,9 +119,12 @@ impl VariableFields {
                                 initial_fields.get(&var).expect(&format!(
                                     "An initial field function should be defined for var {var:?}"
                                 )),
-                                gradient_methods.get(&var).expect(&format!(
-                                    "A gradient config should be defined for var {var:?}"
-                                )).clone(),
+                                gradient_methods
+                                    .get(&var)
+                                    .expect(&format!(
+                                        "A gradient config should be defined for var {var:?}"
+                                    ))
+                                    .clone(),
                             ),
                             ScalarField::new(
                                 mesh,
@@ -215,7 +220,6 @@ impl EquationsSet {
 
         for eq in self.map.values() {
             for (variable, grad) in eq.fields_required() {
-                //println!("{:?}, {:?}", variable, grad);
                 if variables_glob.contains_key(variable) {
                     variables_glob
                         .get_mut(variable)
@@ -307,15 +311,15 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn time_step(&self) -> f64 {
         self.time_step
     }
-    
+
     pub fn set_time_step(&mut self, time_step: f64) {
         self.time_step = time_step
     }
-    
+
     pub fn is_final_iter(&self) -> bool {
         self.is_final_iter
     }
-    
+
     pub fn final_iter(&mut self) {
         self.is_final_iter = true
     }
@@ -323,6 +327,7 @@ impl<M: MeshCore> SolverCore<M> {
     pub fn increment(&mut self) {
         self.time += self.time_step;
         self.step += 1;
+        self.try_output();
     }
 
     pub fn import_from_file(_file_name: &str) -> std::io::Result<()> {
@@ -475,8 +480,6 @@ fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(
     }
     root.present().unwrap();
 }
-
-
 
 // pub trait VariablesEnum: Eq + Hash + Clone + Debug {
 //     fn name(&self) -> &'static str;

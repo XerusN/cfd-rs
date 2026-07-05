@@ -100,7 +100,8 @@ impl<T: MeshCore> From<T> for Mesh<T> {
 
             loop {
                 let current_cell = {
-                    if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {    //Change in rotation (trigonometric now)
+                    if core.face_to_nodes(*pairs.last().unwrap())[0] == i_node {
+                        //Change in rotation (trigonometric now)
                         core.face_to_neighbors(*pairs.last().unwrap())[1].clone()
                     } else {
                         core.face_to_neighbors(*pairs.last().unwrap())[0].clone()
@@ -294,10 +295,12 @@ impl<T: MeshCore> From<T> for Mesh<T> {
                 let vector = vector.normalize();
                 let normal_2 = Vector2::new(vector.y, -vector.x).normalize();
                 let area = area_1 + area_2;
-                let abs_pair = nodes_neighboring_pairs[i_node][pair];   // To check
+                let abs_pair = nodes_neighboring_pairs[i_node][pair]; // To check
                 areas.push(area);
                 pairs_nodes_areas[abs_pair] = area;
-                let normal = - normal_1.lerp(&normal_2, area_2 / (area_1 + area_2)).normalize();    // ToCheck: is normalized needed here?
+                let normal = -normal_1
+                    .lerp(&normal_2, area_2 / (area_1 + area_2))
+                    .normalize(); // ToCheck: is normalized needed here?
                 normals.push(normal);
                 if pairs_nodes[abs_pair][0] == i_node {
                     pairs_nodes_normals[abs_pair] = normal;
@@ -356,7 +359,7 @@ impl<T: MeshCore> From<T> for Mesh<T> {
             pairs_nodes_areas,
             pairs_on_bnd,
         );
-        
+
         let boundaries = Boundaries::new(
             boundaries_names,
             boundaries_faces,
@@ -588,7 +591,7 @@ impl<T: MeshCore> Mesh<T> {
             .unwrap();
         Ok(())
     }
-    
+
     pub fn json_file(&self, path: &str) -> std::io::Result<()> {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);

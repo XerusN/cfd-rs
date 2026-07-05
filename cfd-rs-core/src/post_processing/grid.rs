@@ -1,18 +1,33 @@
-use std::{cell::{Ref, RefCell}, fs::File, io::{self, Write}, ops::Deref, path::{Path, PathBuf}};
+use std::{
+    cell::{Ref, RefCell},
+    fs::File,
+    io::{self, Write},
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
-use cfd_rs_utils::{control::{Frequency, OutputControl}, mesh::assembled_mesh::{Mesh, MeshCore}};
-use log::warn;
+use cfd_rs_utils::{
+    control::{Frequency, OutputControl},
+    mesh::assembled_mesh::{Mesh, MeshCore},
+};
+use log::{debug, warn};
 use nalgebra::Vector2;
 
-use crate::{finite_volume::{equation::variables::{ControlVolumeType, Variable}, fields::Field, solvers::SolverCore}, post_processing::OutputConfig};
+use crate::{
+    finite_volume::{
+        equation::variables::{ControlVolumeType, Variable},
+        fields::Field,
+        solvers::SolverCore,
+    },
+    post_processing::OutputConfig,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariablesExtracted {
     None,
     Some(Vec<Variable>),
-    All
+    All,
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GridPostprocType {
@@ -20,7 +35,6 @@ pub enum GridPostprocType {
     NodeCentered,
     // add None, lines, planes, ...?
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GridPostprocConfig {
@@ -35,99 +49,118 @@ pub struct GridPostprocConfig {
 }
 
 impl GridPostprocConfig {
-    
-    pub fn new(name: String, postproc_type: GridPostprocType, directory: PathBuf, variables: VariablesExtracted, output_control: OutputControl) -> Self {
-        GridPostprocConfig { name, postproc_type, directory, export_count: RefCell::new(None), variables, output_control, last_export_step: RefCell::new(None), last_export_time: RefCell::new(None) }
+    pub fn new(
+        name: String,
+        postproc_type: GridPostprocType,
+        directory: PathBuf,
+        variables: VariablesExtracted,
+        output_control: OutputControl,
+    ) -> Self {
+        GridPostprocConfig {
+            name,
+            postproc_type,
+            directory,
+            export_count: RefCell::new(None),
+            variables,
+            output_control,
+            last_export_step: RefCell::new(None),
+            last_export_time: RefCell::new(None),
+        }
     }
-    
+
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     pub fn postproc_type(&self) -> &GridPostprocType {
         &self.postproc_type
     }
-    
+
     pub fn directory(&self) -> &Path {
         self.directory.as_path()
     }
-    
+
     pub fn export_count<'a>(&'a self) -> Ref<'a, Option<usize>> {
         self.export_count.borrow()
     }
-    
+
     pub fn variables(&self) -> &VariablesExtracted {
         &self.variables
     }
-    
+
     pub fn output_control(&self) -> &OutputControl {
         &self.output_control
     }
-    
+
     pub fn new_file<M: MeshCore>(&self, core: &SolverCore<M>) -> io::Result<()> {
         let mut export_count = self.export_count.borrow_mut();
         let count;
-        match *export_count {
+        match export_count.as_mut() {
             None => {
                 *export_count = Some(0);
                 count = 0;
-            },
-            Some(mut value) => {
-                value += 1;
-                count = value;
+            }
+            Some(value) => {
+                *value += 1;
+                count = *value;
             }
         }
         let mut last_export_time = self.last_export_time.borrow_mut();
-        match *last_export_time {
+        match last_export_time.as_mut() {
             None => {
                 *last_export_time = Some(core.time());
-            },
-            Some(mut value) => {
-                value = core.time();
+            }
+            Some(value) => {
+                *value = core.time();
             }
         }
         let mut last_export_step = self.last_export_step.borrow_mut();
-        match *last_export_step {
+        match last_export_step.as_mut() {
             None => {
                 *last_export_step = Some(core.step());
-            },
-            Some(mut value) => {
-                value = core.step();
+            }
+            Some(value) => {
+                *value = core.step();
             }
         }
+
+        let path =
+            self.directory()
+                .join(PathBuf::from(format!("{}_{:06}.vtu", &self.name(), count)));
         
-        let path = self.directory().join(PathBuf::from(format!(
-            "{}_{:06}.vtu",
-            &self.name(),
-            count
-        )));
-        
+        debug!("{:?}", path);
+
         match self.postproc_type() {
             GridPostprocType::CellCentered => export_cell_centered(core, &path, self.variables())?,
             GridPostprocType::NodeCentered => export_node_centered(core, &path, self.variables())?,
         }
-        
+
         Ok(())
-        
     }
 
     pub fn try_output<M: MeshCore>(&self, core: &SolverCore<M>) -> io::Result<()> {
-        
         let mut export = false;
-        
+
         if (core.step() == 0) & self.output_control().initial_output() {
             export = true;
         }
-        
+
         if core.is_final_iter() & self.output_control().final_output() {
             export = true;
         }
-        
+
         match self.output_control().frequency() {
             Frequency::None => (),
             Frequency::Iteration(it) => {
-                if core.step() % it == 0 {
-                    export = true;
+                match *self.last_export_step.borrow() {
+                    None => export = true,
+                    Some(last_step) => {
+                        if last_step == core.step() {
+                            ()
+                        } else if (core.step() - last_step) % it == 0 {
+                            export = true;
+                        }
+                    }
                 }
             }
             Frequency::TimeStep(dt) => {
@@ -135,7 +168,9 @@ impl GridPostprocConfig {
                 match *self.last_export_time.borrow() {
                     None => export = true,
                     Some(last_time) => {
-                        if quotient*dt > last_time {
+                        if last_time == core.time() {
+                            ()
+                        } else if quotient * dt > last_time {
                             export = true;
                         }
                     }
@@ -143,6 +178,8 @@ impl GridPostprocConfig {
             }
         }
         
+        debug!("export: {:?}", export);
+
         if export {
             self.new_file(core)
         } else {
@@ -152,17 +189,18 @@ impl GridPostprocConfig {
 }
 
 /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
-fn export_cell_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, vars: &VariablesExtracted) -> io::Result<()> {
-    
-    println!("{:?}", &output_path);
-    
+fn export_cell_centered<M: MeshCore>(
+    core: &SolverCore<M>,
+    output_path: &Path,
+    vars: &VariablesExtracted,
+) -> io::Result<()> {
     let mesh = core.mesh();
-    
-    let (vars_node, vars_cells) = match vars {
-        VariablesExtracted::None => (vec!(), vec!()),
+
+    let (vars_cells, vars_nodes) = match vars {
+        VariablesExtracted::None => (vec![], vec![]),
         VariablesExtracted::All => {
-            let mut temp_node = vec!();
-            let mut temp_cell = vec!();
+            let mut temp_node = vec![];
+            let mut temp_cell = vec![];
             for var in core.fields_list() {
                 match var.cvt() {
                     ControlVolumeType::Cells => temp_cell.push(var),
@@ -170,10 +208,10 @@ fn export_cell_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
                 }
             }
             (temp_cell, temp_node)
-        },
+        }
         VariablesExtracted::Some(values) => {
-            let mut temp_node = vec!();
-            let mut temp_cell = vec!();
+            let mut temp_node = vec![];
+            let mut temp_cell = vec![];
             for var in core.fields_list() {
                 if values.contains(var) {
                     match var.cvt() {
@@ -219,7 +257,7 @@ fn export_cell_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
 
     export_scalar(&mut file, &mesh.nodes.volumes(), "Node volumes")?;
 
-    export_variables(&mut file, core, &ControlVolumeType::Nodes, &vars_node)?;
+    export_variables(&mut file, core, &ControlVolumeType::Nodes, &vars_nodes)?;
 
     writeln!(file, "      </PointData>")?;
 
@@ -232,14 +270,17 @@ fn export_cell_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
 
 /// https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html#unstructuredgrid
 /// https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html
-fn export_node_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, vars: &VariablesExtracted) -> io::Result<()> {
-
+fn export_node_centered<M: MeshCore>(
+    core: &SolverCore<M>,
+    output_path: &Path,
+    vars: &VariablesExtracted,
+) -> io::Result<()> {
     let mesh = core.mesh();
-    
+
     let vars_node = match vars {
-        VariablesExtracted::None => vec!(),
+        VariablesExtracted::None => vec![],
         VariablesExtracted::All => {
-            let mut temp_node = vec!();
+            let mut temp_node = vec![];
             for var in core.fields_list() {
                 match var.cvt() {
                     ControlVolumeType::Cells => (),
@@ -247,13 +288,15 @@ fn export_node_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
                 }
             }
             temp_node
-        },
+        }
         VariablesExtracted::Some(values) => {
-            let mut temp_node = vec!();
+            let mut temp_node = vec![];
             for var in core.fields_list() {
                 if values.contains(var) {
                     match var.cvt() {
-                        ControlVolumeType::Cells => panic!("Cannot export Cells variables in mode NodeCentered"),
+                        ControlVolumeType::Cells => {
+                            panic!("Cannot export Cells variables in mode NodeCentered")
+                        }
                         ControlVolumeType::Nodes => temp_node.push(var),
                     }
                 }
@@ -268,7 +311,7 @@ fn export_node_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
         file,
         "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">"
     )?;
-    
+
     writeln!(file, "      <CellData>")?;
 
     export_scalar(&mut file, &mesh.nodes.volumes(), "Node volumes")?;
@@ -284,7 +327,7 @@ fn export_node_centered<M: MeshCore>(core: &SolverCore<M>, output_path: &Path, v
     }
     writeln!(file)?;
     writeln!(file, "        </DataArray>")?;
-    
+
     export_variables(&mut file, core, &ControlVolumeType::Nodes, &vars_node)?;
 
     writeln!(file, "      </CellData>")?;

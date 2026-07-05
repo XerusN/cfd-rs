@@ -6,23 +6,29 @@ use crate::{
         boundary::BoundaryCondition,
         config::{GeometryConfig, GradientConfig, InitFunctionsTrait, Schemes, SchemesConfig},
         equation::{
-            Equation, FieldOperator, IntegrationCategory, discretizations::{
-                DifferentialOperator, convection::ConvectionScheme, divergence::DivergenceScheme, laplacian::LaplacianScheme, time_schemes::TimeIntegration
-            }, operations::Op, variables::{ControlVolumeType, Dimension, Variable}
+            discretizations::{
+                convection::ConvectionScheme, divergence::DivergenceScheme,
+                laplacian::LaplacianScheme, time_schemes::TimeIntegration, DifferentialOperator,
+            },
+            operations::Op,
+            variables::{ControlVolumeType, Dimension, Variable},
+            Equation, FieldOperator, IntegrationCategory,
         },
         fields::Field,
         gradients::{GradientInterp, GradientMethods, GradientScheme},
         mesh::mesh,
         solvers::{
-            EquationSolversSet, EquationsEnum, EquationsEnumConfigTrait, EquationsSet, Parameters, SolverCore, VariableFields, VariablesEnum, VariablesEnumConfigTrait, VariablesHashMaps
+            EquationSolversSet, EquationsEnum, EquationsEnumConfigTrait, EquationsSet, Parameters,
+            SolverCore, VariableFields, VariablesEnum, VariablesEnumConfigTrait, VariablesHashMaps,
         },
     },
-    gradient, laplacian, post_processing::OutputConfig,
+    gradient, laplacian,
+    post_processing::OutputConfig,
 };
 
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use hashbrown::HashMap;
-use log::warn;
+use log::{trace, warn};
 
 const CVT: ControlVolumeType = ControlVolumeType::Nodes;
 const MAIN_SCHEMES: Schemes = Schemes {
@@ -107,34 +113,36 @@ pub struct Config {
     pub output: Vec<OutputConfig>,
 }
 
-pub trait PoissonUserFunctions {
-    
-}
+pub trait PoissonUserFunctions {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PoissonCase<M: MeshCore, U: PoissonUserFunctions> {
     pub config: Config,
 
     pub core: SolverCore<M>,
-    
-    pub user_functions: U
+
+    pub user_functions: U,
 }
 
 impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
     pub fn next_step(&mut self) {
-        println!("Poisson");
+        trace!("Poisson");
         Equation::solve(&mut self.core, MainEquations::Poisson.name());
-        println!("Laplacian Eq");
+        trace!("Laplacian Eq");
         Equation::solve(&mut self.core, MainEquations::Laplacian.name());
-        println!("Gradient Eq");
+        trace!("Gradient Eq");
         Equation::solve(&mut self.core, MainEquations::Gradient.name());
-        
+
         warn!("Add User functions capability");
-        
+
         self.core.increment();
     }
 
-    pub fn new<I: InitFunctionsTrait, VC: VariablesEnumConfigTrait<MainVariables, I>, EC: EquationsEnumConfigTrait<MainEquations>>(
+    pub fn new<
+        I: InitFunctionsTrait,
+        VC: VariablesEnumConfigTrait<MainVariables, I>,
+        EC: EquationsEnumConfigTrait<MainEquations>,
+    >(
         config: Config,
         mesh: Mesh<M>,
         main_eq_config: EC,
@@ -171,10 +179,10 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
         // ---------
 
         let solvers = EquationSolversSet::new(&mesh);
-        
+
         let core_output = config.output.clone();
-        
-        Self {
+
+        let solver = Self {
             config,
             core: SolverCore {
                 equation_solvers: solvers,
@@ -187,9 +195,11 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonCase<M, U> {
                 time: 0.,
                 time_step: 0.,
                 postproc: core_output,
-                is_final_iter: false
+                is_final_iter: false,
             },
             user_functions,
-        }
+        };
+        solver.core.try_output();
+        solver
     }
 }

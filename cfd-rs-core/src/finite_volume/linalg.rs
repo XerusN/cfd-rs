@@ -1,3 +1,4 @@
+use log::debug;
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 
@@ -74,7 +75,7 @@ pub fn easy_jacobi(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>, x: &mut DVector<
 
         i += 1;
 
-        println!("Iter: {i} Norm: {norm}");
+        debug!("Jacobi iter: {i} Norm: {norm}");
         // if i > 100000 {
         //     break;
         // }

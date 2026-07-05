@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use log::warn;
+use log::{trace, warn};
 use nalgebra_sparse_linalg::iteratives::{gauss_seidel, Amg, IterativeSolver};
 use std::{ops::Deref, vec};
 
@@ -531,7 +531,7 @@ fn solve<M: MeshCore>(
     let eq = lhs - rhs;
 
     for (var, field) in &fields.map {
-        println!("Update grads: {:?}", var);
+        trace!("Update grads: {:?}", var);
         field.0.borrow_mut().update_grads(&field.1, mesh);
     }
 
@@ -550,13 +550,6 @@ fn solve<M: MeshCore>(
                 time_step,
                 1.,
             );
-
-            // for row in solver.matrix.row_iter() {
-            //     println!("{:?}", row);
-            // }
-            // for value in &solver.rhs {
-            //     println!("{:?}", value);
-            // }
 
             let field_cell = &fields
                 .map
@@ -588,7 +581,6 @@ fn solve<M: MeshCore>(
                 easy_jacobi(&solver.matrix, &solver.rhs, scalar_field.values_mut());
 
                 if !result {
-                    println!("Update Grads");
                     field.0.update_grads(&field.1, mesh);
                 } else {
                     break;
@@ -629,10 +621,6 @@ fn solve<M: MeshCore>(
                     time_step,
                     1.,
                 );
-
-                // for row in solver.matrix.row_iter() {
-                //     println!("{:?}", row);
-                // }
 
                 let field_cell = &fields
                     .map

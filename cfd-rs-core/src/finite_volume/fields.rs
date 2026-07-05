@@ -53,17 +53,14 @@ impl ScalarField {
         initial_fields: &I,
         gradient_config: GradientMethods,
     ) -> Self {
-        
         let init = match variable.dim() {
             Dimension::Scalar => I::init_x,
-            Dimension::Vector2 => {
-                match component {
-                    Component::X => I::init_x,
-                    Component::Y => I::init_y,
-                }
+            Dimension::Vector2 => match component {
+                Component::X => I::init_x,
+                Component::Y => I::init_y,
             },
         };
-        
+
         let cvt = variable.cvt();
         let n_values = match cvt {
             ControlVolumeType::Cells => mesh.cells.n,
@@ -98,14 +95,6 @@ impl ScalarField {
         } else {
             grads_faces = DVector::zeros(0);
         }
-
-        // println!(
-        //     "cells: {} | faces: {} | grad_cells: {} | grad_faces: {}",
-        //     values.len(),
-        //     face_values.len(),
-        //     grads_cell.len(),
-        //     grads_face.len()
-        // );
 
         ScalarField {
             values,

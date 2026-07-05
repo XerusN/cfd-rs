@@ -12,8 +12,12 @@ fn main() {
     // println!("{:?}", mesh.vertices());
     // println!("------------------------------");
     let assembled = Mesh::from(mesh);
-    assembled.export_cell_centered("./out/test.vtu".to_owned()).unwrap();
-    assembled.export_node_centered("./out/test_node.vtu".to_owned()).unwrap();
+    assembled
+        .export_cell_centered("./out/test.vtu".to_owned())
+        .unwrap();
+    assembled
+        .export_node_centered("./out/test_node.vtu".to_owned())
+        .unwrap();
     // println!("{:?}", assembled.nodes);
     // println!("------------------------------");
     // println!("{:?}", assembled.pairs);
@@ -34,12 +38,11 @@ fn main() {
     // assembled
     //     .export_node_centered("./out/test_node.vtu".to_owned())
     //     .unwrap();
-    assembled.serialize_file("../meshes/mesh_unstructured.cfd").unwrap();
-    
-    let mesh = Computational2DMesh::deserialize_file(
-        "../meshes/circle_mesh.cfd_old",
-    )
-    .unwrap();
+    assembled
+        .serialize_file("../meshes/mesh_unstructured.cfd")
+        .unwrap();
+
+    let mesh = Computational2DMesh::deserialize_file("../meshes/circle_mesh.cfd_old").unwrap();
     let assembled = Mesh::from(mesh);
     // assembled
     //     .export_cell_centered("./out/test.vtu".to_owned())
@@ -47,8 +50,10 @@ fn main() {
     // assembled
     //     .export_node_centered("./out/test_node.vtu".to_owned())
     //     .unwrap();
-    assembled.serialize_file("../meshes/circle_mesh.cfd").unwrap();
-    
+    assembled
+        .serialize_file("../meshes/circle_mesh.cfd")
+        .unwrap();
+
     let mesh = quad_square(&Vector2::new(1., 1.), &Vector2::new(5, 5));
     // for face in mesh.faces() {
     //     println!("{:?}", face.vertices())
@@ -56,8 +61,12 @@ fn main() {
     // println!("{:?}", mesh.vertices());
     // println!("------------------------------");
     let assembled = Mesh::from(mesh);
-    assembled.export_cell_centered("./out/test.vtu".to_owned()).unwrap();
-    assembled.export_node_centered("./out/test_node.vtu".to_owned()).unwrap();
+    assembled
+        .export_cell_centered("./out/test.vtu".to_owned())
+        .unwrap();
+    assembled
+        .export_node_centered("./out/test_node.vtu".to_owned())
+        .unwrap();
     // println!("{:?}", assembled.nodes);
     // println!("------------------------------");
     // println!("{:?}", assembled.pairs);
@@ -66,5 +75,7 @@ fn main() {
     // println!("------------------------------");
     // println!("{:?}", assembled.boundaries);
     assembled.serialize_file("../meshes/mesh5.cfd").unwrap();
-    assembled.json_file("../meshes/small_structured.json").unwrap()
+    assembled
+        .json_file("../meshes/small_structured.json")
+        .unwrap()
 }

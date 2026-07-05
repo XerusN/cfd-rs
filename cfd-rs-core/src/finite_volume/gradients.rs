@@ -57,7 +57,6 @@ fn update_grad_scalar<M: MeshCore>(
     component: &Component,
 ) {
     if !field.gradients_up_to_date() {
-        println!("Updating");
         if grad_requirements.cell() | grad_requirements.face() {
             match field.gradient_config().scheme {
                 GradientScheme::GreenGaussCompact => {
@@ -225,9 +224,6 @@ fn green_gauss_compact<M: MeshCore>(
                 ControlVolumeType::Nodes => pairs.nodes_normals()[pair],
             };
 
-            // println!("{normal:?}");
-            // println!("{:?}", normal.norm());
-
             match cvt {
                 ControlVolumeType::Cells => {
                     let patches = &pairs.neighboring_cells()[pair];
@@ -392,5 +388,4 @@ fn averaged_corrected_interp<M: MeshCore>(
             },
         }
     }
-    // println!("Gradients interpolated");
 }

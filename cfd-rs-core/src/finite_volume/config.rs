@@ -72,11 +72,11 @@ pub struct GradientConfig {
 //     pub directory: String,
 // }
 
-pub trait InitFunctionsTrait : Debug {
+pub trait InitFunctionsTrait: Debug {
     fn init_x(&self, _point: &Point2<f64>) -> f64 {
         0.
     }
-    
+
     fn init_y(&self, _point: &Point2<f64>) -> f64 {
         0.
     }

@@ -3,9 +3,13 @@ use cfd_rs_utils::{
     control::{Frequency, OutputControl},
     errors::MeshError,
     mesh::{
-        Modifiable2DMesh, Parent, assembled_mesh::Mesh, computational_mesh::{
-            BoundaryPatch, Computational2DMesh, manual_meshes::{quad_square, straight_line}
-        }, indices::{BoundaryPatchIndex, ParentIndex, VertexIndex}
+        assembled_mesh::Mesh,
+        computational_mesh::{
+            manual_meshes::{quad_square, straight_line},
+            BoundaryPatch, Computational2DMesh,
+        },
+        indices::{BoundaryPatchIndex, ParentIndex, VertexIndex},
+        Modifiable2DMesh, Parent,
     },
 };
 use nalgebra::Point2;
@@ -90,7 +94,11 @@ fn meshing_algos(meshing_config: &MeshingConfig) -> Result<Mesh<Computational2DM
     match meshing_config {
         MeshingConfig::AdvancingFront { element_size } => {
             let mut mesh = square_4_bc();
-            advancing_front(&mut mesh, *element_size, OutputControl::new(false, false, Frequency::None))?;
+            advancing_front(
+                &mut mesh,
+                *element_size,
+                OutputControl::new(false, false, Frequency::None),
+            )?;
             let mesh = Computational2DMesh::new_from_he(mesh.0);
             Ok(Mesh::from(mesh))
         }
