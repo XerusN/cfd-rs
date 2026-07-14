@@ -60,6 +60,25 @@ pub fn clear_dump_folder(path: &Path) -> Result<()> {
         if file_type.is_symlink() {
             ();
         } else if file_type.is_dir() {
+            clear_folder(&entry.path())?;
+        } else if file_type.is_file() {
+            if entry.file_name() == ".gitignore" {
+                ();
+            } else {
+                fs::remove_file(entry.path())?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn clear_folder(path: &Path) -> Result<()> {
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            ();
+        } else if file_type.is_dir() {
             clear_dump_folder(&entry.path())?;
         } else if file_type.is_file() {
             if entry.file_name() == ".gitignore" {
@@ -69,5 +88,6 @@ pub fn clear_dump_folder(path: &Path) -> Result<()> {
             }
         }
     }
+    fs::remove_dir(path)?;
     Ok(())
 }

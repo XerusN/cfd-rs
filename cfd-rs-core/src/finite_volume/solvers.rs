@@ -12,10 +12,7 @@ use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 
 use crate::{
     finite_volume::{
-        boundary::BoundaryCondition,
-        config::{GradientConfig, InitFunctionsTrait, SchemesConfig},
-        equation::{operations::Op, Component},
-        gradients::GradientMethods,
+        boundary::BoundaryCondition, config::{GradientConfig, InitFunctionsTrait, SchemesConfig}, equation::{Component, operations::Op}, fields::Vector2Field, gradients::GradientMethods
     },
     post_processing::OutputConfig,
 };
@@ -110,34 +107,20 @@ impl VariableFields {
                 }
                 Dimension::Vector2 => {
                     let values = RefCell::new(Field::Vector2(
-                        Vector2::new(
-                            ScalarField::new(
-                                mesh,
-                                &grad_req,
-                                &var,
-                                Component::X,
-                                initial_fields.get(&var).expect(&format!(
-                                    "An initial field function should be defined for var {var:?}"
-                                )),
-                                gradient_methods
-                                    .get(&var)
-                                    .expect(&format!(
-                                        "A gradient config should be defined for var {var:?}"
-                                    ))
-                                    .clone(),
-                            ),
-                            ScalarField::new(
-                                mesh,
-                                &grad_req,
-                                &var,
-                                Component::Y,
-                                initial_fields.get(&var).expect(&format!(
-                                    "An initial field function should be defined for var {var:?}"
-                                )),
-                                gradient_methods.remove(&var).expect(&format!(
+                        Vector2Field::new(
+                            mesh,
+                            &grad_req,
+                            &var,
+                            Component::X,
+                            initial_fields.get(&var).expect(&format!(
+                                "An initial field function should be defined for var {var:?}"
+                            )),
+                            gradient_methods
+                                .get(&var)
+                                .expect(&format!(
                                     "A gradient config should be defined for var {var:?}"
-                                )),
-                            ),
+                                ))
+                                .clone(),
                         ),
                         boundary_conditions.remove(&var).expect(&format!(
                             "A boundary condition should be defined for var {var:?}"
@@ -398,87 +381,14 @@ impl<M: MeshCore> SolverCore<M> {
         )
     }
 
-    // pub fn init_core(config: CaseConfig, mesh: Mesh<M>) -> Self {
-    //     todo!()
-    // }
-
-    pub fn plot_2d(&self) {
-        for var in self.fields_list() {
-            plot_var(self, var, &(1., 2.));
-        }
-    }
-
     pub fn try_output(&self) {
         for post in &self.postproc {
             match post {
                 OutputConfig::Grid(config) => config.try_output(self).unwrap(),
+                OutputConfig::Plot(config) => config.try_output(self).unwrap(),
             }
         }
     }
-}
-
-fn plot_var<M: MeshCore>(solver_core: &SolverCore<M>, var: &Variable, limits: &(f64, f64)) {
-    let path = "../figures/poisson_".to_string() + var.name() + ".jpeg";
-    let root = BitMapBackend::new(&path, (1920, 1080)).into_drawing_area();
-
-    root.fill(&WHITE).unwrap();
-
-    let mut chart = ChartBuilder::on(&root)
-        .caption("Test", ("sans-serif", 80))
-        .margin(5)
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(0f64..1f64, 0f64..1f64)
-        .unwrap();
-
-    chart
-        .configure_mesh()
-        .x_labels(5)
-        .y_labels(5)
-        .max_light_lines(4)
-        .x_label_offset(35)
-        .y_label_offset(25)
-        .label_style(("sans-serif", 20))
-        .draw()
-        .unwrap();
-
-    let field = solver_core.field(var).unwrap();
-    let values = match field.deref() {
-        Field::Scalar(scalar_field, _) => scalar_field.values(),
-        Field::Vector2(vector_field, _) => vector_field.x.values(),
-    };
-
-    if let ControlVolumeType::Nodes = var.cvt() {
-        chart
-            .draw_series(values.iter().zip(0..).map(|(v, i)| {
-                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    solver_core.mesh().nodes.cv_nodes()[i]
-                        .iter()
-                        .map(|p| (p.x, p.y))
-                        .collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into(),
-                )
-            }))
-            .unwrap();
-    } else {
-        chart
-            .draw_series(values.iter().zip(0..).map(|(v, i)| {
-                Polygon::new::<Vec<(f64, f64)>, RGBColor>(
-                    solver_core.mesh().cells.neighboring_nodes()[i]
-                        .iter()
-                        .map(|node| {
-                            (
-                                solver_core.mesh().nodes.centers()[*node].x,
-                                solver_core.mesh().nodes.centers()[*node].y,
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                    ViridisRGB::get_color_normalized(*v, limits.0, limits.1).into(),
-                )
-            }))
-            .unwrap();
-    }
-    root.present().unwrap();
 }
 
 // pub trait VariablesEnum: Eq + Hash + Clone + Debug {

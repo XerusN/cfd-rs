@@ -10,16 +10,13 @@ use cfd_rs_utils::{
     control::{Frequency, OutputControl},
     mesh::assembled_mesh::{Mesh, MeshCore},
 };
-use log::{debug, info, trace, warn};
+use log::{debug, trace};
 use nalgebra::Vector2;
 
-use crate::{
-    finite_volume::{
-        equation::variables::{ControlVolumeType, Variable},
-        fields::Field,
-        solvers::SolverCore,
-    },
-    post_processing::OutputConfig,
+use crate::finite_volume::{
+    equation::variables::{ControlVolumeType, Variable},
+    fields::Field,
+    solvers::SolverCore,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -127,7 +124,7 @@ impl GridPostprocConfig {
         let path =
             self.directory()
                 .join(PathBuf::from(format!("{}_{:06}.vtu", &self.name(), count)));
-        
+
         debug!("Output of {:?} at {:?}", self.name(), path);
 
         match self.postproc_type() {
@@ -153,19 +150,17 @@ impl GridPostprocConfig {
 
         match self.output_control().frequency() {
             Frequency::None => (),
-            Frequency::Iteration(it) => {
-                match *self.last_export_step.borrow() {
-                    None => export = true,
-                    Some(last_step) => {
-                        if last_step == core.step() {
-                            ()
-                        } else if (core.step() - last_step) % it == 0 {
-                            export = true;
-                            debug!("Frequency output")
-                        }
+            Frequency::Iteration(it) => match *self.last_export_step.borrow() {
+                None => export = true,
+                Some(last_step) => {
+                    if last_step == core.step() {
+                        ()
+                    } else if (core.step() - last_step) % it == 0 {
+                        export = true;
+                        debug!("Frequency output")
                     }
                 }
-            }
+            },
             Frequency::TimeStep(dt) => {
                 let quotient = core.time().div_euclid(*dt);
                 match *self.last_export_time.borrow() {
@@ -181,7 +176,7 @@ impl GridPostprocConfig {
                 }
             }
         }
-        
+
         if export {
             self.new_file(core)
         } else {
@@ -197,7 +192,7 @@ fn export_cell_centered<M: MeshCore>(
     vars: &VariablesExtracted,
 ) -> io::Result<()> {
     let mesh = core.mesh();
-    
+
     trace!("Cell centered output");
 
     let (vars_cells, vars_nodes) = match vars {
@@ -227,10 +222,9 @@ fn export_cell_centered<M: MeshCore>(
             (temp_cell, temp_node)
         }
     };
-    
+
     trace!("Output cells variables: {:?}", vars_cells);
     trace!("Output cells variables: {:?}", vars_nodes);
-    
 
     let mut file = File::create(output_path)?;
 

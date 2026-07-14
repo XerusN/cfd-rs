@@ -21,7 +21,7 @@ pub fn easy_jacobi(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>, x: &mut DVector<
     let mut norm = 1.;
     let mut old_norm = 1.;
     let mut i = 0;
-    
+
     while norm > 1e-6 {
         // Update
         for (i, phi) in x.iter_mut().enumerate() {
@@ -74,7 +74,7 @@ pub fn easy_jacobi(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>, x: &mut DVector<
         old_norm = norm;
 
         i += 1;
-        
+
         if i % 100 == 0 {
             info!("Jacobi iter: {i} Norm: {norm}");
         } else {

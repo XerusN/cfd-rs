@@ -1,3 +1,5 @@
+use std::cell::{Ref, RefCell};
+
 use cfd_rs_utils::mesh::assembled_mesh::{Mesh, MeshCore};
 use nalgebra::{DVector, Vector2};
 
@@ -20,15 +22,69 @@ use super::{
 #[derive(Debug, PartialEq, Clone)]
 pub enum Field {
     Scalar(ScalarField, Vec<BoundaryCondition>),
-    Vector2(Vector2<ScalarField>, Vec<BoundaryCondition>),
+    Vector2(Vector2Field, Vec<BoundaryCondition>),
 }
 
+// Field should be redesigned for better handling of mag?
 impl Field {
     pub fn boundary_condition(&self) -> &[BoundaryCondition] {
         match self {
             Field::Scalar(_, bc) => bc,
             Field::Vector2(_, bc) => bc,
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Vector2Field {
+    pub x: ScalarField,
+    pub y: ScalarField,
+    mag: RefCell<DVector<f64>>,
+}
+
+impl Vector2Field {
+    pub fn new<M: MeshCore, I: InitFunctionsTrait>(
+        mesh: &Mesh<M>,
+        grads_required: &GradRequirements,
+        variable: &Variable,
+        component: Component,
+        initial_fields: &I,
+        gradient_config: GradientMethods,
+    ) -> Self {
+        let x = ScalarField::new(
+            mesh,
+            grads_required,
+            variable,
+            Component::X,
+            initial_fields,
+            gradient_config.clone(),
+        );
+        let y = ScalarField::new(
+            mesh,
+            grads_required,
+            variable,
+            Component::Y,
+            initial_fields,
+            gradient_config,
+        );
+        let n = x.values().len();
+        let mag = DVector::zeros(n);
+        Self {x, y, mag: RefCell::new(mag)}
+    }
+    
+    pub fn compute_mag<'a>(&'a self) -> Ref<'a, DVector<f64>> {
+        
+        {
+            let mut mag = self.mag.borrow_mut();
+            let x = self.x.values();
+            let y = self.y.values();
+            
+            for i in 0..mag.len() {
+                mag[i] = x[i].powi(2) + y[i].powi(2);
+            }
+        }
+        
+        self.mag.borrow()
     }
 }
 
@@ -43,6 +99,8 @@ pub struct ScalarField {
     cvt: ControlVolumeType,
     gradient_config: GradientMethods,
 }
+
+
 
 impl ScalarField {
     pub fn new<M: MeshCore, I: InitFunctionsTrait>(

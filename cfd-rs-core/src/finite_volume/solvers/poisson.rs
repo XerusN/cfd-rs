@@ -150,7 +150,7 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonSolver<M, U> {
         user_functions: U,
     ) -> Self {
         info!("In PoissonSolver init");
-        
+
         let mut equations = EquationsSet::new();
 
         equations
@@ -162,7 +162,7 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonSolver<M, U> {
         equations
             .add_eq_from_enum(&MainEquations::Gradient, &main_eq_config)
             .unwrap();
-        
+
         debug!("Equations built");
         // ---------
 
@@ -178,7 +178,7 @@ impl<M: MeshCore, U: PoissonUserFunctions> PoissonSolver<M, U> {
         var_hashmaps.add_var_from_enum(&var, &main_var_config);
 
         let fields = VariableFields::new(&equations, &mesh, var_hashmaps);
-        
+
         debug!("Fields built");
 
         // ---------

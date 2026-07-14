@@ -9,13 +9,11 @@ use cfd_rs::{
         },
         mesh::mesh,
         solvers::{
-            poisson::{Config, MainEquations, MainVariables, PoissonSolver, PoissonUserFunctions},
-            EquationsEnumConfigTrait, VariablesEnumConfigTrait,
+            EquationsEnumConfigTrait, VariablesEnumConfigTrait, poisson::{Config, MainEquations, MainVariables, PoissonSolver, PoissonUserFunctions}
         },
     },
     post_processing::{
-        grid::{GridPostprocConfig, GridPostprocType, VariablesExtracted},
-        OutputConfig,
+        OutputConfig, grid, plot
     },
 };
 use cfd_rs_utils::control::{clear_dump_folder, Frequency, OutputControl};
@@ -121,13 +119,16 @@ fn poisson() -> (Config, EquationsEnumConfig, VariablesEnumConfig) {
         meshing: MeshingConfig::AdvancingFront { element_size: 0.01 },
     };
 
-    let postproc = vec![OutputConfig::Grid(GridPostprocConfig::new(
-        "main".to_owned(),
-        GridPostprocType::CellCentered,
-        dump,
-        VariablesExtracted::All,
-        OutputControl::new(true, true, Frequency::Iteration(1)),
-    ))];
+    let postproc = vec![
+        OutputConfig::Grid(grid::GridPostprocConfig::new(
+            "main".to_owned(),
+            grid::GridPostprocType::CellCentered,
+            dump.clone(),
+            grid::VariablesExtracted::All,
+            OutputControl::new(true, true, Frequency::Iteration(1)),
+        )),
+        OutputConfig::Plot(plot::PlotPostprocConfig::new("plots".to_owned(), plot::PlotPostprocType::Plane2D(plot::Plane2DConfig::default()), dump, plot::VariablesExtracted::All, OutputControl::new(true, true, Frequency::Iteration(1)), None))
+    ];
 
     let schemes = EquationsEnumConfig {};
 
@@ -159,5 +160,5 @@ pub fn main() {
         info!("Time: {:?}", case.core.time());
     }
 
-    case.core.plot_2d()
+    // case.core.plot_2d()
 }

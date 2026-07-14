@@ -1,4 +1,4 @@
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serde_json;
 
@@ -32,7 +32,29 @@ pub struct Mesh<T: MeshCore> {
     pub boundaries: Boundaries,
 }
 
-impl<T: MeshCore> Mesh<T> {}
+impl<T: MeshCore> Mesh<T> {
+    pub fn bounding_box(&self) -> (Point2<f64>, Point2<f64>) {
+        let points = self.nodes.centers();
+        let mut min = points[0];
+        let mut max = points[0];
+        
+        for p in points {
+            if p.x < min.x {
+                min.x = p.x;
+            }
+            if p.y < min.y {
+                min.y = p.y;
+            }
+            if p.x > max.x {
+                max.x = p.x;
+            }
+            if p.y > max.y {
+                max.y = p.y;
+            }
+        }
+        (min, max)
+    }
+}
 
 impl<T: MeshCore> From<T> for Mesh<T> {
     fn from(core: T) -> Self {
